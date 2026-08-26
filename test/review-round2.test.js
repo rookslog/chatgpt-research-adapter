@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -48,6 +49,45 @@ test('REQ-DISPATCH-007 rejects transport options that can replace authoritative 
       { code: 'ERR_DIRECT_TRANSPORT_OPTIONS' }
     );
     assert.equal(askCalls, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('REQ-DISPATCH-008 binds durable direct answer and report bytes into the completed result', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'review-round2-output-hash-'));
+  const cases = [
+    { kind: 'answer', mode: undefined, payload: 'standard bytes\n', conversationId: 'hash-standard-1', tool: '' },
+    { kind: 'report', mode: 'deep', payload: '# report\n', conversationId: 'hash-deep-1', tool: 'Deep Research' }
+  ];
+  try {
+    for (const item of cases) {
+      const outcome = await directAsk({
+        question: `bind ${item.kind} bytes`,
+        ...(item.mode === undefined ? {} : { mode: item.mode }),
+        outputRoot: join(root, item.kind),
+        openCliPath: '/tmp/opencli',
+        templatesRoot,
+        clock: () => '2026-08-26T22:10:00.000Z',
+        newJobId: () => `job_${item.kind}_hash`,
+        newTurnId: () => `turn_${item.kind}_hash`,
+        submit: (options) => submitDirectPreparedJob({
+          ...options,
+          preflight: async () => ({ version: '1.8.7' }),
+          ask: async () => ({ conversationId: item.conversationId, conversationUrl: `https://chatgpt.com/c/${item.conversationId}`, tool: item.tool, response: '' }),
+          readDetail: async () => ({ response: item.payload }),
+          readDeep: async () => ({ conversationId: item.conversationId, status: 'completed', report: item.payload, sources: [] })
+        })
+      });
+      const result = outcome.result;
+      const artifactPath = result[`${item.kind}_path`];
+      const bytes = await readFile(artifactPath);
+      assert.equal(result[`${item.kind}_sha256`], createHash('sha256').update(bytes).digest('hex'));
+      assert.equal(result[`${item.kind}_bytes`], bytes.length);
+      const other = item.kind === 'answer' ? 'report' : 'answer';
+      assert.equal(result[`${other}_sha256`], null);
+      assert.equal(result[`${other}_bytes`], null);
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }
