@@ -28,7 +28,7 @@ const OPENCLI_MARKDOWN_CONVERTER = String.raw`export function messageHtmlToMarkd
 }`;
 const OPENCLI_MARKDOWN_PATCHED_CONVERTER = String.raw`export function messageHtmlToMarkdown(html) {
     try {
-        return htmlToMarkdown(html, (td) => td.use(gfm))
+        return htmlToMarkdown(html, (td) => td.use(tables))
             .replace(/\\\[(C(?:-\d+|\d+))\\\]/g, '[$1]')
             .trim();
     } catch {
@@ -43,7 +43,7 @@ function replacePinnedMarkdownSource(source, before, after) {
 }
 
 function patchOpenCliMarkdownSource(source) {
-  const withGfm = replacePinnedMarkdownSource(source, OPENCLI_MARKDOWN_IMPORT, `${OPENCLI_MARKDOWN_IMPORT}\nimport { gfm } from 'turndown-plugin-gfm';`);
+  const withGfm = replacePinnedMarkdownSource(source, OPENCLI_MARKDOWN_IMPORT, `${OPENCLI_MARKDOWN_IMPORT}\nimport { tables } from 'turndown-plugin-gfm';`);
   return replacePinnedMarkdownSource(withGfm, OPENCLI_MARKDOWN_CONVERTER, OPENCLI_MARKDOWN_PATCHED_CONVERTER);
 }
 
