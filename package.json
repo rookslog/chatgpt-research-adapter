@@ -19,7 +19,7 @@
       "bin/chatgpt-research.js": "356e5a94e739727e810d56046b882483efa8cb8987dfb8ad1a624dcc78f2f836",
       "scripts/m002-authority-check.js": "0b90605f4370ce84408f8346100038abcd8ae5b512806bada0f25997a7bd2993",
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
-      "src/cli.js": "edc54ddd3d609a50854056849c6f15dcddece89813b51a51bf573052ef2f6846",
+      "src/cli.js": "a2ad8b09c8df455c9dc38e5854f813f5f87cf6e5b00842adb644cc1c39d47b7f",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
       "src/direct-ask.js": "16d28fd6fac2f22d37d67b47825ecf92e0e89c12bddfc01a29fa9865691b0e00",
       "src/dispatch-receipts.js": "77302fa1d4ffadf153fc77b35348c950865511f6eb6faf75e56e17d84902cd73",
