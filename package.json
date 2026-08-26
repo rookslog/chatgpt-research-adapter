@@ -8,7 +8,9 @@
   "files": ["bin/", "src/", "templates/", "rigor/", "scripts/", "package.json", "README.md"],
   "scripts": {
     "test": "node --test",
-    "check:authority": "node scripts/m002-authority-check.js"
+    "check:authority": "node scripts/m002-authority-check.js",
+    "check:requirements": "node scripts/check-requirements.js",
+    "check:syntax": "find bin scripts src test -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check"
   },
   "dependencies": {},
   "devDependencies": {},
@@ -17,12 +19,13 @@
   "m002Authority": {
     "sourceSha256": {
       "bin/chatgpt-research.js": "356e5a94e739727e810d56046b882483efa8cb8987dfb8ad1a624dcc78f2f836",
-      "scripts/m002-authority-check.js": "53a48f787042da5dbb38ef9c06bd2a6d1eee9d95f2c08f3617f8f5cba315192d",
+      "scripts/check-requirements.js": "24978950b46831618f241999724fb31047d0691b08ccf4d8eee7a7964d2a2557",
+      "scripts/m002-authority-check.js": "4629c014da016e58e75c53e77eef07195800c01aa55bb67675d3313c987613c2",
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
       "src/cli.js": "a2ad8b09c8df455c9dc38e5854f813f5f87cf6e5b00842adb644cc1c39d47b7f",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
-      "src/direct-ask.js": "543d0596508e2e33330d5885bce7b70828f59ab9af577b61fc6e2f399852b2ea",
-      "src/dispatch-receipts.js": "273ec6c2f9b3a47a66e9faf923c7dd4981ef3750bea22317a501e37e1ee56f9c",
+      "src/direct-ask.js": "a501be0435daa5dbb7f6cb19362206cade849c01ecbf3b016411d8723a971095",
+      "src/dispatch-receipts.js": "82a55ae5b22e04ac1e16a2f5d0694f5c21c400c7b287a9cdcb4ea86503e0ab34",
       "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
       "src/opencli-transport.js": "4955e030cdf692ad3d127c1c297a22cdf58f176bb784a14c8037a1be0e323047",
       "src/prepare.js": "31ddd778bca5cffc187986a41684e328fa8de31f1a617fdf56da29f596e8db00",
