@@ -3,21 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=22"
-  },
-  "bin": {
-    "chatgpt-research": "bin/chatgpt-research.js"
-  },
-  "files": [
-    "bin/",
-    "src/",
-    "templates/",
-    "rigor/",
-    "scripts/",
-    "package.json",
-    "README.md"
-  ],
+  "engines": { "node": ">=22" },
+  "bin": { "chatgpt-research": "bin/chatgpt-research.js" },
+  "files": ["bin/", "src/", "templates/", "rigor/", "scripts/", "package.json", "README.md"],
   "scripts": {
     "test": "node --test",
     "check:authority": "node scripts/m002-authority-check.js"
