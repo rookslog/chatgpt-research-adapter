@@ -20,8 +20,10 @@ export async function submitPreparedJobOnce({ outputRoot, jobId, openCliPath, no
   const intent = createDispatchIntent({ bundle, executable, now: now() });
   const saved = await persistDispatchIntent({ jobRoot: bundle.job_root, intent, testSeam: receiptTestSeam });
   let answer;
-  try { answer = await runOpenCliStandard({ executablePath: openCliPath, identity: executable, prompt: bundle.prompt, ...transportOptions }); }
-  catch (error) {
+  try {
+    answer = await runOpenCliStandard({ executablePath: openCliPath, identity: executable, prompt: bundle.prompt, ...transportOptions });
+    if (typeof answer.response !== 'string' || answer.response.trim().length === 0) fail('OpenCLI returned no completed standard answer', 'ERR_OPENCLI_OUTPUT');
+  } catch (error) {
     const disposition = typeof error?.code === 'string' && /^ERR_[A-Z0-9_]+$/.test(error.code) ? error.code : 'ERR_OPENCLI_UNKNOWN';
     return persistAmbiguousResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, disposition, now: now(), testSeam: receiptTestSeam });
   }
