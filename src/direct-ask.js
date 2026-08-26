@@ -105,6 +105,7 @@ export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath
   try {
     if (mode === 'deep') {
       report = await readDeep({ ...runtimeOptions, executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: deepTimeoutSeconds });
+      canonicalJson(report.sources);
       const reportPayload = Buffer.from(report.report);
       reportPath = join(responseRoot, 'report.md');
       reportSha256 = await writeDurableExclusive(reportPath, reportPayload, responseRoot);
@@ -116,12 +117,13 @@ export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath
       answerSha256 = await writeDurableExclusive(answerPath, answerPayload, responseRoot);
       answerBytes = answerPayload.length;
     }
+    const result = { ...directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, tool: answer.tool, now: now() }), status: 'completed', process_disposition: 'exit_0_validated', remote_effect: 'completed', retry_decision: 'not_applicable', answer_path: answerPath, answer_sha256: answerSha256, answer_bytes: answerBytes, report_path: reportPath, report_sha256: reportSha256, report_bytes: reportBytes, sources: report?.sources ?? [] };
+    canonicalJson(result);
+    return await persistDirectResult(responseRoot, result);
   } catch (error) {
     await persistDirectResult(responseRoot, { ...directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, tool: answer.tool, now: now() }), status: 'recovery_required', process_disposition: disposition(error), remote_effect: 'accepted', retry_decision: 'prohibited' });
     throw error;
   }
-  const result = { ...directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, tool: answer.tool, now: now() }), status: 'completed', process_disposition: 'exit_0_validated', remote_effect: 'completed', retry_decision: 'not_applicable', answer_path: answerPath, answer_sha256: answerSha256, answer_bytes: answerBytes, report_path: reportPath, report_sha256: reportSha256, report_bytes: reportBytes, sources: report?.sources ?? [] };
-  return persistDirectResult(responseRoot, result);
 }
 
 export async function directAsk({ question, prompt, mode, rigorProfile, rigorProfileVersion, rigorProfileFile, citationLevel, auditAppendix, outputRoot, openCliPath, transportOptions, clock = () => new Date().toISOString(), newJobId, newTurnId, submit = submitDirectPreparedJob, templatesRoot: templateRoot = templatesRoot, rigorRoot: profileRoot = rigorRoot } = {}) {
