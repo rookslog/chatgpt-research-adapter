@@ -31,7 +31,7 @@
       "src/prepare.js": "31ddd778bca5cffc187986a41684e328fa8de31f1a617fdf56da29f596e8db00",
       "src/prepared-bundle.js": "9c73d5c3b5d945652492e24965958513e5946e60e0c66c6c3add2d3616bbedc2",
       "src/receipts.js": "f3c48aa06067b46e5d108ca2c5bc9ec62aea65c659eb47b6804add9c04da9cd4",
-      "src/rigor-profile.js": "4f6f308fe40674f0a06f3b04aee230f3a208beea7afdd39dba2d8094b05a1d73",
+      "src/rigor-profile.js": "318b9704cd45b370a8f5a3ef619a43fe69391202bf0db138a5b14ff283db7133",
       "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
       "src/submit-once.js": "2e89f30b54851f25e49e40ec7a8712341de728967f6456d59248c5f9db4a8c6d",
       "src/template-registry.js": "1dde35f22d857caa6c6d37a93768f052c45e75cf06a09ef634c7d49835f0c702"
