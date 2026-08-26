@@ -76,6 +76,15 @@
       ]
     },
     {
+      "id": "REQ-RIGOR-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Built-in rigor-profile lookup must not traverse a symlinked profiles container outside rigorRoot.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-RIGOR-001 rejects a symlinked built-in profiles container" }
+      ]
+    },
+    {
       "id": "REQ-SUBMIT-001",
       "level": "hard",
       "external": false,
