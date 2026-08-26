@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -13,7 +13,7 @@ async function withFake(body, run) {
   try { return await run({ root, path }); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
-async function withMarkdownFixtureOpenCli(run) {
+async function withMarkdownFixtureOpenCli(run, { converterDrift = false } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'm006-opencli-'));
   const installRoot = join(root, 'install');
   const packageRoot = join(installRoot, 'node_modules', '@jackwener', 'opencli');
@@ -27,7 +27,8 @@ async function withMarkdownFixtureOpenCli(run) {
   await mkdir(gfmRoot, { recursive: true });
   await writeFile(join(packageRoot, 'package.json'), `${JSON.stringify({ name: '@jackwener/opencli', version: '1.8.7', type: 'module', exports: { './utils': './dist/src/utils.js' } })}\n`);
   await writeFile(join(packageRoot, 'dist', 'src', 'utils.js'), `export function htmlToMarkdown(value, configure) {\n  let gfm = false;\n  configure?.({ use(plugin) { if (plugin?.fixture === 'gfm') gfm = true; } });\n  if (value !== ${JSON.stringify(html)}) throw new Error('unexpected fixture');\n  return gfm ? ${JSON.stringify(escaped)} : ${JSON.stringify(linearized)};\n}\n`);
-  await writeFile(join(packageRoot, 'clis', 'chatgpt', 'utils.js'), `import { htmlToMarkdown } from '@jackwener/opencli/utils';\n\nexport function messageHtmlToMarkdown(html) {\n    try {\n        return htmlToMarkdown(html).trim();\n    } catch {\n        return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\n    }\n}\n`);
+  const converterCall = converterDrift ? 'htmlToMarkdown(String(html)).trim()' : 'htmlToMarkdown(html).trim()';
+  await writeFile(join(packageRoot, 'clis', 'chatgpt', 'utils.js'), `import { htmlToMarkdown } from '@jackwener/opencli/utils';\n\nexport function messageHtmlToMarkdown(html) {\n    try {\n        return ${converterCall};\n    } catch {\n        return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\n    }\n}\n`);
   await writeFile(join(gfmRoot, 'package.json'), `${JSON.stringify({ name: 'turndown-plugin-gfm', version: '1.0.2', type: 'module', exports: './index.js' })}\n`);
   await writeFile(join(gfmRoot, 'index.js'), "export const gfm = Object.freeze({ fixture: 'gfm' });\n");
   const path = join(packageRoot, 'dist', 'src', 'main.js');
@@ -137,6 +138,11 @@ test('preserves GFM tables and readable claim IDs across one full assistant-mess
   assert.match(result.response, /- \[source\]\(https:\/\/example\.com\/source\)/);
   assert.match(result.response, /```\nconst claim = "\[C-002\]";/);
 }));
+
+test('fails closed when the pinned OpenCLI Markdown converter source drifts', async () => withMarkdownFixtureOpenCli(async ({ path }) => {
+  const identity = await preflightOpenCli({ executablePath: path });
+  await assert.rejects(runOpenCliDetail({ executablePath: path, identity, conversationId: 'markdown-drift', timeoutSeconds: 600 }), { code: 'ERR_OPENCLI_MARKDOWN_COMPAT' });
+}, { converterDrift: true }));
 
 test('collects one completed Deep Research report by conversation id', async () => withFake('', async ({ root, path }) => {
   const capture = join(root, 'deep-argv.json');
