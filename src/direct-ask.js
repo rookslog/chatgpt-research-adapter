@@ -1,4 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { constants } from 'node:fs';
+import { mkdir, open } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,27 +12,75 @@ import { loadPreparedBundle } from './prepared-bundle.js';
 const templatesRoot = fileURLToPath(new URL('../templates/', import.meta.url));
 const rigorRoot = fileURLToPath(new URL('../rigor/', import.meta.url));
 const fail = (message, code) => { const error = new TypeError(message); error.code = code; throw error; };
+const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const MODE_TO_TOOL = Object.freeze({ standard: '', web: 'Web Search', deep: 'Deep Research' });
+
+async function syncDirectory(path) {
+  const handle = await open(path, constants.O_RDONLY);
+  try { await handle.sync(); } catch (error) { if (!['EINVAL', 'ENOTSUP', 'ENOSYS'].includes(error?.code)) throw error; } finally { await handle.close(); }
+}
+
+async function writeDurableExclusive(path, bytes, directory) {
+  const payload = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  const handle = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0), 0o600);
+  try { await handle.writeFile(payload); await handle.sync(); } finally { await handle.close(); }
+  await syncDirectory(directory);
+  return hash(payload);
+}
+
+async function writeDurableJson(path, value, directory) {
+  return writeDurableExclusive(path, Buffer.from(`${canonicalJson(value)}\n`), directory);
+}
+
+function validateHandoff(answer, mode) {
+  if (!answer || typeof answer !== 'object' || typeof answer.conversationId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(answer.conversationId) || answer.conversationUrl !== `https://chatgpt.com/c/${answer.conversationId}` || answer.tool !== MODE_TO_TOOL[mode]) fail('direct ask provider handoff is invalid', 'ERR_DIRECT_HANDOFF');
+}
 
 export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath, openCliPath, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, ask = runOpenCliAsk, readDetail = runOpenCliDetail, readDeep = runOpenCliDeepResearchResult } = {}) {
   const bundle = await loadPreparedBundle({ outputRoot, jobId, allowedModes: [mode] });
   if (bundle.mode !== mode || bundle.job_root !== jobPath) fail('prepared job does not match direct ask', 'ERR_DIRECT_ASK_JOB');
   const { askTimeoutSeconds = 600, deepTimeoutSeconds = 1200, ...runtimeOptions } = transportOptions;
   const identity = await preflight({ executablePath: openCliPath, ...runtimeOptions });
-  const answer = await ask({ executablePath: openCliPath, identity, prompt: bundle.prompt, mode, timeoutSeconds: askTimeoutSeconds, ...runtimeOptions });
   const responseRoot = join(jobPath, 'response');
   await mkdir(responseRoot, { mode: 0o700 });
+  await syncDirectory(jobPath);
+  const intent = Object.freeze({
+    schema: 'm004.direct-intent.v1',
+    status: 'dispatching',
+    job_id: jobId,
+    mode,
+    prompt_sha256: bundle.prompt_sha256,
+    opencli_path: openCliPath,
+    opencli_version: identity.version,
+    intent_recorded_at: now()
+  });
+  const intentSha256 = await writeDurableJson(join(responseRoot, 'intent.json'), intent, responseRoot);
+  const answer = await ask({ executablePath: openCliPath, identity, prompt: bundle.prompt, mode, timeoutSeconds: askTimeoutSeconds, ...runtimeOptions });
+  validateHandoff(answer, mode);
+  const handoff = Object.freeze({
+    schema: 'm004.direct-handoff.v1',
+    status: 'accepted',
+    job_id: jobId,
+    mode,
+    intent_sha256: intentSha256,
+    conversation_id: answer.conversationId,
+    conversation_url: answer.conversationUrl,
+    tool: answer.tool,
+    accepted_at: now()
+  });
+  const handoffSha256 = await writeDurableJson(join(responseRoot, 'handoff.json'), handoff, responseRoot);
   let answerPath = null; let report; let reportPath = null;
   if (mode === 'deep') {
     report = await readDeep({ executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: deepTimeoutSeconds, ...runtimeOptions });
     reportPath = join(responseRoot, 'report.md');
-    await writeFile(reportPath, report.report, { flag: 'wx', mode: 0o600 });
+    await writeDurableExclusive(reportPath, Buffer.from(report.report), responseRoot);
   } else {
     const detail = await readDetail({ executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: askTimeoutSeconds, ...runtimeOptions });
     answerPath = join(responseRoot, 'answer.md');
-    await writeFile(answerPath, detail.response, { flag: 'wx', mode: 0o600 });
+    await writeDurableExclusive(answerPath, Buffer.from(detail.response), responseRoot);
   }
-  const result = Object.freeze({ schema: 'm004.direct-result.v1', status: 'completed', job_id: jobId, mode, rigor_protocol_id: bundle.rigor_protocol_id, rigor_protocol_version: bundle.rigor_protocol_version, rigor_profile_id: bundle.rigor_profile_id, rigor_profile_version: bundle.rigor_profile_version, rigor_profile_sha256: bundle.rigor_profile_sha256, citation_level: bundle.citation_level, audit_appendix: bundle.audit_appendix, conversation_id: answer.conversationId, conversation_url: answer.conversationUrl, tool: answer.tool, answer_path: answerPath, report_path: reportPath, sources: report?.sources ?? [], finished_at: now() });
-  await writeFile(join(responseRoot, 'result.json'), `${canonicalJson(result)}\n`, { flag: 'wx', mode: 0o600 });
+  const result = Object.freeze({ schema: 'm004.direct-result.v1', status: 'completed', job_id: jobId, mode, rigor_protocol_id: bundle.rigor_protocol_id, rigor_protocol_version: bundle.rigor_protocol_version, rigor_profile_id: bundle.rigor_profile_id, rigor_profile_version: bundle.rigor_profile_version, rigor_profile_sha256: bundle.rigor_profile_sha256, citation_level: bundle.citation_level, audit_appendix: bundle.audit_appendix, intent_sha256: intentSha256, handoff_sha256: handoffSha256, conversation_id: answer.conversationId, conversation_url: answer.conversationUrl, tool: answer.tool, answer_path: answerPath, report_path: reportPath, sources: report?.sources ?? [], finished_at: now() });
+  await writeDurableJson(join(responseRoot, 'result.json'), result, responseRoot);
   return result;
 }
 
