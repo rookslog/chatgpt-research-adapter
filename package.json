@@ -24,17 +24,17 @@
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
       "src/cli.js": "a2ad8b09c8df455c9dc38e5854f813f5f87cf6e5b00842adb644cc1c39d47b7f",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
-      "src/direct-ask.js": "931f6ab057255b0f413fbf7bb14a5f3a3453adaf1ce6aaff980fdbd049261ac8",
+      "src/direct-ask.js": "75f2267e09ccc0408e7772d31c15ae6f14231fb56c4c4821cc45f087a2f3b92e",
       "src/dispatch-receipts.js": "82a55ae5b22e04ac1e16a2f5d0694f5c21c400c7b287a9cdcb4ea86503e0ab34",
       "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
-      "src/opencli-transport.js": "f194d3eec82967d6c796ac8f3384a46a588688a38665a5b5e5e5d386f5b6208b",
+      "src/opencli-transport.js": "d52e13cc744ee658e69c3e78a398ef3073831acc3fb38fd3d759019fd000f470",
       "src/prepare.js": "31ddd778bca5cffc187986a41684e328fa8de31f1a617fdf56da29f596e8db00",
       "src/prepared-bundle.js": "9c73d5c3b5d945652492e24965958513e5946e60e0c66c6c3add2d3616bbedc2",
       "src/receipts.js": "f3c48aa06067b46e5d108ca2c5bc9ec62aea65c659eb47b6804add9c04da9cd4",
       "src/rigor-profile.js": "318b9704cd45b370a8f5a3ef619a43fe69391202bf0db138a5b14ff283db7133",
       "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
-      "src/submit-once.js": "2e89f30b54851f25e49e40ec7a8712341de728967f6456d59248c5f9db4a8c6d",
-      "src/template-registry.js": "1dde35f22d857caa6c6d37a93768f052c45e75cf06a09ef634c7d49835f0c702"
+      "src/submit-once.js": "985d97d38b237a342688db018852cd1cfc2e37b8b8fc782aa60b041ea2b10a70",
+      "src/template-registry.js": "94b1f51bc0c6da8028930ecc2760eb955e113f72775252b72c3343c68a2daa4b"
     }
   }
 }

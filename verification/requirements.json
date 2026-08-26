@@ -25,7 +25,9 @@
       "external": false,
       "statement": "Failure after a durable provider handoff must preserve the handoff and prohibit automatic resubmission.",
       "bindings": [
-        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-002 persists direct intent before ask and provider handoff before collection" }
+        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-002 persists direct intent before ask and provider handoff before collection" },
+        { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-DISPATCH-003 records recovery when Deep Research result canonicalization fails after handoff" },
+        { "type": "integration", "path": "test/review-final6.test.js", "test": "REQ-DISPATCH-003 submit-once records recovery when completed-result persistence fails after handoff" }
       ]
     },
     {
@@ -34,7 +36,8 @@
       "external": false,
       "statement": "A known-unsent pre-intent failure must not permanently wedge the dispatch slot.",
       "bindings": [
-        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-004 failed intent publication does not publish or wedge the dispatch slot" }
+        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-004 failed intent publication does not publish or wedge the dispatch slot" },
+        { "type": "integration", "path": "test/review-final6.test.js", "test": "REQ-DISPATCH-004 direct intent publication failure does not wedge a known-unsent job" }
       ]
     },
     {
@@ -63,7 +66,8 @@
       "external": false,
       "statement": "Transport tuning must not replace the prepared prompt, selected mode, or executable identity used for provider dispatch.",
       "bindings": [
-        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-DISPATCH-007 rejects transport options that can replace authoritative dispatch inputs" }
+        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-DISPATCH-007 rejects transport options that can replace authoritative dispatch inputs" },
+        { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-DISPATCH-007 submit-once rejects transport options that can replace provenance-bound inputs" }
       ]
     },
     {
@@ -73,6 +77,24 @@
       "statement": "Completed direct answer and report receipts must bind the exact durable artifact bytes with SHA-256 and byte count.",
       "bindings": [
         { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-DISPATCH-008 binds durable direct answer and report bytes into the completed result" }
+      ]
+    },
+    {
+      "id": "REQ-DISPATCH-009",
+      "level": "hard",
+      "external": false,
+      "statement": "Semantically accepted ChatGPT conversation URLs must be canonicalized before durable handoff persistence.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-DISPATCH-009 canonicalizes semantically accepted ChatGPT conversation URLs" }
+      ]
+    },
+    {
+      "id": "REQ-OPENCLI-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Provider subprocesses must execute the verified real OpenCLI path rather than reopening a mutable supplied alias after identity verification.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-final6.test.js", "test": "REQ-OPENCLI-001 executes the verified real OpenCLI path rather than a mutable supplied alias" }
       ]
     },
     {
@@ -100,6 +122,16 @@
       "statement": "Built-in rigor-profile lookup must not traverse a symlinked profiles container outside rigorRoot.",
       "bindings": [
         { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-RIGOR-001 rejects a symlinked built-in profiles container" }
+      ]
+    },
+    {
+      "id": "REQ-TEMPLATE-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Template registry and manifest files must be size-bounded before their bytes are read into memory.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-TEMPLATE-001 rejects an oversized template registry before reading it" },
+        { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-TEMPLATE-001 rejects an oversized template manifest before reading it" }
       ]
     },
     {

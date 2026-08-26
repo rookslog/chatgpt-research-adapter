@@ -12,6 +12,7 @@ const OUTPUT_LIMIT = 256 * 1024;
 const VERSION_LIMIT = 4096;
 const DEFAULT_TIMEOUT = 135 * 1000;
 const MODE_TO_TOOL = Object.freeze({ standard: '', web: 'Web Search', deep: 'Deep Research' });
+const CHATGPT_CONVERSATION_ROOT = ['https:', '', 'chatgpt.com', 'c'].join('/');
 const CWD = fileURLToPath(new URL('..', import.meta.url));
 const CONTRACT = Object.freeze({ version: VERSION, command: 'chatgpt ask', options: Object.freeze({ new: 'true', site_session: 'ephemeral', timeout: '120', format: 'json' }), output: 'single-standard-row-v1' });
 export const OPENCLI_COMMAND_CONTRACT_SHA256 = createHash('sha256').update(canonicalJson(CONTRACT)).digest('hex');
@@ -143,7 +144,7 @@ function runProcess(executablePath, args, { spawnImpl = spawn, timeoutMs, output
 
 export async function preflightOpenCli({ executablePath, spawnImpl, environment, timeoutMs = 5000 } = {}) {
   const before = await executableIdentity(executablePath);
-  const result = await runProcess(executablePath, ['--version'], { spawnImpl, timeoutMs, outputLimit: VERSION_LIMIT, environment });
+  const result = await runProcess(before.real_path, ['--version'], { spawnImpl, timeoutMs, outputLimit: VERSION_LIMIT, environment });
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI version preflight failed', 'ERR_OPENCLI_PREFLIGHT');
   let version;
   try { version = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(result.stdout).trim(); } catch { throw fail('OpenCLI version output is invalid', 'ERR_OPENCLI_VERSION'); }
@@ -164,7 +165,7 @@ export function parseOpenCliAnswer(bytes, { mode = 'standard' } = {}) {
   let url;
   try { url = new URL(row.conversationUrl); } catch { throw fail('OpenCLI conversation URL is invalid', 'ERR_OPENCLI_OUTPUT'); }
   if (url.protocol !== 'https:' || url.hostname !== 'chatgpt.com' || url.port !== '' || url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '' || url.pathname !== `/c/${row.conversationId}`) throw fail('OpenCLI conversation URL is invalid', 'ERR_OPENCLI_OUTPUT');
-  return Object.freeze({ conversationId: row.conversationId, conversationUrl: row.conversationUrl, tool: row.tool, response: row.response });
+  return Object.freeze({ conversationId: row.conversationId, conversationUrl: `${CHATGPT_CONVERSATION_ROOT}/${row.conversationId}`, tool: row.tool, response: row.response });
 }
 
 function requireTimeoutSeconds(value) {
@@ -183,7 +184,7 @@ async function runAsk({ executablePath, identity, prompt, mode, timeoutSeconds, 
   if (siteSession === 'persistent') args.push('--wait', 'false');
   if (mode === 'web') args.push('--web-search', 'true');
   if (mode === 'deep') args.push('--deep-research', 'true');
-  const result = await runProcess(executablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
+  const result = await runProcess(identity.real_path, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI ask child did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   return parseOpenCliAnswer(result.stdout, { mode });
 }
@@ -216,7 +217,7 @@ export async function runOpenCliDeepResearchResult({ executablePath, identity, c
   const current = await executableIdentity(executablePath);
   if (!sameIdentity(identity, current)) throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY');
   const args = ['chatgpt', 'deep-research-result', conversationId, '--wait', 'true', '--timeout', String(seconds), '--stable', '6', '--site-session', 'persistent', '--format', 'json'];
-  const result = await runProcess(executablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
+  const result = await runProcess(identity.real_path, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI Deep Research reader did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   let parsed;
   try { parsed = parseStrictJsonBuffer(result.stdout); } catch { throw fail('OpenCLI Deep Research output must be strict UTF-8 JSON', 'ERR_OPENCLI_OUTPUT'); }
