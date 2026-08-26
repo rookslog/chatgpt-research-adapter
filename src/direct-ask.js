@@ -55,7 +55,7 @@ function disposition(error) {
 }
 
 function directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256 = null, conversationId = null, conversationUrl = null, tool = null, now }) {
-  return { schema: 'm004.direct-result.v1', job_id: jobId, mode, rigor_protocol_id: bundle.rigor_protocol_id, rigor_protocol_version: bundle.rigor_protocol_version, rigor_profile_id: bundle.rigor_profile_id, rigor_profile_version: bundle.rigor_profile_version, rigor_profile_sha256: bundle.rigor_profile_sha256, citation_level: bundle.citation_level, audit_appendix: bundle.audit_appendix, intent_sha256: intentSha256, handoff_sha256: handoffSha256, conversation_id: conversationId, conversation_url: conversationUrl, tool, answer_path: null, report_path: null, sources: [], finished_at: now };
+  return { schema: 'm004.direct-result.v1', job_id: jobId, mode, rigor_protocol_id: bundle.rigor_protocol_id, rigor_protocol_version: bundle.rigor_protocol_version, rigor_profile_id: bundle.rigor_profile_id, rigor_profile_version: bundle.rigor_profile_version, rigor_profile_sha256: bundle.rigor_profile_sha256, citation_level: bundle.citation_level, audit_appendix: bundle.audit_appendix, intent_sha256: intentSha256, handoff_sha256: handoffSha256, conversation_id: conversationId, conversation_url: conversationUrl, tool, answer_path: null, answer_sha256: null, answer_bytes: null, report_path: null, report_sha256: null, report_bytes: null, sources: [], finished_at: now };
 }
 
 async function persistDirectResult(responseRoot, result) {
@@ -101,22 +101,26 @@ export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath
     accepted_at: now()
   });
   const handoffSha256 = await writeDurableJson(join(responseRoot, 'handoff.json'), handoff, responseRoot);
-  let answerPath = null; let report; let reportPath = null;
+  let answerPath = null; let answerSha256 = null; let answerBytes = null; let report; let reportPath = null; let reportSha256 = null; let reportBytes = null;
   try {
     if (mode === 'deep') {
       report = await readDeep({ ...runtimeOptions, executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: deepTimeoutSeconds });
+      const reportPayload = Buffer.from(report.report);
       reportPath = join(responseRoot, 'report.md');
-      await writeDurableExclusive(reportPath, Buffer.from(report.report), responseRoot);
+      reportSha256 = await writeDurableExclusive(reportPath, reportPayload, responseRoot);
+      reportBytes = reportPayload.length;
     } else {
       const detail = await readDetail({ ...runtimeOptions, executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: askTimeoutSeconds });
+      const answerPayload = Buffer.from(detail.response);
       answerPath = join(responseRoot, 'answer.md');
-      await writeDurableExclusive(answerPath, Buffer.from(detail.response), responseRoot);
+      answerSha256 = await writeDurableExclusive(answerPath, answerPayload, responseRoot);
+      answerBytes = answerPayload.length;
     }
   } catch (error) {
     await persistDirectResult(responseRoot, { ...directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, tool: answer.tool, now: now() }), status: 'recovery_required', process_disposition: disposition(error), remote_effect: 'accepted', retry_decision: 'prohibited' });
     throw error;
   }
-  const result = { ...directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, tool: answer.tool, now: now() }), status: 'completed', process_disposition: 'exit_0_validated', remote_effect: 'completed', retry_decision: 'not_applicable', answer_path: answerPath, report_path: reportPath, sources: report?.sources ?? [] };
+  const result = { ...directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, tool: answer.tool, now: now() }), status: 'completed', process_disposition: 'exit_0_validated', remote_effect: 'completed', retry_decision: 'not_applicable', answer_path: answerPath, answer_sha256: answerSha256, answer_bytes: answerBytes, report_path: reportPath, report_sha256: reportSha256, report_bytes: reportBytes, sources: report?.sources ?? [] };
   return persistDirectResult(responseRoot, result);
 }
 
