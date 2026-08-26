@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { lstat, readFile, realpath } from 'node:fs/promises';
-import { isAbsolute } from 'node:path';
+import { cp, lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { canonicalJson } from './canonical-json.js';
@@ -17,6 +17,54 @@ const CONTRACT = Object.freeze({ version: VERSION, command: 'chatgpt ask', optio
 export const OPENCLI_COMMAND_CONTRACT_SHA256 = createHash('sha256').update(canonicalJson(CONTRACT)).digest('hex');
 const fail = (message, code, details) => { const error = new Error(message); error.code = code; if (details !== undefined) error.details = details; return error; };
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
+const OPENCLI_MARKDOWN_IMPORT = "import { htmlToMarkdown } from '@jackwener/opencli/utils';";
+const OPENCLI_MARKDOWN_CONVERTER = String.raw`export function messageHtmlToMarkdown(html) {
+    try {
+        return htmlToMarkdown(html).trim();
+    } catch {
+        return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+}`;
+const OPENCLI_MARKDOWN_PATCHED_CONVERTER = String.raw`export function messageHtmlToMarkdown(html) {
+    try {
+        return htmlToMarkdown(html, (td) => td.use(gfm))
+            .replace(/\\\[(C(?:-\d+|\d+))\\\]/g, '[$1]')
+            .trim();
+    } catch {
+        return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+}`;
+
+function replacePinnedMarkdownSource(source, before, after) {
+  const parts = source.split(before);
+  if (parts.length !== 2) throw fail('OpenCLI ChatGPT Markdown converter does not match the pinned source', 'ERR_OPENCLI_MARKDOWN_COMPAT');
+  return `${parts[0]}${after}${parts[1]}`;
+}
+
+function patchOpenCliMarkdownSource(source) {
+  const withGfm = replacePinnedMarkdownSource(source, OPENCLI_MARKDOWN_IMPORT, `${OPENCLI_MARKDOWN_IMPORT}\nimport { gfm } from 'turndown-plugin-gfm';`);
+  return replacePinnedMarkdownSource(withGfm, OPENCLI_MARKDOWN_CONVERTER, OPENCLI_MARKDOWN_PATCHED_CONVERTER);
+}
+
+async function withMarkdownCompatibleOpenCli(identity, run) {
+  const entrySuffix = join('dist', 'src', 'main.js');
+  if (typeof identity?.real_path !== 'string' || !identity.real_path.endsWith(entrySuffix)) throw fail('OpenCLI package layout is incompatible with Markdown qualification', 'ERR_OPENCLI_MARKDOWN_COMPAT');
+  const packageRoot = dirname(dirname(dirname(identity.real_path)));
+  const sourcePath = join(packageRoot, 'clis', 'chatgpt', 'utils.js');
+  let source;
+  try { source = await readFile(sourcePath, 'utf8'); } catch { throw fail('OpenCLI ChatGPT Markdown converter is unavailable', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
+  const patched = patchOpenCliMarkdownSource(source);
+  const tempRoot = await mkdtemp(join(dirname(packageRoot), '.chatgpt-research-opencli-'));
+  try {
+    await cp(packageRoot, tempRoot, { recursive: true });
+    await writeFile(join(tempRoot, 'clis', 'chatgpt', 'utils.js'), patched, 'utf8');
+    const copiedExecutable = join(tempRoot, 'dist', 'src', 'main.js');
+    const copiedIdentity = await executableIdentity(copiedExecutable);
+    if (copiedIdentity.sha256 !== identity.sha256 || copiedIdentity.size !== identity.size) throw fail('OpenCLI copied executable identity changed', 'ERR_OPENCLI_IDENTITY');
+    return await run(copiedExecutable);
+  } finally { await rm(tempRoot, { recursive: true, force: true }); }
+}
 
 function minimalEnvironment(source = process.env) {
   const result = {};
@@ -117,7 +165,7 @@ export async function runOpenCliDetail({ executablePath, identity, conversationI
   const current = await executableIdentity(executablePath);
   if (!sameIdentity(identity, current)) throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY');
   const args = ['chatgpt', 'detail', conversationId, '--markdown', 'true', '--wait', 'true', '--timeout', String(seconds), '--stable', '3', '--site-session', 'ephemeral', '--format', 'json'];
-  const result = await runProcess(executablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
+  const result = await withMarkdownCompatibleOpenCli(identity, (detailExecutablePath) => runProcess(detailExecutablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs }));
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI conversation reader did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   let rows;
   try { rows = parseStrictJsonBuffer(result.stdout); } catch { throw fail('OpenCLI detail output must be strict UTF-8 JSON', 'ERR_OPENCLI_OUTPUT'); }
