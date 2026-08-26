@@ -161,7 +161,7 @@ test('REQ-DISPATCH-006 blank successful submit becomes durable recovery state in
     newTurnId: () => 'turn_blank'
   });
   await writeFile(opencli, `#!/usr/bin/env node\nif (process.argv[2] === '--version') console.log('1.8.7');\nelse console.log(JSON.stringify([{conversationId:'blank-1',conversationUrl:'https://chatgpt.com/c/blank-1',tool:'',response:''}]));\n`, { mode: 0o700 });
-  const moments = ['2026-08-26T17:34:00.000Z', '2026-08-26T17:35:00.000Z'];
+  const moments = ['2026-08-26T17:34:00.000Z', '2026-08-26T17:35:00.000Z', '2026-08-26T17:36:00.000Z'];
   try {
     const result = await submitPreparedJobOnce({ outputRoot, jobId: 'job_blank', openCliPath: opencli, now: () => moments.shift() });
     assert.equal(result.status, 'recovery_required');
