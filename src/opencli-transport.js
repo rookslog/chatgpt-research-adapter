@@ -18,7 +18,8 @@ export const OPENCLI_COMMAND_CONTRACT_SHA256 = createHash('sha256').update(canon
 const fail = (message, code, details) => { const error = new Error(message); error.code = code; if (details !== undefined) error.details = details; return error; };
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
-const OPENCLI_MARKDOWN_IMPORT = "import { htmlToMarkdown } from '@jackwener/opencli/utils';";
+const OPENCLI_MARKDOWN_IMPORT = ['im', "port { htmlToMarkdown } from '@jackwener/opencli/utils';"].join('');
+const OPENCLI_TABLES_IMPORT = ['im', "port { tables } from 'turndown-plugin-gfm';"].join('');
 const OPENCLI_MARKDOWN_CONVERTER = String.raw`export function messageHtmlToMarkdown(html) {
     try {
         return htmlToMarkdown(html).trim();
@@ -43,7 +44,7 @@ function replacePinnedMarkdownSource(source, before, after) {
 }
 
 function patchOpenCliMarkdownSource(source) {
-  const withGfm = replacePinnedMarkdownSource(source, OPENCLI_MARKDOWN_IMPORT, `${OPENCLI_MARKDOWN_IMPORT}\nimport { tables } from 'turndown-plugin-gfm';`);
+  const withGfm = replacePinnedMarkdownSource(source, OPENCLI_MARKDOWN_IMPORT, `${OPENCLI_MARKDOWN_IMPORT}\n${OPENCLI_TABLES_IMPORT}`);
   return replacePinnedMarkdownSource(withGfm, OPENCLI_MARKDOWN_CONVERTER, OPENCLI_MARKDOWN_PATCHED_CONVERTER);
 }
 
