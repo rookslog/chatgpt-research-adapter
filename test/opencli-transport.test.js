@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -11,6 +11,28 @@ async function withFake(body, run) {
   const path = join(root, 'fake-opencli');
   await writeFile(path, `#!/usr/bin/env node\n${body}\n`, { mode: 0o700 });
   try { return await run({ root, path }); } finally { await rm(root, { recursive: true, force: true }); }
+}
+
+async function withMarkdownFixtureOpenCli(run) {
+  const root = await mkdtemp(join(tmpdir(), 'm006-opencli-'));
+  const installRoot = join(root, 'install');
+  const packageRoot = join(installRoot, 'node_modules', '@jackwener', 'opencli');
+  const gfmRoot = join(installRoot, 'node_modules', 'turndown-plugin-gfm');
+  const html = await readFile(new URL('./fixtures/chatgpt-markdown.html', import.meta.url), 'utf8');
+  const expected = (await readFile(new URL('./fixtures/chatgpt-markdown.gfm.md', import.meta.url), 'utf8')).trim();
+  const escaped = expected.replace('**[C-001]**', '**\\[C-001\\]**');
+  const linearized = escaped.replace('| Key | Value |\n| --- | --- |\n| alpha | one |\n| beta | two |', 'Key\n\nValue\n\nalpha\n\none\n\nbeta\n\ntwo');
+  await mkdir(join(packageRoot, 'dist', 'src'), { recursive: true });
+  await mkdir(join(packageRoot, 'clis', 'chatgpt'), { recursive: true });
+  await mkdir(gfmRoot, { recursive: true });
+  await writeFile(join(packageRoot, 'package.json'), `${JSON.stringify({ name: '@jackwener/opencli', version: '1.8.7', type: 'module', exports: { './utils': './dist/src/utils.js' } })}\n`);
+  await writeFile(join(packageRoot, 'dist', 'src', 'utils.js'), `export function htmlToMarkdown(value, configure) {\n  let gfm = false;\n  configure?.({ use(plugin) { if (plugin?.fixture === 'gfm') gfm = true; } });\n  if (value !== ${JSON.stringify(html)}) throw new Error('unexpected fixture');\n  return gfm ? ${JSON.stringify(escaped)} : ${JSON.stringify(linearized)};\n}\n`);
+  await writeFile(join(packageRoot, 'clis', 'chatgpt', 'utils.js'), `import { htmlToMarkdown } from '@jackwener/opencli/utils';\n\nexport function messageHtmlToMarkdown(html) {\n    try {\n        return htmlToMarkdown(html).trim();\n    } catch {\n        return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\n    }\n}\n`);
+  await writeFile(join(gfmRoot, 'package.json'), `${JSON.stringify({ name: 'turndown-plugin-gfm', version: '1.0.2', type: 'module', exports: './index.js' })}\n`);
+  await writeFile(join(gfmRoot, 'index.js'), "export const gfm = Object.freeze({ fixture: 'gfm' });\n");
+  const path = join(packageRoot, 'dist', 'src', 'main.js');
+  await writeFile(path, `#!/usr/bin/env node\nimport { messageHtmlToMarkdown } from '../../clis/chatgpt/utils.js';\nif (process.argv[2] === '--version') console.log('1.8.7');\nelse console.log(JSON.stringify([{ Index: 1, Role: 'User', Text: 'question', Generating: false, StableSeconds: 3 }, { Index: 2, Role: 'Assistant', Text: messageHtmlToMarkdown(${JSON.stringify(html)}), Generating: false, StableSeconds: 3, Executable: process.argv[1] }]));\n`, { mode: 0o700 });
+  try { return await run({ root, path, expected }); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
 const validRow = { conversationId: 'abc-123_DEF', conversationUrl: 'https://chatgpt.com/c/abc-123_DEF', tool: '', response: 'CHATGPT_RESEARCH_LIVE_SMOKE_OK' };
@@ -103,6 +125,17 @@ else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.argv.sli
   const result = await runOpenCliDetail({ executablePath: path, identity, conversationId: 'detail-1', timeoutSeconds: 600 });
   assert.equal(result.response, fullResponse);
   assert.deepEqual(await readFile(capture, 'utf8').then(JSON.parse), ['chatgpt', 'detail', 'detail-1', '--markdown', 'true', '--wait', 'true', '--timeout', '600', '--stable', '3', '--site-session', 'ephemeral', '--format', 'json']);
+}));
+
+test('preserves GFM tables and readable claim IDs across one full assistant-message read', async () => withMarkdownFixtureOpenCli(async ({ path, expected }) => {
+  const identity = await preflightOpenCli({ executablePath: path });
+  const result = await runOpenCliDetail({ executablePath: path, identity, conversationId: 'markdown-1', timeoutSeconds: 600 });
+  assert.equal(result.response, expected);
+  assert.match(result.response, /\| Key \| Value \|\n\| --- \| --- \|/);
+  assert.match(result.response, /\*\*\[C-001\]\*\*/);
+  assert.match(result.response, /Ordinary bracket text: \\\[note\\\]/);
+  assert.match(result.response, /- \[source\]\(https:\/\/example\.com\/source\)/);
+  assert.match(result.response, /```\nconst claim = "\[C-002\]";/);
 }));
 
 test('collects one completed Deep Research report by conversation id', async () => withFake('', async ({ root, path }) => {
