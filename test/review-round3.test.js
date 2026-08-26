@@ -33,7 +33,7 @@ async function preparedSubmitCase(run) {
   }
 }
 
-test('REQ-DISPATCH-009 rejects submit transport options that can replace provenance-bound inputs', async () => preparedSubmitCase(async ({ outputRoot, opencli, jobRoot }) => {
+test('REQ-DISPATCH-007 submit-once rejects transport options that can replace provenance-bound inputs', async () => preparedSubmitCase(async ({ outputRoot, opencli, jobRoot }) => {
   await assert.rejects(
     submitPreparedJobOnce({
       outputRoot,
@@ -47,7 +47,7 @@ test('REQ-DISPATCH-009 rejects submit transport options that can replace provena
   await assert.rejects(stat(join(jobRoot, 'dispatch')), { code: 'ENOENT' });
 }));
 
-test('REQ-DISPATCH-010 canonicalizes semantically accepted ChatGPT conversation URLs', () => {
+test('REQ-DISPATCH-009 canonicalizes semantically accepted ChatGPT conversation URLs', () => {
   const row = {
     conversationId: 'canonical-1',
     conversationUrl: 'https://CHATGPT.COM:443/c/canonical-1',
@@ -58,7 +58,7 @@ test('REQ-DISPATCH-010 canonicalizes semantically accepted ChatGPT conversation 
   assert.equal(parsed.conversationUrl, 'https://chatgpt.com/c/canonical-1');
 });
 
-test('REQ-DISPATCH-011 records recovery when Deep Research result canonicalization fails after handoff', async () => {
+test('REQ-DISPATCH-003 records recovery when Deep Research result canonicalization fails after handoff', async () => {
   const root = await mkdtemp(join(tmpdir(), 'review-round3-deep-'));
   const outputRoot = join(root, 'output');
   try {
