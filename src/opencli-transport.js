@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cp, lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, join } from 'node:path';
+import { cp, lstat, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { canonicalJson } from './canonical-json.js';
@@ -29,9 +29,11 @@ const OPENCLI_MARKDOWN_CONVERTER = String.raw`export function messageHtmlToMarkd
 }`;
 const OPENCLI_MARKDOWN_PATCHED_CONVERTER = String.raw`export function messageHtmlToMarkdown(html) {
     try {
-        return htmlToMarkdown(html, (td) => td.use(tables))
-            .replace(/\\\[(C(?:-\d+|\d+))\\\]/g, '[$1]')
-            .trim();
+        return htmlToMarkdown(html, (td) => {
+            td.use(tables);
+            const escape = td.escape.bind(td);
+            td.escape = (text) => escape(text).replace(/\\\[(C(?:-\d+|\d+))\\\]/g, '[$1]');
+        }).trim();
     } catch {
         return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     }
@@ -48,6 +50,23 @@ function patchOpenCliMarkdownSource(source) {
   return replacePinnedMarkdownSource(withGfm, OPENCLI_MARKDOWN_CONVERTER, OPENCLI_MARKDOWN_PATCHED_CONVERTER);
 }
 
+function temporaryDirectoryRoot(source = process.env) {
+  const candidate = process.platform === 'win32'
+    ? (source.TEMP ?? source.TMP)
+    : (source.TMPDIR ?? source.TMP ?? source.TEMP ?? '/tmp');
+  if (typeof candidate !== 'string' || !isAbsolute(candidate)) throw fail('OpenCLI Markdown temporary directory is unavailable', 'ERR_OPENCLI_MARKDOWN_COMPAT');
+  return candidate;
+}
+
+function nearestNodeModules(packageRoot) {
+  let current = dirname(packageRoot);
+  while (dirname(current) !== current) {
+    if (basename(current) === 'node_modules') return current;
+    current = dirname(current);
+  }
+  return basename(current) === 'node_modules' ? current : null;
+}
+
 async function withMarkdownCompatibleOpenCli(identity, run) {
   const entrySuffix = join('dist', 'src', 'main.js');
   if (typeof identity?.real_path !== 'string' || !identity.real_path.endsWith(entrySuffix)) throw fail('OpenCLI package layout is incompatible with Markdown qualification', 'ERR_OPENCLI_MARKDOWN_COMPAT');
@@ -56,15 +75,29 @@ async function withMarkdownCompatibleOpenCli(identity, run) {
   let source;
   try { source = await readFile(sourcePath, 'utf8'); } catch { throw fail('OpenCLI ChatGPT Markdown converter is unavailable', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
   const patched = patchOpenCliMarkdownSource(source);
-  const tempRoot = await mkdtemp(join(dirname(packageRoot), '.chatgpt-research-opencli-'));
+  let workspace;
+  try { workspace = await mkdtemp(join(temporaryDirectoryRoot(), 'chatgpt-research-opencli-')); }
+  catch { throw fail('OpenCLI Markdown temporary workspace is unavailable', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
+  const tempPackageRoot = join(workspace, 'opencli');
   try {
-    await cp(packageRoot, tempRoot, { recursive: true });
-    await writeFile(join(tempRoot, 'clis', 'chatgpt', 'utils.js'), patched, 'utf8');
-    const copiedExecutable = join(tempRoot, 'dist', 'src', 'main.js');
+    await cp(packageRoot, tempPackageRoot, { recursive: true });
+    const copiedModulesPath = join(tempPackageRoot, 'node_modules');
+    const copiedModules = await lstat(copiedModulesPath).catch(() => null);
+    if (copiedModules === null) {
+      const dependencyRoot = nearestNodeModules(packageRoot);
+      const dependencyEntry = dependencyRoot === null ? null : await lstat(dependencyRoot).catch(() => null);
+      if (dependencyEntry === null || !dependencyEntry.isDirectory()) throw fail('OpenCLI dependency root is unavailable for Markdown qualification', 'ERR_OPENCLI_MARKDOWN_COMPAT');
+      try { await symlink(dependencyRoot, copiedModulesPath, process.platform === 'win32' ? 'junction' : 'dir'); }
+      catch { throw fail('OpenCLI dependencies could not be linked into the Markdown workspace', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
+    } else if (!copiedModules.isDirectory() && !copiedModules.isSymbolicLink()) {
+      throw fail('OpenCLI copied dependency root is invalid', 'ERR_OPENCLI_MARKDOWN_COMPAT');
+    }
+    await writeFile(join(tempPackageRoot, 'clis', 'chatgpt', 'utils.js'), patched, 'utf8');
+    const copiedExecutable = join(tempPackageRoot, 'dist', 'src', 'main.js');
     const copiedIdentity = await executableIdentity(copiedExecutable);
     if (copiedIdentity.sha256 !== identity.sha256 || copiedIdentity.size !== identity.size) throw fail('OpenCLI copied executable identity changed', 'ERR_OPENCLI_IDENTITY');
     return await run(copiedExecutable);
-  } finally { await rm(tempRoot, { recursive: true, force: true }); }
+  } finally { await rm(workspace, { recursive: true, force: true }); }
 }
 
 function minimalEnvironment(source = process.env) {
