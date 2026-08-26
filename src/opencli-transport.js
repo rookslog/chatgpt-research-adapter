@@ -82,7 +82,7 @@ export function parseOpenCliAnswer(bytes, { mode = 'standard' } = {}) {
   let url;
   try { url = new URL(row.conversationUrl); } catch { throw fail('OpenCLI conversation URL is invalid', 'ERR_OPENCLI_OUTPUT'); }
   if (url.protocol !== 'https:' || url.hostname !== 'chatgpt.com' || url.port !== '' || url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '' || url.pathname !== `/c/${row.conversationId}`) throw fail('OpenCLI conversation URL is invalid', 'ERR_OPENCLI_OUTPUT');
-  return Object.freeze({ conversationId: row.conversationId, conversationUrl: row.conversationUrl, tool: row.tool, response: row.response });
+  return Object.freeze({ conversationId: row.conversationId, conversationUrl: `https://chatgpt.com/c/${row.conversationId}`, tool: row.tool, response: row.response });
 }
 
 function requireTimeoutSeconds(value) {
