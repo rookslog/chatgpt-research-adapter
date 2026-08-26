@@ -62,7 +62,7 @@ function runProcess(executablePath, args, { spawnImpl = spawn, timeoutMs, output
 
 export async function preflightOpenCli({ executablePath, spawnImpl, environment, timeoutMs = 5000 } = {}) {
   const before = await executableIdentity(executablePath);
-  const result = await runProcess(executablePath, ['--version'], { spawnImpl, timeoutMs, outputLimit: VERSION_LIMIT, environment });
+  const result = await runProcess(before.real_path, ['--version'], { spawnImpl, timeoutMs, outputLimit: VERSION_LIMIT, environment });
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI version preflight failed', 'ERR_OPENCLI_PREFLIGHT');
   let version;
   try { version = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(result.stdout).trim(); } catch { throw fail('OpenCLI version output is invalid', 'ERR_OPENCLI_VERSION'); }
@@ -102,7 +102,7 @@ async function runAsk({ executablePath, identity, prompt, mode, timeoutSeconds, 
   if (siteSession === 'persistent') args.push('--wait', 'false');
   if (mode === 'web') args.push('--web-search', 'true');
   if (mode === 'deep') args.push('--deep-research', 'true');
-  const result = await runProcess(executablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
+  const result = await runProcess(identity.real_path, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI ask child did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   return parseOpenCliAnswer(result.stdout, { mode });
 }
@@ -118,7 +118,7 @@ export async function runOpenCliDetail({ executablePath, identity, conversationI
   const current = await executableIdentity(executablePath);
   if (!sameIdentity(identity, current)) throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY');
   const args = ['chatgpt', 'detail', conversationId, '--markdown', 'true', '--wait', 'true', '--timeout', String(seconds), '--stable', '3', '--site-session', 'ephemeral', '--format', 'json'];
-  const result = await runProcess(executablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
+  const result = await runProcess(identity.real_path, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI conversation reader did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   let rows;
   try { rows = parseStrictJsonBuffer(result.stdout); } catch { throw fail('OpenCLI detail output must be strict UTF-8 JSON', 'ERR_OPENCLI_OUTPUT'); }
@@ -135,7 +135,7 @@ export async function runOpenCliDeepResearchResult({ executablePath, identity, c
   const current = await executableIdentity(executablePath);
   if (!sameIdentity(identity, current)) throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY');
   const args = ['chatgpt', 'deep-research-result', conversationId, '--wait', 'true', '--timeout', String(seconds), '--stable', '6', '--site-session', 'persistent', '--format', 'json'];
-  const result = await runProcess(executablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
+  const result = await runProcess(identity.real_path, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI Deep Research reader did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   let parsed;
   try { parsed = parseStrictJsonBuffer(result.stdout); } catch { throw fail('OpenCLI Deep Research output must be strict UTF-8 JSON', 'ERR_OPENCLI_OUTPUT'); }

@@ -16,6 +16,10 @@ function submitTransportOptions(value) {
   return Object.freeze(runtimeOptions);
 }
 
+function disposition(error) {
+  return typeof error?.code === 'string' && /^ERR_[A-Z0-9_]+$/.test(error.code) ? error.code : 'ERR_OPENCLI_UNKNOWN';
+}
+
 async function requireUnusedDispatch(jobRoot) {
   try { await lstat(join(jobRoot, 'dispatch')); fail('dispatch already exists', 'ERR_DISPATCH_EXISTS'); }
   catch (error) { if (error?.code === 'ERR_DISPATCH_EXISTS') throw error; if (error?.code !== 'ENOENT') throw error; }
@@ -32,10 +36,13 @@ export async function submitPreparedJobOnce({ outputRoot, jobId, openCliPath, no
   let answer;
   try { answer = await runOpenCliStandard({ ...runtimeOptions, executablePath: openCliPath, identity: executable, prompt: bundle.prompt }); }
   catch (error) {
-    const disposition = typeof error?.code === 'string' && /^ERR_[A-Z0-9_]+$/.test(error.code) ? error.code : 'ERR_OPENCLI_UNKNOWN';
-    return persistAmbiguousResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, disposition, now: now(), testSeam: receiptTestSeam });
+    return persistAmbiguousResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, disposition: disposition(error), now: now(), testSeam: receiptTestSeam });
   }
   const handoff = await persistDispatchHandoff({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, tool: answer.tool, now: now(), testSeam: receiptTestSeam });
   if (typeof answer.response !== 'string' || answer.response.trim().length === 0) return persistRecoveryRequiredResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, handoffSha256: handoff.handoff_sha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, disposition: 'ERR_OPENCLI_OUTPUT', now: now(), testSeam: receiptTestSeam });
-  return persistCompletedResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, handoffSha256: handoff.handoff_sha256, answer: answer.response, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, now: now(), testSeam: receiptTestSeam });
+  try {
+    return await persistCompletedResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, handoffSha256: handoff.handoff_sha256, answer: answer.response, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, now: now(), testSeam: receiptTestSeam });
+  } catch (error) {
+    return persistRecoveryRequiredResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, handoffSha256: handoff.handoff_sha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, disposition: disposition(error), now: now(), testSeam: receiptTestSeam });
+  }
 }

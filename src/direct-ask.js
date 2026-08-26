@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { mkdir, open } from 'node:fs/promises';
+import { mkdir, open, rename, rm } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,6 +12,7 @@ import { loadPreparedBundle } from './prepared-bundle.js';
 const templatesRoot = fileURLToPath(new URL('../templates/', import.meta.url));
 const rigorRoot = fileURLToPath(new URL('../rigor/', import.meta.url));
 const fail = (message, code) => { const error = new TypeError(message); error.code = code; throw error; };
+const fault = (seam, point) => { if (seam?.failAt === point) fail(`injected fault at ${point}`, 'ERR_INJECTED_FAULT'); };
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const MODE_TO_TOOL = Object.freeze({ standard: '', web: 'Web Search', deep: 'Deep Research' });
 const CHATGPT_CONVERSATION_ROOT = ['https:', '', 'chatgpt.com', 'c'].join('/');
@@ -32,6 +33,23 @@ async function writeDurableExclusive(path, bytes, directory) {
 
 async function writeDurableJson(path, value, directory) {
   return writeDurableExclusive(path, Buffer.from(`${canonicalJson(value)}\n`), directory);
+}
+
+async function publishDirectIntent({ jobPath, responseRoot, intent, receiptTestSeam }) {
+  const stagingRoot = join(jobPath, `.response-staging-${randomUUID()}`);
+  await mkdir(stagingRoot, { mode: 0o700 });
+  let published = false;
+  try {
+    const intentSha256 = await writeDurableJson(join(stagingRoot, 'intent.json'), intent, stagingRoot);
+    fault(receiptTestSeam, 'after-direct-intent-write');
+    try { await rename(stagingRoot, responseRoot); }
+    catch (error) { if (['EEXIST', 'ENOTEMPTY'].includes(error?.code)) fail('direct response already exists', 'ERR_DIRECT_EXISTS'); throw error; }
+    published = true;
+    await syncDirectory(jobPath);
+    return intentSha256;
+  } finally {
+    if (!published) await rm(stagingRoot, { recursive: true, force: true });
+  }
 }
 
 function directTransportOptions(value) {
@@ -63,14 +81,12 @@ async function persistDirectResult(responseRoot, result) {
   return Object.freeze(result);
 }
 
-export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath, openCliPath, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, ask = runOpenCliAsk, readDetail = runOpenCliDetail, readDeep = runOpenCliDeepResearchResult } = {}) {
+export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath, openCliPath, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, ask = runOpenCliAsk, readDetail = runOpenCliDetail, readDeep = runOpenCliDeepResearchResult, receiptTestSeam } = {}) {
   const bundle = await loadPreparedBundle({ outputRoot, jobId, allowedModes: [mode] });
   if (bundle.mode !== mode || bundle.job_root !== jobPath) fail('prepared job does not match direct ask', 'ERR_DIRECT_ASK_JOB');
   const { askTimeoutSeconds, deepTimeoutSeconds, runtimeOptions } = directTransportOptions(transportOptions);
   const identity = await preflight({ ...runtimeOptions, executablePath: openCliPath });
   const responseRoot = join(jobPath, 'response');
-  await mkdir(responseRoot, { mode: 0o700 });
-  await syncDirectory(jobPath);
   const intent = Object.freeze({
     schema: 'm004.direct-intent.v1',
     status: 'dispatching',
@@ -81,7 +97,7 @@ export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath
     opencli_version: identity.version,
     intent_recorded_at: now()
   });
-  const intentSha256 = await writeDurableJson(join(responseRoot, 'intent.json'), intent, responseRoot);
+  const intentSha256 = await publishDirectIntent({ jobPath, responseRoot, intent, receiptTestSeam });
   let answer;
   try {
     answer = await ask({ ...runtimeOptions, executablePath: openCliPath, identity, prompt: bundle.prompt, mode, timeoutSeconds: askTimeoutSeconds });
