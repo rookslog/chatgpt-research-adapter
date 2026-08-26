@@ -27,10 +27,9 @@ jobs:
         run: npm test
       - name: Authority
         run: npm run check:authority
+      - name: Requirements
+        run: npm run check:requirements
       - name: Syntax
-        shell: bash
-        run: |
-          set -euo pipefail
-          find bin scripts src test -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check
+        run: npm run check:syntax
       - name: Package dry run
         run: npm pack --dry-run --json --ignore-scripts > /tmp/chatgpt-research-pack.json
