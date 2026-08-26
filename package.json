@@ -21,8 +21,8 @@
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
       "src/cli.js": "a2ad8b09c8df455c9dc38e5854f813f5f87cf6e5b00842adb644cc1c39d47b7f",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
-      "src/direct-ask.js": "c9100716fa396bfcc3706f393a4117996cd6261fa6e095dae094aea1b56d855d",
-      "src/dispatch-receipts.js": "1ca05010a69058fb8a696c9fd7a0bb16814faf3592d9560d1d5ccb60990e8a05",
+      "src/direct-ask.js": "543d0596508e2e33330d5885bce7b70828f59ab9af577b61fc6e2f399852b2ea",
+      "src/dispatch-receipts.js": "273ec6c2f9b3a47a66e9faf923c7dd4981ef3750bea22317a501e37e1ee56f9c",
       "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
       "src/opencli-transport.js": "4955e030cdf692ad3d127c1c297a22cdf58f176bb784a14c8037a1be0e323047",
       "src/prepare.js": "31ddd778bca5cffc187986a41684e328fa8de31f1a617fdf56da29f596e8db00",
@@ -30,7 +30,7 @@
       "src/receipts.js": "f3c48aa06067b46e5d108ca2c5bc9ec62aea65c659eb47b6804add9c04da9cd4",
       "src/rigor-profile.js": "4f6f308fe40674f0a06f3b04aee230f3a208beea7afdd39dba2d8094b05a1d73",
       "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
-      "src/submit-once.js": "012f6044ad87ab171b6d6bca7a43a856e54114b039b800d9540b19d0c03cde6c",
+      "src/submit-once.js": "2e89f30b54851f25e49e40ec7a8712341de728967f6456d59248c5f9db4a8c6d",
       "src/template-registry.js": "1dde35f22d857caa6c6d37a93768f052c45e75cf06a09ef634c7d49835f0c702"
     }
   }
