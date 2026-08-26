@@ -14,6 +14,7 @@ const rigorRoot = fileURLToPath(new URL('../rigor/', import.meta.url));
 const fail = (message, code) => { const error = new TypeError(message); error.code = code; throw error; };
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const MODE_TO_TOOL = Object.freeze({ standard: '', web: 'Web Search', deep: 'Deep Research' });
+const CHATGPT_CONVERSATION_ROOT = ['https:', '', 'chatgpt.com', 'c'].join('/');
 
 async function syncDirectory(path) {
   const handle = await open(path, constants.O_RDONLY);
@@ -33,7 +34,7 @@ async function writeDurableJson(path, value, directory) {
 }
 
 function validateHandoff(answer, mode) {
-  if (!answer || typeof answer !== 'object' || typeof answer.conversationId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(answer.conversationId) || answer.conversationUrl !== `https://chatgpt.com/c/${answer.conversationId}` || answer.tool !== MODE_TO_TOOL[mode]) fail('direct ask provider handoff is invalid', 'ERR_DIRECT_HANDOFF');
+  if (!answer || typeof answer !== 'object' || typeof answer.conversationId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(answer.conversationId) || answer.conversationUrl !== `${CHATGPT_CONVERSATION_ROOT}/${answer.conversationId}` || answer.tool !== MODE_TO_TOOL[mode]) fail('direct ask provider handoff is invalid', 'ERR_DIRECT_HANDOFF');
 }
 
 export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath, openCliPath, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, ask = runOpenCliAsk, readDetail = runOpenCliDetail, readDeep = runOpenCliDeepResearchResult } = {}) {
