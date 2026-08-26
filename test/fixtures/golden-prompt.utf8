@@ -1,0 +1,14 @@
+You are preparing a research response.
+
+Question:
+What is 2 + 2?
+
+Provide a concise, evidence-aware answer.
+
+--- epistemic rigor ---
+protocol=chatgpt-research-epistemic/1.0.0 profile=standard/1.0.0 citations=principal audit=false
+Answer first. Mark each substantive factual, interpretive, synthesis, uncertainty, and recommendation claim [C#]. Status: direct-observation, externally-supported, user-premise, source-report, disputed, synthesis, inference, interpretation, speculation, recommendation, or unknown. Cite principal evidence at the supported claim. End with Claim ledger: ID | Claim | Status | Evidence | Warrant (directness, independence, recency, method, fit) | Contrary evidence/limits | Revision trigger. State material unknowns and unchecked items. No hidden reasoning or uncalibrated numeric confidence.
+
+
+--- chatgpt-research mode ---
+{"mode":"web","reason":"source-supported"}

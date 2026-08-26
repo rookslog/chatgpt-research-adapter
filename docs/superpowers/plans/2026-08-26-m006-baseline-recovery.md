@@ -1,10 +1,12 @@
 # M006 Baseline Recovery Implementation Plan
 
+**Status:** Tasks 1–4 completed through the recovered local working-tree authority; feature implementation remains pending.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Recover the actual working ChatGPT research-adapter source and its reproducible test/dependency state into `rookslog/chatgpt-research-adapter` without recreating or refactoring it from inference.
 
-**Architecture:** Treat source recovery as a provenance-preserving import, not feature development. The Bridgewright working-repo surface is the first authority for the uncommitted implementation; GitHub and the ChatGPT Library are corroborating discovery surfaces only. If the working-repo surface remains unavailable, record an explicit blocked recovery result instead of manufacturing a new adapter, because PRs 1–3 depend on exact existing paths, contracts, and tests.
+**Architecture:** Treat source recovery as a provenance-preserving import, not feature development. The original local working tree and retained Git tree `d7c0014bdd99c0b9e078015aa5f12922367803ff` supplied the exact implementation after Bridgewright was unavailable. GitHub and the ChatGPT Library were corroborating discovery surfaces only. PRs 1–3 depend on the recovered paths, contracts, and tests recorded under `docs/recovery/`.
 
 **Tech Stack:** GitHub repository/Contents API; Bridgewright working-repo MCP (`bw_list`, `bw_read_file`, `bw_run_tests`, `bw_get_state`); git/GitHub commit history; existing adapter stack as recovered, never guessed.
 

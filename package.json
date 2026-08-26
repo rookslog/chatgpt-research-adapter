@@ -1,0 +1,37 @@
+{
+  "name": "chatgpt-research-adapter",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "bin": { "chatgpt-research": "bin/chatgpt-research.js" },
+  "files": ["bin/", "src/", "templates/", "rigor/", "scripts/", "package.json", "README.md"],
+  "scripts": {
+    "test": "node --test",
+    "check:authority": "node scripts/m002-authority-check.js"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "optionalDependencies": {},
+  "peerDependencies": {},
+  "m002Authority": {
+    "sourceSha256": {
+      "bin/chatgpt-research.js": "356e5a94e739727e810d56046b882483efa8cb8987dfb8ad1a624dcc78f2f836",
+      "scripts/m002-authority-check.js": "0b90605f4370ce84408f8346100038abcd8ae5b512806bada0f25997a7bd2993",
+      "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
+      "src/cli.js": "edc54ddd3d609a50854056849c6f15dcddece89813b51a51bf573052ef2f6846",
+      "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
+      "src/direct-ask.js": "16d28fd6fac2f22d37d67b47825ecf92e0e89c12bddfc01a29fa9865691b0e00",
+      "src/dispatch-receipts.js": "77302fa1d4ffadf153fc77b35348c950865511f6eb6faf75e56e17d84902cd73",
+      "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
+      "src/opencli-transport.js": "4955e030cdf692ad3d127c1c297a22cdf58f176bb784a14c8037a1be0e323047",
+      "src/prepare.js": "31ddd778bca5cffc187986a41684e328fa8de31f1a617fdf56da29f596e8db00",
+      "src/prepared-bundle.js": "9c73d5c3b5d945652492e24965958513e5946e60e0c66c6c3add2d3616bbedc2",
+      "src/receipts.js": "46693b14f7c9e55ee84c0878f61cfe7902183df508dfddc6c7dcfb721b3efb3b",
+      "src/rigor-profile.js": "4f6f308fe40674f0a06f3b04aee230f3a208beea7afdd39dba2d8094b05a1d73",
+      "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
+      "src/submit-once.js": "884acad4a12a4bfd815b0b3f5ba4c2a51be48728aadde03493f3ae512739487d",
+      "src/template-registry.js": "1dde35f22d857caa6c6d37a93768f052c45e75cf06a09ef634c7d49835f0c702"
+    }
+  }
+}
