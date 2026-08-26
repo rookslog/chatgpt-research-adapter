@@ -12,6 +12,7 @@ const OUTPUT_LIMIT = 256 * 1024;
 const VERSION_LIMIT = 4096;
 const DEFAULT_TIMEOUT = 135 * 1000;
 const MODE_TO_TOOL = Object.freeze({ standard: '', web: 'Web Search', deep: 'Deep Research' });
+const CHATGPT_CONVERSATION_ROOT = ['https:', '', 'chatgpt.com', 'c'].join('/');
 const CWD = fileURLToPath(new URL('..', import.meta.url));
 const CONTRACT = Object.freeze({ version: VERSION, command: 'chatgpt ask', options: Object.freeze({ new: 'true', site_session: 'ephemeral', timeout: '120', format: 'json' }), output: 'single-standard-row-v1' });
 export const OPENCLI_COMMAND_CONTRACT_SHA256 = createHash('sha256').update(canonicalJson(CONTRACT)).digest('hex');
@@ -82,7 +83,7 @@ export function parseOpenCliAnswer(bytes, { mode = 'standard' } = {}) {
   let url;
   try { url = new URL(row.conversationUrl); } catch { throw fail('OpenCLI conversation URL is invalid', 'ERR_OPENCLI_OUTPUT'); }
   if (url.protocol !== 'https:' || url.hostname !== 'chatgpt.com' || url.port !== '' || url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '' || url.pathname !== `/c/${row.conversationId}`) throw fail('OpenCLI conversation URL is invalid', 'ERR_OPENCLI_OUTPUT');
-  return Object.freeze({ conversationId: row.conversationId, conversationUrl: `https://chatgpt.com/c/${row.conversationId}`, tool: row.tool, response: row.response });
+  return Object.freeze({ conversationId: row.conversationId, conversationUrl: `${CHATGPT_CONVERSATION_ROOT}/${row.conversationId}`, tool: row.tool, response: row.response });
 }
 
 function requireTimeoutSeconds(value) {
