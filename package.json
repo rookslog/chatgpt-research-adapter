@@ -17,7 +17,7 @@
   "m002Authority": {
     "sourceSha256": {
       "bin/chatgpt-research.js": "356e5a94e739727e810d56046b882483efa8cb8987dfb8ad1a624dcc78f2f836",
-      "scripts/m002-authority-check.js": "0b90605f4370ce84408f8346100038abcd8ae5b512806bada0f25997a7bd2993",
+      "scripts/m002-authority-check.js": "53a48f787042da5dbb38ef9c06bd2a6d1eee9d95f2c08f3617f8f5cba315192d",
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
       "src/cli.js": "a2ad8b09c8df455c9dc38e5854f813f5f87cf6e5b00842adb644cc1c39d47b7f",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
