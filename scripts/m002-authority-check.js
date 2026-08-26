@@ -4,18 +4,19 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const INVENTORY = Object.freeze([
-  'bin/chatgpt-research.js', 'package.json', 'scripts/m002-authority-check.js',
+  'bin/chatgpt-research.js', 'package.json', 'scripts/check-requirements.js', 'scripts/m002-authority-check.js',
   'src/canonical-json.js', 'src/cli.js', 'src/compiler.js', 'src/direct-ask.js', 'src/dispatch-receipts.js', 'src/modes.js', 'src/opencli-transport.js', 'src/prepare.js', 'src/prepared-bundle.js', 'src/receipts.js', 'src/rigor-profile.js', 'src/strict-json.js', 'src/submit-once.js', 'src/template-registry.js',
   'rigor/registry.json', 'rigor/profiles/light/1.0.0.json', 'rigor/profiles/standard/1.0.0.json', 'rigor/profiles/strict/1.0.0.json',
   'templates/registry.json', 'templates/research-question/1.0.0.json'
 ]);
 const ALLOWED_IMPORTS = Object.freeze({
   'bin/chatgpt-research.js': new Set(['../src/cli.js']),
+  'scripts/check-requirements.js': new Set(['node:fs/promises', 'node:path', 'node:url', '../src/strict-json.js']),
   'scripts/m002-authority-check.js': new Set(['node:crypto', 'node:fs/promises', 'node:path', 'node:url']),
   'src/canonical-json.js': new Set(),
   'src/cli.js': new Set(['node:fs', 'node:fs/promises', 'node:path', 'node:url', './canonical-json.js', './direct-ask.js', './prepare.js', './strict-json.js', './submit-once.js']),
   'src/compiler.js': new Set(['node:crypto', './canonical-json.js']),
-  'src/direct-ask.js': new Set(['node:fs/promises', 'node:path', 'node:url', './canonical-json.js', './opencli-transport.js', './prepare.js', './prepared-bundle.js']),
+  'src/direct-ask.js': new Set(['node:crypto', 'node:fs', 'node:fs/promises', 'node:path', 'node:url', './canonical-json.js', './opencli-transport.js', './prepare.js', './prepared-bundle.js']),
   'src/dispatch-receipts.js': new Set(['node:crypto', 'node:fs', 'node:fs/promises', 'node:path', './canonical-json.js', './opencli-transport.js']),
   'src/modes.js': new Set(),
   'src/opencli-transport.js': new Set(['node:child_process', 'node:crypto', 'node:fs/promises', 'node:path', 'node:url', './canonical-json.js', './strict-json.js']),
@@ -33,6 +34,7 @@ const PROCESS_ALLOW = Object.freeze({
   'bin/chatgpt-research.js': [['pro', 'cess.argv.slice(2)'].join(''), ['pro', 'cess.stderr.write'].join(''), ['pro', 'cess.exitCode = 1'].join('')],
   'src/cli.js': [['pro', 'cess.stdout'].join('')],
   'src/opencli-transport.js': [['pro', 'cess.env'].join(''), ['pro', 'cess.platform'].join('')],
+  'scripts/check-requirements.js': [['pro', 'cess.argv[1]'].join(''), ['pro', 'cess.argv[2]'].join(''), ['pro', 'cess.argv[3]'].join(''), ['pro', 'cess.stdout.write'].join(''), ['pro', 'cess.exitCode = 1'].join('')],
   'scripts/m002-authority-check.js': [['pro', 'cess.argv[1]'].join(''), ['pro', 'cess.stdout.write'].join(''), ['pro', 'cess.exitCode = 1'].join('')]
 });
 const UNICODE_ESCAPE_ALLOW = Object.freeze({
@@ -56,7 +58,7 @@ function packageViolations(packageJson) {
   const violations = [];
   const exact = (value, expected) => JSON.stringify(value) === JSON.stringify(expected);
   if (packageJson.private !== true || packageJson.type !== 'module' || packageJson.engines?.node !== '>=22' || !exact(packageJson.bin, { 'chatgpt-research': 'bin/chatgpt-research.js' }) || !exact(packageJson.files, ['bin/', 'src/', 'templates/', 'rigor/', 'scripts/', 'package.json', 'README.md'])) violations.push({ code: 'PACKAGE_CONTRACT', path: 'package.json' });
-  if (!exact(packageJson.scripts, { test: 'node --test', 'check:authority': 'node scripts/m002-authority-check.js' })) violations.push({ code: 'PACKAGE_SCRIPTS', path: 'package.json' });
+  if (!exact(packageJson.scripts, { test: 'node --test', 'check:authority': 'node scripts/m002-authority-check.js', 'check:requirements': 'node scripts/check-requirements.js', 'check:syntax': "find bin scripts src test -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check" })) violations.push({ code: 'PACKAGE_SCRIPTS', path: 'package.json' });
   for (const key of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) if (!exact(packageJson[key], {})) { violations.push({ code: 'PACKAGE_DEPENDENCIES', path: 'package.json' }); break; }
   if ('imports' in packageJson || 'exports' in packageJson) violations.push({ code: 'PACKAGE_IMPORT_EXPORT_DRIFT', path: 'package.json' });
   if (!validSourcePins(packageJson.m002Authority?.sourceSha256) || !packageJson.m002Authority || Object.keys(packageJson.m002Authority).length !== 1 || !('sourceSha256' in packageJson.m002Authority)) violations.push({ code: 'SOURCE_DIGEST_PIN_SCHEMA', path: 'package.json' });

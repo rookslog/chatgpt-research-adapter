@@ -50,6 +50,9 @@ export async function loadRigorProfile({ rigorRoot, profileId, version, profileP
   if (Object.keys(registry).length !== 1 || !Array.isArray(registry.profiles)) fail('rigor registry is invalid', 'ERR_RIGOR_PIN');
   const pins = registry.profiles.filter((item) => item?.profile_id === selectedId && item?.version === selectedVersion);
   if (pins.length !== 1 || !HASH.test(pins[0].profile_sha256 ?? '') || Object.keys(pins[0]).sort().join('\0') !== ['profile_id', 'profile_sha256', 'version'].sort().join('\0')) fail('rigor profile is not pinned', 'ERR_RIGOR_PIN');
+  const profilesDirectory = pathWithin('profiles');
+  const profilesDirectoryStat = await lstat(profilesDirectory).catch(() => fail('rigor profiles directory missing', 'ERR_RIGOR_PATH'));
+  if (!profilesDirectoryStat.isDirectory() || profilesDirectoryStat.isSymbolicLink()) fail('rigor profiles directory is unsafe', 'ERR_RIGOR_PATH');
   const directory = pathWithin('profiles', selectedId);
   const directoryStat = await lstat(directory).catch(() => fail('rigor profile directory missing', 'ERR_RIGOR_PATH'));
   if (!directoryStat.isDirectory() || directoryStat.isSymbolicLink()) fail('rigor profile directory is unsafe', 'ERR_RIGOR_PATH');

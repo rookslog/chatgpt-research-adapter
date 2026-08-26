@@ -1,7 +1,7 @@
 import { lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { createDispatchIntent, persistAmbiguousResult, persistCompletedResult, persistDispatchIntent } from './dispatch-receipts.js';
+import { createDispatchIntent, persistAmbiguousResult, persistCompletedResult, persistDispatchHandoff, persistDispatchIntent, persistRecoveryRequiredResult } from './dispatch-receipts.js';
 import { preflightOpenCli, runOpenCliStandard } from './opencli-transport.js';
 import { loadPreparedBundle } from './prepared-bundle.js';
 
@@ -25,5 +25,7 @@ export async function submitPreparedJobOnce({ outputRoot, jobId, openCliPath, no
     const disposition = typeof error?.code === 'string' && /^ERR_[A-Z0-9_]+$/.test(error.code) ? error.code : 'ERR_OPENCLI_UNKNOWN';
     return persistAmbiguousResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, disposition, now: now(), testSeam: receiptTestSeam });
   }
-  return persistCompletedResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, answer: answer.response, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, now: now(), testSeam: receiptTestSeam });
+  const handoff = await persistDispatchHandoff({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, tool: answer.tool, now: now(), testSeam: receiptTestSeam });
+  if (typeof answer.response !== 'string' || answer.response.trim().length === 0) return persistRecoveryRequiredResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, handoffSha256: handoff.handoff_sha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, disposition: 'ERR_OPENCLI_OUTPUT', now: now(), testSeam: receiptTestSeam });
+  return persistCompletedResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, handoffSha256: handoff.handoff_sha256, answer: answer.response, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, now: now(), testSeam: receiptTestSeam });
 }

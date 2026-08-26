@@ -9,7 +9,7 @@ import { submitPreparedJobOnce } from '../src/submit-once.js';
 
 const templatesRoot = new URL('../templates/', import.meta.url).pathname;
 const preparedAt = '2026-08-24T01:02:03.456Z';
-const times = () => { const values = ['2026-08-24T01:03:03.456Z', '2026-08-24T01:04:03.456Z']; return () => values.shift(); };
+const times = () => { const values = ['2026-08-24T01:03:03.456Z', '2026-08-24T01:04:03.456Z', '2026-08-24T01:05:03.456Z']; return () => values.shift(); };
 
 async function withCase(fakeAskSource, run) {
   const root = await mkdtemp(join(tmpdir(), 'm003-submit-')); const outputRoot = join(root, 'output'); const opencli = join(root, 'opencli');

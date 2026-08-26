@@ -76,5 +76,7 @@ export async function persistPreparedJob({ outputRoot, job, turn, compiled, now,
   fault(testSeam, 'after-directory-sync');
   try { await rename(staging, published); } catch (error) { if (['EEXIST', 'ENOTEMPTY'].includes(error?.code)) fail('job already exists', 'ERR_DUPLICATE_JOB'); throw error; }
   fault(testSeam, 'after-publish');
+  await syncDirectory(jobsRoot);
+  fault(testSeam, 'after-jobs-directory-sync');
   return Object.freeze({ job_id: job.job_id, turn_id: turn.turn_id, state: 'prepared', transport_status: 'not_dispatched' });
 }

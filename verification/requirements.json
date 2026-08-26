@@ -1,0 +1,134 @@
+{
+  "schema": "verification.requirements.v1",
+  "requirements": [
+    {
+      "id": "REQ-DISPATCH-001",
+      "level": "hard",
+      "external": false,
+      "statement": "No provider mutation may occur before a durable dispatch intent exists.",
+      "bindings": [
+        { "type": "integration", "path": "test/submit-once.test.js", "test": "submits once only after intent and persists one validated completed answer" }
+      ]
+    },
+    {
+      "id": "REQ-DISPATCH-002",
+      "level": "hard",
+      "external": false,
+      "statement": "A valid provider conversation reference must become durable before subsequent collection work.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-002 persists direct intent before ask and provider handoff before collection" }
+      ]
+    },
+    {
+      "id": "REQ-DISPATCH-003",
+      "level": "hard",
+      "external": false,
+      "statement": "Failure after a durable provider handoff must preserve the handoff and prohibit automatic resubmission.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-002 persists direct intent before ask and provider handoff before collection" }
+      ]
+    },
+    {
+      "id": "REQ-DISPATCH-004",
+      "level": "hard",
+      "external": false,
+      "statement": "A known-unsent pre-intent failure must not permanently wedge the dispatch slot.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-004 failed intent publication does not publish or wedge the dispatch slot" }
+      ]
+    },
+    {
+      "id": "REQ-DISPATCH-005",
+      "level": "hard",
+      "external": false,
+      "statement": "Completed state may be published only after the required answer bytes are durable.",
+      "bindings": [
+        { "type": "integration", "path": "test/dispatch-receipts.test.js", "test": "publishes exact answer before a completed result bound to its hashes" },
+        { "type": "integration", "path": "test/dispatch-receipts.test.js", "test": "faults cannot declare completion before a durable answer and existing bytes never change" }
+      ]
+    },
+    {
+      "id": "REQ-DISPATCH-006",
+      "level": "hard",
+      "external": false,
+      "statement": "Uncertain or incomplete post-intent outcomes must become durable non-retry states rather than escape unclassified.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-006 blank successful submit becomes durable recovery state instead of escaping unclassified" },
+        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-006 direct ask failure after durable intent records ambiguous effect without retry" }
+      ]
+    },
+    {
+      "id": "REQ-DISPATCH-007",
+      "level": "hard",
+      "external": false,
+      "statement": "Transport tuning must not replace the prepared prompt, selected mode, or executable identity used for provider dispatch.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-DISPATCH-007 rejects transport options that can replace authoritative dispatch inputs" }
+      ]
+    },
+    {
+      "id": "REQ-DISPATCH-008",
+      "level": "hard",
+      "external": false,
+      "statement": "Completed direct answer and report receipts must bind the exact durable artifact bytes with SHA-256 and byte count.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-DISPATCH-008 binds durable direct answer and report bytes into the completed result" }
+      ]
+    },
+    {
+      "id": "REQ-CLI-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Prepare must reject a relative dispatchable output root at the CLI boundary.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-CLI-001 rejects a relative prepare output root at the CLI boundary" }
+      ]
+    },
+    {
+      "id": "REQ-PREPARED-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Prepared-job publication must sync the jobs directory before reporting success.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-PREPARED-001 syncs the jobs directory after publishing a prepared job" }
+      ]
+    },
+    {
+      "id": "REQ-RIGOR-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Built-in rigor-profile lookup must not traverse a symlinked profiles container outside rigorRoot.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-RIGOR-001 rejects a symlinked built-in profiles container" }
+      ]
+    },
+    {
+      "id": "REQ-SUBMIT-001",
+      "level": "hard",
+      "external": false,
+      "statement": "A duplicate submit must fail before another executable process can create a provider effect.",
+      "bindings": [
+        { "type": "integration", "path": "test/submit-once.test.js", "test": "duplicate submit refuses before any executable process and preserves prior bytes" }
+      ]
+    },
+    {
+      "id": "REQ-AUTHORITY-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Production source and capability authority must remain pinned and fail closed on unapproved drift.",
+      "bindings": [
+        { "type": "static-check", "path": "scripts/m002-authority-check.js" }
+      ]
+    },
+    {
+      "id": "REQ-PROVIDER-001",
+      "level": "hard",
+      "external": true,
+      "statement": "Claims about usable native ChatGPT provider behavior require bounded live qualification in addition to deterministic wrapper tests.",
+      "bindings": [
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "persists a standard answer from one mode-aware OpenCLI ask" },
+        { "type": "live-qualification", "path": "docs/M004-PLAN.md" }
+      ]
+    }
+  ]
+}

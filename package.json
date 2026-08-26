@@ -8,7 +8,9 @@
   "files": ["bin/", "src/", "templates/", "rigor/", "scripts/", "package.json", "README.md"],
   "scripts": {
     "test": "node --test",
-    "check:authority": "node scripts/m002-authority-check.js"
+    "check:authority": "node scripts/m002-authority-check.js",
+    "check:requirements": "node scripts/check-requirements.js",
+    "check:syntax": "find bin scripts src test -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check"
   },
   "dependencies": {},
   "devDependencies": {},
@@ -17,20 +19,21 @@
   "m002Authority": {
     "sourceSha256": {
       "bin/chatgpt-research.js": "356e5a94e739727e810d56046b882483efa8cb8987dfb8ad1a624dcc78f2f836",
-      "scripts/m002-authority-check.js": "0b90605f4370ce84408f8346100038abcd8ae5b512806bada0f25997a7bd2993",
+      "scripts/check-requirements.js": "24978950b46831618f241999724fb31047d0691b08ccf4d8eee7a7964d2a2557",
+      "scripts/m002-authority-check.js": "4629c014da016e58e75c53e77eef07195800c01aa55bb67675d3313c987613c2",
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
-      "src/cli.js": "edc54ddd3d609a50854056849c6f15dcddece89813b51a51bf573052ef2f6846",
+      "src/cli.js": "a2ad8b09c8df455c9dc38e5854f813f5f87cf6e5b00842adb644cc1c39d47b7f",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
-      "src/direct-ask.js": "16d28fd6fac2f22d37d67b47825ecf92e0e89c12bddfc01a29fa9865691b0e00",
-      "src/dispatch-receipts.js": "77302fa1d4ffadf153fc77b35348c950865511f6eb6faf75e56e17d84902cd73",
+      "src/direct-ask.js": "931f6ab057255b0f413fbf7bb14a5f3a3453adaf1ce6aaff980fdbd049261ac8",
+      "src/dispatch-receipts.js": "82a55ae5b22e04ac1e16a2f5d0694f5c21c400c7b287a9cdcb4ea86503e0ab34",
       "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
       "src/opencli-transport.js": "a7520661ca11bfe60135dc56695716f6e1564ce45f12e7711380765c4331a594",
       "src/prepare.js": "31ddd778bca5cffc187986a41684e328fa8de31f1a617fdf56da29f596e8db00",
       "src/prepared-bundle.js": "9c73d5c3b5d945652492e24965958513e5946e60e0c66c6c3add2d3616bbedc2",
-      "src/receipts.js": "46693b14f7c9e55ee84c0878f61cfe7902183df508dfddc6c7dcfb721b3efb3b",
-      "src/rigor-profile.js": "4f6f308fe40674f0a06f3b04aee230f3a208beea7afdd39dba2d8094b05a1d73",
+      "src/receipts.js": "f3c48aa06067b46e5d108ca2c5bc9ec62aea65c659eb47b6804add9c04da9cd4",
+      "src/rigor-profile.js": "318b9704cd45b370a8f5a3ef619a43fe69391202bf0db138a5b14ff283db7133",
       "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
-      "src/submit-once.js": "884acad4a12a4bfd815b0b3f5ba4c2a51be48728aadde03493f3ae512739487d",
+      "src/submit-once.js": "2e89f30b54851f25e49e40ec7a8712341de728967f6456d59248c5f9db4a8c6d",
       "src/template-registry.js": "1dde35f22d857caa6c6d37a93768f052c45e75cf06a09ef634c7d49835f0c702"
     }
   }
