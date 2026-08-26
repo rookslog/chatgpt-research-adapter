@@ -15,6 +15,7 @@ const fail = (message, code) => { const error = new TypeError(message); error.co
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const MODE_TO_TOOL = Object.freeze({ standard: '', web: 'Web Search', deep: 'Deep Research' });
 const CHATGPT_CONVERSATION_ROOT = ['https:', '', 'chatgpt.com', 'c'].join('/');
+const TRANSPORT_OPTION_KEYS = new Set(['askTimeoutSeconds', 'deepTimeoutSeconds', 'spawnImpl', 'environment', 'timeoutMs', 'killGraceMs']);
 
 async function syncDirectory(path) {
   const handle = await open(path, constants.O_RDONLY);
@@ -31,6 +32,18 @@ async function writeDurableExclusive(path, bytes, directory) {
 
 async function writeDurableJson(path, value, directory) {
   return writeDurableExclusive(path, Buffer.from(`${canonicalJson(value)}\n`), directory);
+}
+
+function directTransportOptions(value) {
+  const options = value ?? {};
+  if (!options || Array.isArray(options) || typeof options !== 'object' || Object.keys(options).some((key) => !TRANSPORT_OPTION_KEYS.has(key))) fail('direct transport options are invalid', 'ERR_DIRECT_TRANSPORT_OPTIONS');
+  const { askTimeoutSeconds = 600, deepTimeoutSeconds = 1200, spawnImpl, environment, timeoutMs, killGraceMs } = options;
+  const runtimeOptions = {};
+  if (spawnImpl !== undefined) runtimeOptions.spawnImpl = spawnImpl;
+  if (environment !== undefined) runtimeOptions.environment = environment;
+  if (timeoutMs !== undefined) runtimeOptions.timeoutMs = timeoutMs;
+  if (killGraceMs !== undefined) runtimeOptions.killGraceMs = killGraceMs;
+  return Object.freeze({ askTimeoutSeconds, deepTimeoutSeconds, runtimeOptions: Object.freeze(runtimeOptions) });
 }
 
 function validateHandoff(answer, mode) {
@@ -53,8 +66,8 @@ async function persistDirectResult(responseRoot, result) {
 export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath, openCliPath, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, ask = runOpenCliAsk, readDetail = runOpenCliDetail, readDeep = runOpenCliDeepResearchResult } = {}) {
   const bundle = await loadPreparedBundle({ outputRoot, jobId, allowedModes: [mode] });
   if (bundle.mode !== mode || bundle.job_root !== jobPath) fail('prepared job does not match direct ask', 'ERR_DIRECT_ASK_JOB');
-  const { askTimeoutSeconds = 600, deepTimeoutSeconds = 1200, ...runtimeOptions } = transportOptions;
-  const identity = await preflight({ executablePath: openCliPath, ...runtimeOptions });
+  const { askTimeoutSeconds, deepTimeoutSeconds, runtimeOptions } = directTransportOptions(transportOptions);
+  const identity = await preflight({ ...runtimeOptions, executablePath: openCliPath });
   const responseRoot = join(jobPath, 'response');
   await mkdir(responseRoot, { mode: 0o700 });
   await syncDirectory(jobPath);
@@ -71,7 +84,7 @@ export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath
   const intentSha256 = await writeDurableJson(join(responseRoot, 'intent.json'), intent, responseRoot);
   let answer;
   try {
-    answer = await ask({ executablePath: openCliPath, identity, prompt: bundle.prompt, mode, timeoutSeconds: askTimeoutSeconds, ...runtimeOptions });
+    answer = await ask({ ...runtimeOptions, executablePath: openCliPath, identity, prompt: bundle.prompt, mode, timeoutSeconds: askTimeoutSeconds });
     validateHandoff(answer, mode);
   } catch (error) {
     return persistDirectResult(responseRoot, { ...directResultBase({ bundle, jobId, mode, intentSha256, now: now() }), status: 'ambiguous_effect', process_disposition: disposition(error), remote_effect: 'unknown', retry_decision: 'prohibited' });
@@ -91,11 +104,11 @@ export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath
   let answerPath = null; let report; let reportPath = null;
   try {
     if (mode === 'deep') {
-      report = await readDeep({ executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: deepTimeoutSeconds, ...runtimeOptions });
+      report = await readDeep({ ...runtimeOptions, executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: deepTimeoutSeconds });
       reportPath = join(responseRoot, 'report.md');
       await writeDurableExclusive(reportPath, Buffer.from(report.report), responseRoot);
     } else {
-      const detail = await readDetail({ executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: askTimeoutSeconds, ...runtimeOptions });
+      const detail = await readDetail({ ...runtimeOptions, executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: askTimeoutSeconds });
       answerPath = join(responseRoot, 'answer.md');
       await writeDurableExclusive(answerPath, Buffer.from(detail.response), responseRoot);
     }
