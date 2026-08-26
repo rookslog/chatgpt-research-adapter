@@ -58,6 +58,15 @@
       ]
     },
     {
+      "id": "REQ-DISPATCH-007",
+      "level": "hard",
+      "external": false,
+      "statement": "Transport tuning must not replace the prepared prompt, selected mode, or executable identity used for provider dispatch.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-DISPATCH-007 rejects transport options that can replace authoritative dispatch inputs" }
+      ]
+    },
+    {
       "id": "REQ-CLI-001",
       "level": "hard",
       "external": false,
