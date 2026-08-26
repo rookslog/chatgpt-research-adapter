@@ -6,6 +6,15 @@ import { preflightOpenCli, runOpenCliStandard } from './opencli-transport.js';
 import { loadPreparedBundle } from './prepared-bundle.js';
 
 const fail = (message, code) => { const error = new Error(message); error.code = code; throw error; };
+const TRANSPORT_OPTION_KEYS = new Set(['spawnImpl', 'environment', 'timeoutMs', 'killGraceMs']);
+
+function submitTransportOptions(value) {
+  const options = value ?? {};
+  if (!options || Array.isArray(options) || typeof options !== 'object' || Object.keys(options).some((key) => !TRANSPORT_OPTION_KEYS.has(key))) fail('submit transport options are invalid', 'ERR_SUBMIT_TRANSPORT_OPTIONS');
+  const runtimeOptions = {};
+  for (const key of TRANSPORT_OPTION_KEYS) if (options[key] !== undefined) runtimeOptions[key] = options[key];
+  return Object.freeze(runtimeOptions);
+}
 
 async function requireUnusedDispatch(jobRoot) {
   try { await lstat(join(jobRoot, 'dispatch')); fail('dispatch already exists', 'ERR_DISPATCH_EXISTS'); }
@@ -14,13 +23,14 @@ async function requireUnusedDispatch(jobRoot) {
 
 export async function submitPreparedJobOnce({ outputRoot, jobId, openCliPath, now = () => new Date().toISOString(), transportOptions, receiptTestSeam } = {}) {
   if (typeof now !== 'function') fail('dispatch clock must be a function', 'ERR_DISPATCH_TIME');
+  const runtimeOptions = submitTransportOptions(transportOptions);
   const bundle = await loadPreparedBundle({ outputRoot, jobId });
   await requireUnusedDispatch(bundle.job_root);
-  const executable = await preflightOpenCli({ executablePath: openCliPath, ...transportOptions });
+  const executable = await preflightOpenCli({ ...runtimeOptions, executablePath: openCliPath });
   const intent = createDispatchIntent({ bundle, executable, now: now() });
   const saved = await persistDispatchIntent({ jobRoot: bundle.job_root, intent, testSeam: receiptTestSeam });
   let answer;
-  try { answer = await runOpenCliStandard({ executablePath: openCliPath, identity: executable, prompt: bundle.prompt, ...transportOptions }); }
+  try { answer = await runOpenCliStandard({ ...runtimeOptions, executablePath: openCliPath, identity: executable, prompt: bundle.prompt }); }
   catch (error) {
     const disposition = typeof error?.code === 'string' && /^ERR_[A-Z0-9_]+$/.test(error.code) ? error.code : 'ERR_OPENCLI_UNKNOWN';
     return persistAmbiguousResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, disposition, now: now(), testSeam: receiptTestSeam });
