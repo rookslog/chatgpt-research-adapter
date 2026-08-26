@@ -30,10 +30,13 @@ async function fakeOpenCli({ readOnlyConverter = false, packageLocalModules = fa
     await mkdir(localRoot, { recursive: true });
     await writeFile(join(localRoot, 'package.json'), `${JSON.stringify({ name: 'local-only', version: '1.0.0' })}\n`);
   }
-  const markerCode = writesUserMarker
-    ? `import { homedir } from 'node:os'; import { mkdirSync, writeFileSync } from 'node:fs'; import { join } from 'node:path'; const dir = join(homedir(), '.opencli'); mkdirSync(dir, { recursive: true }); writeFileSync(join(dir, 'compat-marker'), 'mutated');`
+  const markerImports = writesUserMarker
+    ? `import { homedir } from 'node:os'; import { mkdirSync, writeFileSync } from 'node:fs'; import { join } from 'node:path';`
     : '';
-  await writeFile(executablePath, `#!/usr/bin/env node\nimport { messageHtmlToMarkdown } from '../../clis/chatgpt/utils.js';\nif (process.argv[2] === '--version') console.log('1.8.7');\nelse { ${markerCode} console.log(JSON.stringify([{ Index: 1, Role: 'Assistant', Text: messageHtmlToMarkdown('<p>[C1]</p>'), Generating: false, StableSeconds: 3 }])); }\n`, { mode: 0o700 });
+  const markerCode = writesUserMarker
+    ? `const dir = join(homedir(), '.opencli'); mkdirSync(dir, { recursive: true }); writeFileSync(join(dir, 'compat-marker'), 'mutated');`
+    : '';
+  await writeFile(executablePath, `#!/usr/bin/env node\n${markerImports}\nimport { messageHtmlToMarkdown } from '../../clis/chatgpt/utils.js';\nif (process.argv[2] === '--version') console.log('1.8.7');\nelse { ${markerCode} console.log(JSON.stringify([{ Index: 1, Role: 'Assistant', Text: messageHtmlToMarkdown('<p>[C1]</p>'), Generating: false, StableSeconds: 3 }])); }\n`, { mode: 0o700 });
   if (readOnlyConverter && process.platform !== 'win32') await chmod(converterPath, 0o444);
   return { root, executablePath, converterPath, callerHome };
 }
