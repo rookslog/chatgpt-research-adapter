@@ -89,6 +89,25 @@
       ]
     },
     {
+      "id": "REQ-OPENCLI-MARKDOWN-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Markdown compatibility detail reads must patch only a private writable copy and must isolate disposable OpenCLI user and config state from the caller.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 patches a read-only converter only inside the private workspace" },
+        { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 isolates the copied OpenCLI user runtime from caller HOME" }
+      ]
+    },
+    {
+      "id": "REQ-OPENCLI-MARKDOWN-002",
+      "level": "hard",
+      "external": false,
+      "statement": "Markdown compatibility detail reads must preserve access to both package-local and ancestor-hoisted OpenCLI dependencies.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-002 preserves package-local and ancestor-hoisted dependency resolution" }
+      ]
+    },
+    {
       "id": "REQ-OPENCLI-001",
       "level": "hard",
       "external": false,

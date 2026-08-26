@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cp, lstat, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, cp, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -68,7 +68,7 @@ function nearestNodeModules(packageRoot) {
   return basename(current) === 'node_modules' ? current : null;
 }
 
-async function withMarkdownCompatibleOpenCli(identity, run) {
+async function withMarkdownCompatibleOpenCli(identity, environment, run) {
   const entrySuffix = join('dist', 'src', 'main.js');
   if (typeof identity?.real_path !== 'string' || !identity.real_path.endsWith(entrySuffix)) throw fail('OpenCLI package layout is incompatible with Markdown qualification', 'ERR_OPENCLI_MARKDOWN_COMPAT');
   const packageRoot = dirname(dirname(dirname(identity.real_path)));
@@ -76,28 +76,33 @@ async function withMarkdownCompatibleOpenCli(identity, run) {
   let source;
   try { source = await readFile(sourcePath, 'utf8'); } catch { throw fail('OpenCLI ChatGPT Markdown converter is unavailable', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
   const patched = patchOpenCliMarkdownSource(source);
+  const dependencyRoot = nearestNodeModules(packageRoot);
+  const dependencyEntry = dependencyRoot === null ? null : await lstat(dependencyRoot).catch(() => null);
+  if (dependencyEntry === null || !dependencyEntry.isDirectory()) throw fail('OpenCLI dependency root is unavailable for Markdown qualification', 'ERR_OPENCLI_MARKDOWN_COMPAT');
   let workspace;
   try { workspace = await mkdtemp(join(temporaryDirectoryRoot(), 'chatgpt-research-opencli-')); }
   catch { throw fail('OpenCLI Markdown temporary workspace is unavailable', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
   const tempPackageRoot = join(workspace, 'opencli');
   try {
     await cp(packageRoot, tempPackageRoot, { recursive: true });
-    const copiedModulesPath = join(tempPackageRoot, 'node_modules');
-    const copiedModules = await lstat(copiedModulesPath).catch(() => null);
-    if (copiedModules === null) {
-      const dependencyRoot = nearestNodeModules(packageRoot);
-      const dependencyEntry = dependencyRoot === null ? null : await lstat(dependencyRoot).catch(() => null);
-      if (dependencyEntry === null || !dependencyEntry.isDirectory()) throw fail('OpenCLI dependency root is unavailable for Markdown qualification', 'ERR_OPENCLI_MARKDOWN_COMPAT');
-      try { await symlink(dependencyRoot, copiedModulesPath, process.platform === 'win32' ? 'junction' : 'dir'); }
-      catch { throw fail('OpenCLI dependencies could not be linked into the Markdown workspace', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
-    } else if (!copiedModules.isDirectory() && !copiedModules.isSymbolicLink()) {
-      throw fail('OpenCLI copied dependency root is invalid', 'ERR_OPENCLI_MARKDOWN_COMPAT');
-    }
-    await writeFile(join(tempPackageRoot, 'clis', 'chatgpt', 'utils.js'), patched, 'utf8');
+    const workspaceModulesPath = join(workspace, 'node_modules');
+    try { await symlink(dependencyRoot, workspaceModulesPath, process.platform === 'win32' ? 'junction' : 'dir'); }
+    catch { throw fail('OpenCLI dependencies could not be linked into the Markdown workspace', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
+    const copiedConverterPath = join(tempPackageRoot, 'clis', 'chatgpt', 'utils.js');
+    const copiedConverter = await lstat(copiedConverterPath).catch(() => null);
+    if (copiedConverter === null || !copiedConverter.isFile()) throw fail('OpenCLI copied Markdown converter is invalid', 'ERR_OPENCLI_MARKDOWN_COMPAT');
+    try { await chmod(copiedConverterPath, copiedConverter.mode | 0o200); }
+    catch { throw fail('OpenCLI copied Markdown converter is not writable', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
+    await writeFile(copiedConverterPath, patched, 'utf8');
+    const isolatedHome = join(workspace, 'home');
+    const isolatedXdg = join(workspace, 'xdg');
+    const isolatedConfig = join(workspace, 'config');
+    await Promise.all([mkdir(isolatedHome, { mode: 0o700 }), mkdir(isolatedXdg, { mode: 0o700 }), mkdir(isolatedConfig, { mode: 0o700 })]);
+    const isolatedEnvironment = { ...(environment ?? process.env), HOME: isolatedHome, XDG_CONFIG_HOME: isolatedXdg, OPENCLI_CONFIG_DIR: isolatedConfig };
     const copiedExecutable = join(tempPackageRoot, 'dist', 'src', 'main.js');
     const copiedIdentity = await executableIdentity(copiedExecutable);
     if (copiedIdentity.sha256 !== identity.sha256 || copiedIdentity.size !== identity.size) throw fail('OpenCLI copied executable identity changed', 'ERR_OPENCLI_IDENTITY');
-    return await run(copiedExecutable);
+    return await run(copiedExecutable, isolatedEnvironment);
   } finally { await rm(workspace, { recursive: true, force: true }); }
 }
 
@@ -200,7 +205,7 @@ export async function runOpenCliDetail({ executablePath, identity, conversationI
   const current = await executableIdentity(executablePath);
   if (!sameIdentity(identity, current)) throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY');
   const args = ['chatgpt', 'detail', conversationId, '--markdown', 'true', '--wait', 'true', '--timeout', String(seconds), '--stable', '3', '--site-session', 'ephemeral', '--format', 'json'];
-  const result = await withMarkdownCompatibleOpenCli(identity, (detailExecutablePath) => runProcess(detailExecutablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs }));
+  const result = await withMarkdownCompatibleOpenCli(identity, environment, (detailExecutablePath, detailEnvironment) => runProcess(detailExecutablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment: detailEnvironment, killGraceMs }));
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI conversation reader did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   let rows;
   try { rows = parseStrictJsonBuffer(result.stdout); } catch { throw fail('OpenCLI detail output must be strict UTF-8 JSON', 'ERR_OPENCLI_OUTPUT'); }

@@ -27,7 +27,7 @@
       "src/direct-ask.js": "75f2267e09ccc0408e7772d31c15ae6f14231fb56c4c4821cc45f087a2f3b92e",
       "src/dispatch-receipts.js": "82a55ae5b22e04ac1e16a2f5d0694f5c21c400c7b287a9cdcb4ea86503e0ab34",
       "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
-      "src/opencli-transport.js": "d52e13cc744ee658e69c3e78a398ef3073831acc3fb38fd3d759019fd000f470",
+      "src/opencli-transport.js": "7603d1c987130c393166296c20ae9fb75950b20e803e56628d4d917547570626",
       "src/prepare.js": "31ddd778bca5cffc187986a41684e328fa8de31f1a617fdf56da29f596e8db00",
       "src/prepared-bundle.js": "9c73d5c3b5d945652492e24965958513e5946e60e0c66c6c3add2d3616bbedc2",
       "src/receipts.js": "f3c48aa06067b46e5d108ca2c5bc9ec62aea65c659eb47b6804add9c04da9cd4",
