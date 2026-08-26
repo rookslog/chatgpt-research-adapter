@@ -138,12 +138,16 @@ test('REQ-DISPATCH-002 persists direct intent before ask and provider handoff be
     assert.equal(handoff.conversation_id, 'handoff-1');
     assert.equal(handoff.conversation_url, 'https://chatgpt.com/c/handoff-1');
     assert.equal(handoff.status, 'accepted');
+    const recovery = JSON.parse(await readFile(join(jobPath, 'response', 'result.json'), 'utf8'));
+    assert.equal(recovery.status, 'recovery_required');
+    assert.equal(recovery.conversation_id, 'handoff-1');
+    assert.equal(recovery.retry_decision, 'prohibited');
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test('REQ-DISPATCH-006 blank successful submit becomes durable ambiguous effect instead of escaping unclassified', async () => {
+test('REQ-DISPATCH-006 blank successful submit becomes durable recovery state instead of escaping unclassified', async () => {
   const root = await mkdtemp(join(tmpdir(), 'review-hardening-blank-'));
   const outputRoot = join(root, 'output');
   const opencli = join(root, 'opencli');
@@ -160,9 +164,44 @@ test('REQ-DISPATCH-006 blank successful submit becomes durable ambiguous effect 
   const moments = ['2026-08-26T17:34:00.000Z', '2026-08-26T17:35:00.000Z'];
   try {
     const result = await submitPreparedJobOnce({ outputRoot, jobId: 'job_blank', openCliPath: opencli, now: () => moments.shift() });
-    assert.equal(result.status, 'ambiguous_effect');
+    assert.equal(result.status, 'recovery_required');
     assert.equal(result.process_disposition, 'ERR_OPENCLI_OUTPUT');
+    assert.equal(result.conversation_id, 'blank-1');
     assert.equal(result.retry_decision, 'prohibited');
+    const handoff = JSON.parse(await readFile(join(outputRoot, 'jobs', 'job_blank', 'dispatch', 'handoff.json'), 'utf8'));
+    assert.equal(handoff.conversation_id, 'blank-1');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('REQ-DISPATCH-006 direct ask failure after durable intent records ambiguous effect without retry', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'review-hardening-direct-ambiguous-'));
+  const outputRoot = join(root, 'output');
+  await mkdir(outputRoot);
+  const jobPath = join(outputRoot, 'jobs', 'job_direct_ambiguous');
+  let askCalls = 0;
+  try {
+    const outcome = await directAsk({
+      question: 'classify ambiguous send',
+      outputRoot,
+      openCliPath: '/tmp/opencli',
+      templatesRoot,
+      clock: () => '2026-08-26T17:36:00.000Z',
+      newJobId: () => 'job_direct_ambiguous',
+      newTurnId: () => 'turn_direct_ambiguous',
+      submit: (options) => submitDirectPreparedJob({
+        ...options,
+        preflight: async () => ({ version: '1.8.7' }),
+        ask: async () => { askCalls += 1; const error = new Error('ambiguous transport'); error.code = 'ERR_OPENCLI_TIMEOUT'; throw error; }
+      })
+    });
+    assert.equal(askCalls, 1);
+    assert.equal(outcome.result.status, 'ambiguous_effect');
+    assert.equal(outcome.result.process_disposition, 'ERR_OPENCLI_TIMEOUT');
+    assert.equal(outcome.result.retry_decision, 'prohibited');
+    assert.equal(outcome.result.conversation_id, null);
+    await assert.rejects(readFile(join(jobPath, 'response', 'handoff.json')), { code: 'ENOENT' });
   } finally {
     await rm(root, { recursive: true, force: true });
   }
