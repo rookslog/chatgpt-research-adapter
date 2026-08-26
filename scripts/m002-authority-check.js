@@ -15,7 +15,7 @@ const ALLOWED_IMPORTS = Object.freeze({
   'src/canonical-json.js': new Set(),
   'src/cli.js': new Set(['node:fs', 'node:fs/promises', 'node:path', 'node:url', './canonical-json.js', './direct-ask.js', './prepare.js', './strict-json.js', './submit-once.js']),
   'src/compiler.js': new Set(['node:crypto', './canonical-json.js']),
-  'src/direct-ask.js': new Set(['node:fs/promises', 'node:path', 'node:url', './canonical-json.js', './opencli-transport.js', './prepare.js', './prepared-bundle.js']),
+  'src/direct-ask.js': new Set(['node:crypto', 'node:fs', 'node:fs/promises', 'node:path', 'node:url', './canonical-json.js', './opencli-transport.js', './prepare.js', './prepared-bundle.js']),
   'src/dispatch-receipts.js': new Set(['node:crypto', 'node:fs', 'node:fs/promises', 'node:path', './canonical-json.js', './opencli-transport.js']),
   'src/modes.js': new Set(),
   'src/opencli-transport.js': new Set(['node:child_process', 'node:crypto', 'node:fs/promises', 'node:path', 'node:url', './canonical-json.js', './strict-json.js']),
