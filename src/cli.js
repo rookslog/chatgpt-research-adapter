@@ -48,7 +48,7 @@ export async function runCli(argv, { stdout = process.stdout, templatesRoot = fi
     stdout.write(`${canonicalJson(summary)}\n`);
     return summary;
   }
-  if (!Array.isArray(argv) || argv.length !== 5 || argv[0] !== 'prepare' || argv[1] !== '--request' || argv[3] !== '--output-root' || typeof argv[2] !== 'string' || typeof argv[4] !== 'string') fail(`${ASK_USAGE} | prepare --request <json-file> --output-root <directory> | submit-once --output-root <directory> --job-id <id> --opencli <absolute-path>`, 'ERR_CLI_USAGE');
+  if (!Array.isArray(argv) || argv.length !== 5 || argv[0] !== 'prepare' || argv[1] !== '--request' || argv[3] !== '--output-root' || typeof argv[2] !== 'string' || typeof argv[4] !== 'string' || !isAbsolute(argv[4])) fail(`${ASK_USAGE} | prepare --request <json-file> --output-root <directory> | submit-once --output-root <directory> --job-id <id> --opencli <absolute-path>`, 'ERR_CLI_USAGE');
   const requestPath = argv[2];
   const entry = await lstat(requestPath).catch(() => fail('request file is unavailable', 'ERR_CLI_REQUEST'));
   if (!entry.isFile() || entry.isSymbolicLink()) fail('request file must be a regular non-symlink file', 'ERR_CLI_REQUEST');
