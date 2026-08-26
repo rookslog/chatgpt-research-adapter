@@ -17,23 +17,24 @@ async function withMarkdownFixtureOpenCli(run, { converterDrift = false } = {}) 
   const root = await mkdtemp(join(tmpdir(), 'm006-opencli-'));
   const installRoot = join(root, 'install');
   const packageRoot = join(installRoot, 'node_modules', '@jackwener', 'opencli');
-  const gfmRoot = join(installRoot, 'node_modules', 'turndown-plugin-gfm');
+  const pluginRoot = join(installRoot, 'node_modules', 'turndown-plugin-gfm');
+  const capture = join(root, 'argv.json');
   const html = await readFile(new URL('./fixtures/chatgpt-markdown.html', import.meta.url), 'utf8');
   const expected = (await readFile(new URL('./fixtures/chatgpt-markdown.gfm.md', import.meta.url), 'utf8')).trim();
   const escaped = expected.replace('**[C-001]**', '**\\[C-001\\]**');
   const linearized = escaped.replace('| Key | Value |\n| --- | --- |\n| alpha | one |\n| beta | two |', 'Key\n\nValue\n\nalpha\n\none\n\nbeta\n\ntwo');
   await mkdir(join(packageRoot, 'dist', 'src'), { recursive: true });
   await mkdir(join(packageRoot, 'clis', 'chatgpt'), { recursive: true });
-  await mkdir(gfmRoot, { recursive: true });
+  await mkdir(pluginRoot, { recursive: true });
   await writeFile(join(packageRoot, 'package.json'), `${JSON.stringify({ name: '@jackwener/opencli', version: '1.8.7', type: 'module', exports: { './utils': './dist/src/utils.js' } })}\n`);
-  await writeFile(join(packageRoot, 'dist', 'src', 'utils.js'), `export function htmlToMarkdown(value, configure) {\n  let gfm = false;\n  configure?.({ use(plugin) { if (plugin?.fixture === 'gfm') gfm = true; } });\n  if (value !== ${JSON.stringify(html)}) throw new Error('unexpected fixture');\n  return gfm ? ${JSON.stringify(escaped)} : ${JSON.stringify(linearized)};\n}\n`);
+  await writeFile(join(packageRoot, 'dist', 'src', 'utils.js'), `export function htmlToMarkdown(value, configure) {\n  let tablesEnabled = false;\n  configure?.({ use(plugin) { if (plugin?.fixture === 'gfm-tables') tablesEnabled = true; } });\n  if (value !== ${JSON.stringify(html)}) throw new Error('unexpected fixture');\n  return tablesEnabled ? ${JSON.stringify(escaped)} : ${JSON.stringify(linearized)};\n}\n`);
   const converterCall = converterDrift ? 'htmlToMarkdown(String(html)).trim()' : 'htmlToMarkdown(html).trim()';
   await writeFile(join(packageRoot, 'clis', 'chatgpt', 'utils.js'), `import { htmlToMarkdown } from '@jackwener/opencli/utils';\n\nexport function messageHtmlToMarkdown(html) {\n    try {\n        return ${converterCall};\n    } catch {\n        return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\n    }\n}\n`);
-  await writeFile(join(gfmRoot, 'package.json'), `${JSON.stringify({ name: 'turndown-plugin-gfm', version: '1.0.2', type: 'module', exports: './index.js' })}\n`);
-  await writeFile(join(gfmRoot, 'index.js'), "export const gfm = Object.freeze({ fixture: 'gfm' });\n");
+  await writeFile(join(pluginRoot, 'package.json'), `${JSON.stringify({ name: 'turndown-plugin-gfm', version: '1.0.2', type: 'module', exports: './index.js' })}\n`);
+  await writeFile(join(pluginRoot, 'index.js'), "export const tables = Object.freeze({ fixture: 'gfm-tables' });\n");
   const path = join(packageRoot, 'dist', 'src', 'main.js');
-  await writeFile(path, `#!/usr/bin/env node\nimport { messageHtmlToMarkdown } from '../../clis/chatgpt/utils.js';\nif (process.argv[2] === '--version') console.log('1.8.7');\nelse console.log(JSON.stringify([{ Index: 1, Role: 'User', Text: 'question', Generating: false, StableSeconds: 3 }, { Index: 2, Role: 'Assistant', Text: messageHtmlToMarkdown(${JSON.stringify(html)}), Generating: false, StableSeconds: 3, Executable: process.argv[1] }]));\n`, { mode: 0o700 });
-  try { return await run({ root, path, expected }); } finally { await rm(root, { recursive: true, force: true }); }
+  await writeFile(path, `#!/usr/bin/env node\nimport { writeFileSync } from 'node:fs';\nimport { messageHtmlToMarkdown } from '../../clis/chatgpt/utils.js';\nif (process.argv[2] === '--version') console.log('1.8.7');\nelse { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.argv.slice(2))); console.log(JSON.stringify([{ Index: 1, Role: 'User', Text: 'question', Generating: false, StableSeconds: 3 }, { Index: 2, Role: 'Assistant', Text: messageHtmlToMarkdown(${JSON.stringify(html)}), Generating: false, StableSeconds: 3, Executable: process.argv[1] }])); }\n`, { mode: 0o700 });
+  try { return await run({ root, path, expected, capture }); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
 const validRow = { conversationId: 'abc-123_DEF', conversationUrl: 'https://chatgpt.com/c/abc-123_DEF', tool: '', response: 'CHATGPT_RESEARCH_LIVE_SMOKE_OK' };
@@ -113,18 +114,10 @@ test('accepts blank handoff rows for read-after-submit collection', () => {
   }
 });
 
-test('collects the full structured assistant response through a fresh Markdown read', async () => withFake('', async ({ root, path }) => {
-  const capture = join(root, 'detail-argv.json');
-  const fullResponse = '# Capability audit\n\n| Item | Answer |\n|---|---|\n| GitHub | yes |\n\nDone.';
-  const rows = [{ Index: 1, Role: 'User', Text: 'question', Generating: false, StableSeconds: 3 }, { Index: 2, Role: 'Assistant', Text: fullResponse, Generating: false, StableSeconds: 3 }];
-  await writeFile(path, `#!/usr/bin/env node
-import { writeFileSync } from 'node:fs';
-if (process.argv[2] === '--version') console.log('1.8.7');
-else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.argv.slice(2))); console.log(${JSON.stringify(JSON.stringify(rows))}); }
-`, { mode: 0o700 });
+test('collects the full structured assistant response through a fresh Markdown read', async () => withMarkdownFixtureOpenCli(async ({ path, expected, capture }) => {
   const identity = await preflightOpenCli({ executablePath: path });
   const result = await runOpenCliDetail({ executablePath: path, identity, conversationId: 'detail-1', timeoutSeconds: 600 });
-  assert.equal(result.response, fullResponse);
+  assert.equal(result.response, expected);
   assert.deepEqual(await readFile(capture, 'utf8').then(JSON.parse), ['chatgpt', 'detail', 'detail-1', '--markdown', 'true', '--wait', 'true', '--timeout', '600', '--stable', '3', '--site-session', 'ephemeral', '--format', 'json']);
 }));
 
