@@ -21,13 +21,12 @@ async function withMarkdownFixtureOpenCli(run, { converterDrift = false } = {}) 
   const capture = join(root, 'argv.json');
   const html = await readFile(new URL('./fixtures/chatgpt-markdown.html', import.meta.url), 'utf8');
   const expected = (await readFile(new URL('./fixtures/chatgpt-markdown.gfm.md', import.meta.url), 'utf8')).trim();
-  const escaped = expected.replace('**[C-001]**', '**\\[C-001\\]**');
-  const linearized = escaped.replace('| Key | Value |\n| --- | --- |\n| alpha | one |\n| beta | two |', 'Key\n\nValue\n\nalpha\n\none\n\nbeta\n\ntwo');
+  const linearized = expected.replace('| Key | Value |\n| --- | --- |\n| alpha | one |\n| beta | two |', 'Key\n\nValue\n\nalpha\n\none\n\nbeta\n\ntwo');
   await mkdir(join(packageRoot, 'dist', 'src'), { recursive: true });
   await mkdir(join(packageRoot, 'clis', 'chatgpt'), { recursive: true });
   await mkdir(pluginRoot, { recursive: true });
   await writeFile(join(packageRoot, 'package.json'), `${JSON.stringify({ name: '@jackwener/opencli', version: '1.8.7', type: 'module', exports: { './utils': './dist/src/utils.js' } })}\n`);
-  await writeFile(join(packageRoot, 'dist', 'src', 'utils.js'), `export function htmlToMarkdown(value, configure) {\n  let tablesEnabled = false;\n  configure?.({ use(plugin) { if (plugin?.fixture === 'gfm-tables') tablesEnabled = true; } });\n  if (value !== ${JSON.stringify(html)}) throw new Error('unexpected fixture');\n  return tablesEnabled ? ${JSON.stringify(escaped)} : ${JSON.stringify(linearized)};\n}\n`);
+  await writeFile(join(packageRoot, 'dist', 'src', 'utils.js'), `export function htmlToMarkdown(value, configure) {\n  let tablesEnabled = false;\n  const service = { use(plugin) { if (plugin?.fixture === 'gfm-tables') tablesEnabled = true; }, escape(text) { return text.replace(/\\[/g, '\\\\[').replace(/\\]/g, '\\\\]'); } };\n  configure?.(service);\n  if (value !== ${JSON.stringify(html)}) throw new Error('unexpected fixture');\n  const markdown = tablesEnabled ? ${JSON.stringify(expected)} : ${JSON.stringify(linearized)};\n  return markdown.replace('**[C-001]**', '**' + service.escape('[C-001]') + '**');\n}\n`);
   const converterCall = converterDrift ? 'htmlToMarkdown(String(html)).trim()' : 'htmlToMarkdown(html).trim()';
   await writeFile(join(packageRoot, 'clis', 'chatgpt', 'utils.js'), `import { htmlToMarkdown } from '@jackwener/opencli/utils';\n\nexport function messageHtmlToMarkdown(html) {\n    try {\n        return ${converterCall};\n    } catch {\n        return String(html || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\n    }\n}\n`);
   await writeFile(join(pluginRoot, 'package.json'), `${JSON.stringify({ name: 'turndown-plugin-gfm', version: '1.0.2', type: 'module', exports: './index.js' })}\n`);
