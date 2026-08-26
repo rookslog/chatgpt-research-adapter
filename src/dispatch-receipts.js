@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, mkdir, open } from 'node:fs/promises';
+import { lstat, mkdir, open, rename } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 
 import { canonicalJson } from './canonical-json.js';
@@ -61,13 +61,20 @@ export async function persistDispatchIntent({ jobRoot, intent, testSeam } = {}) 
   if (typeof jobRoot !== 'string' || !isAbsolute(jobRoot) || !intent || intent.schema !== 'm003.dispatch-intent.v1') fail('dispatch intent is invalid', 'ERR_DISPATCH_SCHEMA');
   await requireDirectory(jobRoot);
   const dispatchRoot = join(jobRoot, 'dispatch');
-  try { await mkdir(dispatchRoot, { mode: 0o700 }); } catch (error) { if (error?.code === 'EEXIST') fail('dispatch already exists', 'ERR_DISPATCH_EXISTS'); throw error; }
+  try { await lstat(dispatchRoot); fail('dispatch already exists', 'ERR_DISPATCH_EXISTS'); }
+  catch (error) { if (error?.code === 'ERR_DISPATCH_EXISTS') throw error; if (error?.code !== 'ENOENT') throw error; }
+  const stagingRoot = join(jobRoot, `.dispatch-staging-${randomUUID()}`);
+  await mkdir(stagingRoot, { mode: 0o700 });
+  fault(testSeam, 'after-dispatch-staging-directory');
+  const bytes = Buffer.from(`${canonicalJson(intent)}\n`);
+  await writeExclusive(join(stagingRoot, 'intent.json'), bytes, 'intent', testSeam);
+  await syncDirectory(stagingRoot);
+  fault(testSeam, 'after-intent-directory-sync');
+  try { await rename(stagingRoot, dispatchRoot); }
+  catch (error) { if (['EEXIST', 'ENOTEMPTY'].includes(error?.code)) fail('dispatch already exists', 'ERR_DISPATCH_EXISTS'); throw error; }
   fault(testSeam, 'after-dispatch-directory');
   await syncDirectory(jobRoot);
-  const bytes = Buffer.from(`${canonicalJson(intent)}\n`);
-  await writeExclusive(join(dispatchRoot, 'intent.json'), bytes, 'intent', testSeam);
-  await syncDirectory(dispatchRoot);
-  fault(testSeam, 'after-intent-directory-sync');
+  fault(testSeam, 'after-dispatch-parent-sync');
   return Object.freeze({ intent_sha256: hash(bytes), intent_path: join(dispatchRoot, 'intent.json') });
 }
 
