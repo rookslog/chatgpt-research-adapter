@@ -67,6 +67,15 @@
       ]
     },
     {
+      "id": "REQ-DISPATCH-008",
+      "level": "hard",
+      "external": false,
+      "statement": "Completed direct answer and report receipts must bind the exact durable artifact bytes with SHA-256 and byte count.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-DISPATCH-008 binds durable direct answer and report bytes into the completed result" }
+      ]
+    },
+    {
       "id": "REQ-CLI-001",
       "level": "hard",
       "external": false,
