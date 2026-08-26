@@ -1,12 +1,33 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
 import { runCli } from '../src/cli.js';
+import { createDispatchIntent, persistDispatchIntent } from '../src/dispatch-receipts.js';
 import { persistPreparedJob } from '../src/receipts.js';
+
+const dispatchBundle = Object.freeze({
+  job_id: 'job_review',
+  turn_id: 'turn_review',
+  template_id: 'research-question',
+  template_version: '1.0.0',
+  template_sha256: 'a'.repeat(64),
+  template_body_sha256: 'b'.repeat(64),
+  mode: 'standard',
+  mode_reason: 'default',
+  prompt_sha256: 'c'.repeat(64),
+  rigor_protocol_id: 'chatgpt-research-epistemic',
+  rigor_protocol_version: '1.0.0',
+  rigor_profile_id: 'standard',
+  rigor_profile_version: '1.0.0',
+  rigor_profile_sha256: 'd'.repeat(64),
+  citation_level: 'principal',
+  audit_appendix: false
+});
+const dispatchExecutable = Object.freeze({ supplied_path: '/tmp/opencli', real_path: '/tmp/opencli', sha256: 'e'.repeat(64), size: 123, device: '1', inode: '2', version: '1.8.7' });
 
 test('REQ-CLI-001 rejects a relative prepare output root at the CLI boundary', async () => {
   const root = await mkdtemp(join(tmpdir(), 'review-hardening-cli-'));
@@ -58,5 +79,21 @@ test('REQ-PREPARED-001 syncs the jobs directory after publishing a prepared job'
     assert.equal(current.turn.transport_status, 'not_dispatched');
   } finally {
     await rm(outputRoot, { recursive: true, force: true });
+  }
+});
+
+test('REQ-DISPATCH-004 failed intent publication does not publish or wedge the dispatch slot', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'review-hardening-dispatch-'));
+  const jobRoot = join(root, 'job');
+  await mkdir(jobRoot);
+  const intent = createDispatchIntent({ bundle: dispatchBundle, executable: dispatchExecutable, now: '2026-08-26T17:31:00.000Z' });
+  try {
+    await assert.rejects(persistDispatchIntent({ jobRoot, intent, testSeam: { failAt: 'after-intent-write' } }), { code: 'ERR_INJECTED_FAULT' });
+    await assert.rejects(stat(join(jobRoot, 'dispatch')), { code: 'ENOENT' });
+    const saved = await persistDispatchIntent({ jobRoot, intent });
+    assert.match(saved.intent_sha256, /^[0-9a-f]{64}$/);
+    assert.equal((await stat(join(jobRoot, 'dispatch'))).isDirectory(), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
