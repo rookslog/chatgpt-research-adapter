@@ -27,7 +27,7 @@
       "src/opencli-transport.js": "4955e030cdf692ad3d127c1c297a22cdf58f176bb784a14c8037a1be0e323047",
       "src/prepare.js": "31ddd778bca5cffc187986a41684e328fa8de31f1a617fdf56da29f596e8db00",
       "src/prepared-bundle.js": "9c73d5c3b5d945652492e24965958513e5946e60e0c66c6c3add2d3616bbedc2",
-      "src/receipts.js": "46693b14f7c9e55ee84c0878f61cfe7902183df508dfddc6c7dcfb721b3efb3b",
+      "src/receipts.js": "f3c48aa06067b46e5d108ca2c5bc9ec62aea65c659eb47b6804add9c04da9cd4",
       "src/rigor-profile.js": "4f6f308fe40674f0a06f3b04aee230f3a208beea7afdd39dba2d8094b05a1d73",
       "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
       "src/submit-once.js": "884acad4a12a4bfd815b0b3f5ba4c2a51be48728aadde03493f3ae512739487d",
