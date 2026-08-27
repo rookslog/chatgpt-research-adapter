@@ -118,31 +118,48 @@ const isWeb = process.argv.includes('--web-search');
 const isDeep = process.argv.includes('--deep-research');
 const targetKey = isWeb ? 'web-search' : (isDeep ? 'deep-research' : null);
 const targetLabel = targetKey === 'web-search' ? 'Web Search' : 'Deep Research';
-const state = { menuOpen: false, menuChecks: 0, menuOpenedAtCheck: 0, selectedTool: null, selectedChecks: 0, selectedAtCheck: 0, recoveryOptionChecks: 0, nativeMenuClicks: 0, nativeOptionClicks: 0, domMenuClicks: 0, domOptionClicks: 0 };
+const state = { menuOpen: false, menuChecks: 0, menuOpenedAtCheck: 0, selectedTool: null, selectedChecks: 0, selectedAtCheck: 0, recoveryOptionChecks: 0, nativeMenuClicks: 0, nativeOptionClicks: 0, domMenuClicks: 0, domOptionClicks: 0, layoutShifted: false, recoveryMenuResolveChecks: 0, staleRecoveryMenuClicks: 0 };
 const openMenu = () => { state.menuOpen = true; state.menuOpenedAtCheck = state.menuChecks; };
 const selectTool = () => { state.selectedTool = targetKey; state.selectedAtCheck = state.selectedChecks; };
 const page = {
   get selectedTool() { return state.selectedTool; },
   async nativeClick(x) {
-    if (x === 1) {
+    if (x === 1 || x === 3) {
       state.nativeMenuClicks += 1;
-      if (scenario.menuNativeWorks) openMenu();
+      if (scenario.recoveryMenuMoves && state.layoutShifted && x === 1) {
+        state.staleRecoveryMenuClicks += 1;
+        return;
+      }
+      if (scenario.menuNativeWorks || (scenario.recoveryMenuMoves && state.layoutShifted && x === 3)) openMenu();
       return;
     }
     state.nativeOptionClicks += 1;
-    if (scenario.optionNativeDismissesMenu) state.menuOpen = false;
+    if (scenario.optionNativeDismissesMenu) {
+      state.menuOpen = false;
+      if (scenario.recoveryMenuMoves) state.layoutShifted = true;
+    }
     if (scenario.optionNativeWorks) selectTool();
   },
   async wait() {},
   async evaluate(code) {
     const text = String(code);
+    if (text.includes("querySelectorAll('button[data-testid=\"composer-plus-btn\"]')")) {
+      state.recoveryMenuResolveChecks += 1;
+      return { found: true, x: state.layoutShifted ? 3 : 1, y: 1 };
+    }
     if (text.includes('.click()') && text.includes('composer-plus-btn')) {
+      if (scenario.recoveryMenuMoves && state.layoutShifted && text.includes('elementFromPoint(1, 1)')) return false;
       state.domMenuClicks += 1;
       if (state.menuOpen) state.menuOpen = false;
       else openMenu();
       return true;
     }
     if (text.includes('.click()') && (text.includes('menuitemradio') || text.includes('tabindex'))) {
+      if (scenario.recoverySelectionBeforeDomLookup) {
+        selectTool();
+        state.menuOpen = false;
+        return false;
+      }
       if (!state.menuOpen) return false;
       if (scenario.recoveryCheckedAtDomClick && text.includes('aria-checked') && text.includes('aria-selected')) {
         selectTool();
@@ -308,6 +325,28 @@ test('recovery polls for the exact option row after the tools surface reopens', 
 
 test('DOM fallback atomically rechecks refreshed option state before clicking', async () => {
   const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: false, recoveryCheckedAtDomClick: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeOptionClicks, 1);
+  assert.equal(capture.state.domOptionClicks, 0);
+});
+
+test('stale expanded state cannot suppress the initial menu fallback', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: false, optionNativeWorks: true, activeStaleExpanded: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeMenuClicks, 1);
+  assert.equal(capture.state.domMenuClicks, 1);
+});
+
+test('recovery refreshes the plus target before the native reopen click', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: false, optionNativeDismissesMenu: true, recoveryMenuMoves: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.ok(capture.state.recoveryMenuResolveChecks >= 1);
+  assert.equal(capture.state.staleRecoveryMenuClicks, 0);
+  assert.equal(capture.state.domOptionClicks, 1);
+});
+
+test('late successful selection is polled even when the fallback row vanishes', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: false, recoverySelectionBeforeDomLookup: true });
   assert.equal(result.tool, 'Web Search');
   assert.equal(capture.state.nativeOptionClicks, 1);
   assert.equal(capture.state.domOptionClicks, 0);
