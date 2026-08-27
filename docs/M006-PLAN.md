@@ -1,6 +1,6 @@
 # M006 — Production Usability
 
-- Status: bounded #4/#5 live qualification executed with recorded conformance/citation-coverage defects; #2/#3 selector diagnostics captured without source changes; all four child issues remain open
+- Status: #4/#5 live qualification executed and both issues closed completed after acceptance review; #2/#3 selector investigation active with no production selector change yet
 - Date: 2026-08-26
 - Closure target: a readable, dependable research adapter with the explicitly supported research modes and remaining rigor variants exercised
 - Integrated implementation baseline: `adf8d6c4c682a5c23fc54965920d2f862878f51e`
@@ -17,12 +17,12 @@
 
 - [M006 milestone](https://github.com/rookslog/chatgpt-research-adapter/milestone/1)
 - [Parent #1 — Close production-usability gaps](https://github.com/rookslog/chatgpt-research-adapter/issues/1)
-  - [#2 — Restore Web Search selector compatibility](https://github.com/rookslog/chatgpt-research-adapter/issues/2)
-  - [#3 — Restore Deep Research selector compatibility](https://github.com/rookslog/chatgpt-research-adapter/issues/3)
-  - [#4 — Preserve GFM tables and claim IDs](https://github.com/rookslog/chatgpt-research-adapter/issues/4)
-  - [#5 — Live-test expanded citations and audit appendix](https://github.com/rookslog/chatgpt-research-adapter/issues/5)
+  - [#2 — Restore Web Search selector compatibility](https://github.com/rookslog/chatgpt-research-adapter/issues/2) — open
+  - [#3 — Restore Deep Research selector compatibility](https://github.com/rookslog/chatgpt-research-adapter/issues/3) — open
+  - [#4 — Preserve GFM tables and claim IDs](https://github.com/rookslog/chatgpt-research-adapter/issues/4) — closed completed
+  - [#5 — Live-test expanded citations and audit appendix](https://github.com/rookslog/chatgpt-research-adapter/issues/5) — closed completed
 
-All five issues remain milestone-scoped; #2–#5 are direct sub-issues of #1. Do not close a child issue until its actual acceptance criteria are satisfied.
+All five issues remain milestone-scoped; #2–#5 are direct sub-issues of #1. Child closure is based on the issue body's actual acceptance criteria, with negative qualification findings preserved rather than rewritten as success.
 
 ## Current integrated state
 
@@ -36,27 +36,34 @@ PR #7 is merged on top of the recovered baseline. The deterministic implementati
 
 The exact integrated `main` commit after #6/#7 is `adf8d6c4c682a5c23fc54965920d2f862878f51e`. Its push CI completed successfully with 125/125 tests, `M002_AUTHORITY_OK`, `REQUIREMENTS_OK`, syntax verification, and package dry-run.
 
-Issue #4 nevertheless remains open because its final acceptance criterion is live: a bounded standard-mode regression must still confirm no content loss and no duplicate submission.
+Issue #4 is closed completed. Turn A of the bounded live qualification preserved the valid GFM table, readable claim IDs, requested code-block literal, material content through the terminal rendered marker, and exactly-one-submission evidence. The raw saved sentinel escaped underscores, which is rendered-equivalent Turndown serialization rather than truncation; the requested `text` fence info string was absent, but the code block and exact literal were present and language-info-string preservation was not a #4 acceptance criterion.
 
 ### Rigor qualification
 
-Issue #5 remains open. The two bounded live observations completed without transport ambiguity or retry and are durably receipted, but the strict bundle did not pass: both saved answers escaped the exact raw terminal sentinel, and the audit turn omitted principal citations for its repository workflow/run claims. The emitted citations that were present were manually checked separately from structural conformance.
+Issue #5 is closed completed as a qualification/observation task. Both bounded standard-mode variants completed once without transport ambiguity or retry, with full job/turn/conversation/profile/output receipts. Claim IDs, citation coverage, audit fields, contrary evidence/limits, revision triggers, formatting conformance, and citation correctness were checked and recorded separately, with no reliability estimate inferred.
 
-The approved operator bundle is [M006-LIVE-QUALIFICATION.md](M006-LIVE-QUALIFICATION.md). It deliberately uses two standard-mode provider turns only and prohibits automatic retries.
+The live observations include negative conformance findings: Turn B omitted principal citations for repository workflow/run claims, and both raw saved terminal sentinels escaped underscores. Those findings remain material evidence; closure of #5 means the requested empirical qualification was performed and characterized, not that every sampled model output conformed.
 
-The exact result is [M006-LIVE-QUALIFICATION-RECEIPT.md](M006-LIVE-QUALIFICATION-RECEIPT.md). Issue #4 also remains open under the strict runbook even though the live answer preserved the GFM table, readable claim IDs, rendered final content, and exactly-one-submission evidence: its saved sentinel was not byte-exact.
+The approved operator bundle is [M006-LIVE-QUALIFICATION.md](M006-LIVE-QUALIFICATION.md). The contemporaneous result is [M006-LIVE-QUALIFICATION-RECEIPT.md](M006-LIVE-QUALIFICATION-RECEIPT.md), and the subsequent issue-acceptance review is [M006-LIVE-QUALIFICATION-DISPOSITION.md](M006-LIVE-QUALIFICATION-DISPOSITION.md).
 
 ### Selector compatibility
 
-Issues #2 and #3 remain open. Released OpenCLI remains pinned at v1.8.7 for this adapter. A sanitized no-submission current-UI capture is recorded in [M006-SELECTOR-DIAGNOSTIC.md](M006-SELECTOR-DIAGNOSTIC.md). Both options were manually discoverable/selectable in the in-app browser, while the historical OpenCLI errors were not reproduced; the external Chrome native-click path remains unobserved in this diagnostic. Do not assume a dependency upgrade or speculative selector edit repairs the selectors. Web Search and Deep Research must remain explicit, mutually exclusive, and fail closed if selection cannot be proven before submission.
+Issues #2 and #3 remain open. Released OpenCLI remains pinned at v1.8.7 for this adapter, and current upstream `main` has no newer `clis/chatgpt/*` change relative to that release.
+
+A sanitized no-submission current-UI capture is recorded in [M006-SELECTOR-DIAGNOSTIC.md](M006-SELECTOR-DIAGNOSTIC.md). Both options were manually discoverable/selectable in the Codex in-app browser as same-level `div[tabindex=0]` options under a `role=group` surface, with inline `span[contenteditable=false]` selected chips. Those structures are already covered by the pinned selector logic, so the current capture does not reproduce the historical failures and does not justify a speculative selector patch.
+
+The exact external Chrome/Browser Bridge path that produced the historical errors remains the root-cause boundary. In particular, investigate whether unrelated visible preferred menu/popover roots suppress the selector's document fallback, whether Web Search's broad `Search` alias false-matches outside the real tool surface, and whether raw coordinate `nativeClick` targeting differs from manual/current-UI clicks. These are falsifiable hypotheses, not established fixes.
+
+Web Search and Deep Research must remain explicit, mutually exclusive, and fail closed if selection cannot be proven before submission.
 
 ## Execution order
 
-1. Preserve the completed two-turn receipt for #4/#5 and decide the minimum follow-up for the exact raw-sentinel and citation-coverage defects without resubmitting either completed job.
-2. Keep #4/#5 open until their complete acceptance criteria are satisfied; do not infer reliability from these observations.
-3. Build #2/#3 deterministic fixtures from the sanitized current-UI capture, then reproduce the actual OpenCLI failure before any implementation change; prefer the minimum compatible upstream-derived change over a broad local browser fork.
-4. Refresh parent/status documentation as M006 evidence changes and keep issue/PR cross-links auditable.
-5. Return the repository to private visibility after the temporary public-review/qualification need ends.
+1. Preserve PR #9's completed #4/#5 live receipt and post-run disposition; do not resubmit those completed jobs.
+2. Continue #2/#3 systematic debugging from the exact external Chrome/Browser Bridge selector boundary. Do not fabricate a failing fixture from a current UI capture that does not reproduce the bug.
+3. If the historical failures reproduce, capture the minimum sanitized root/candidate/click/postcondition evidence, write causal red tests, and make the smallest selector compatibility change.
+4. If the exact pinned selector no longer fails on current external Chrome, record the issue premise as currently unreproducible and decide disposition from fresh capability evidence rather than forcing a code change.
+5. Refresh parent/status documentation as M006 evidence changes and keep issue/PR cross-links auditable.
+6. Return the repository to private visibility after the temporary public-review/qualification need ends.
 
 ## Residual risks and follow-up
 
@@ -64,6 +71,7 @@ Issues #2 and #3 remain open. Released OpenCLI remains pinned at v1.8.7 for this
 - **Native Windows CI:** deterministic Windows path/profile handling is covered by tests, but the current GitHub Actions workflow runs on Ubuntu. Native Windows CI remains a useful follow-up and must not be inferred from Linux CI success.
 - **Repository visibility:** current public visibility is operationally temporary, not a product decision to publish the project permanently.
 - **Live evidence scope:** one successful turn is an observation in that configuration, not a reliability estimate.
+- **Rigor conformance:** one audit turn omitted principal citations for repository/run claims. Treat that as sampled model-output evidence, not a semantic-verification feature or a reliability estimate.
 
 ## Connector capability observation
 
@@ -91,11 +99,11 @@ For a docs/qualification PR, the full repository CI on the exact branch head is 
 M006 is complete only when:
 
 - the recovered real adapter baseline remains reproducible;
-- Web Search satisfies #2 deterministically and in its bounded live smoke;
-- Deep Research satisfies #3 deterministically and in its bounded live smoke;
-- #4's live standard-mode regression corroborates the merged Markdown/full-message behavior without duplicate submission;
-- #5 has both required standard-mode live observations with receipt evidence;
-- citation correctness and formatting conformance are reported separately;
+- Web Search is dispositioned from current evidence: either #2 satisfies deterministic/live compatibility criteria after a causal fix, or the historical failure is shown to be currently unreproducible and #2 is closed with that evidence rather than a fabricated patch;
+- Deep Research is dispositioned on the same evidence standard for #3;
+- #4 remains closed with its live GFM/readable-claim-ID/full-message/no-duplicate evidence preserved;
+- #5 remains closed with both required live observations and their positive/negative qualification findings preserved;
+- citation correctness and formatting conformance remain reported separately;
 - applicable deterministic tests and repository verification checks pass;
 - milestone issues/PRs are cross-linked with evidence sufficient for later audit;
 - residual risks are stated rather than silently promoted to resolved.
