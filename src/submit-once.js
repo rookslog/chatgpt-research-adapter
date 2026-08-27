@@ -43,6 +43,6 @@ export async function submitPreparedJobOnce({ outputRoot, jobId, openCliPath, no
   try {
     return await persistCompletedResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, handoffSha256: handoff.handoff_sha256, answer: answer.response, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, now: now(), testSeam: receiptTestSeam });
   } catch (error) {
-    return persistRecoveryRequiredResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, handoffSha256: handoff.handoff_sha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, disposition: disposition(error), now: now(), testSeam: receiptTestSeam });
+    return persistRecoveryRequiredResult({ jobRoot: bundle.job_root, bundle, intentSha256: saved.intent_sha256, handoffSha256: handoff.handoff_sha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, disposition: disposition(error), now: now() });
   }
 }

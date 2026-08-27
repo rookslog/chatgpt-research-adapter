@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, mkdir, open, rename } from 'node:fs/promises';
+import { link, lstat, mkdir, open, rename, rm, unlink } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 
 import { canonicalJson } from './canonical-json.js';
@@ -62,6 +62,11 @@ async function writeExclusive(path, bytes, name, seam) {
   } finally { await handle.close(); fault(seam, `after-${name}-close`); }
 }
 
+async function cleanupPublished(path, parent) {
+  await rm(path, { recursive: true, force: true });
+  await syncDirectory(parent);
+}
+
 export function createDispatchIntent({ bundle, executable, now } = {}) {
   time(now);
   if (!ID.test(bundle?.job_id ?? '') || !ID.test(bundle?.turn_id ?? '') || bundle?.mode !== 'standard' || !HASH.test(bundle?.prompt_sha256 ?? '') || !HASH.test(bundle?.template_sha256 ?? '') || !HASH.test(bundle?.template_body_sha256 ?? '')) fail('dispatch bundle identity is invalid', 'ERR_DISPATCH_SCHEMA');
@@ -77,17 +82,25 @@ export async function persistDispatchIntent({ jobRoot, intent, testSeam } = {}) 
   catch (error) { if (error?.code === 'ERR_DISPATCH_EXISTS') throw error; if (error?.code !== 'ENOENT') throw error; }
   const stagingRoot = join(jobRoot, `.dispatch-staging-${randomUUID()}`);
   await mkdir(stagingRoot, { mode: 0o700 });
-  fault(testSeam, 'after-dispatch-staging-directory');
+  let published = false;
   const bytes = Buffer.from(`${canonicalJson(intent)}\n`);
-  await writeExclusive(join(stagingRoot, 'intent.json'), bytes, 'intent', testSeam);
-  await syncDirectory(stagingRoot);
-  fault(testSeam, 'after-intent-directory-sync');
-  try { await rename(stagingRoot, dispatchRoot); }
-  catch (error) { if (['EEXIST', 'ENOTEMPTY'].includes(error?.code)) fail('dispatch already exists', 'ERR_DISPATCH_EXISTS'); throw error; }
-  fault(testSeam, 'after-dispatch-directory');
-  await syncDirectory(jobRoot);
-  fault(testSeam, 'after-dispatch-parent-sync');
-  return Object.freeze({ intent_sha256: hash(bytes), intent_path: join(dispatchRoot, 'intent.json') });
+  try {
+    fault(testSeam, 'after-dispatch-staging-directory');
+    await writeExclusive(join(stagingRoot, 'intent.json'), bytes, 'intent', testSeam);
+    await syncDirectory(stagingRoot);
+    fault(testSeam, 'after-intent-directory-sync');
+    try { await rename(stagingRoot, dispatchRoot); }
+    catch (error) { if (['EEXIST', 'ENOTEMPTY'].includes(error?.code)) fail('dispatch already exists', 'ERR_DISPATCH_EXISTS'); throw error; }
+    published = true;
+    fault(testSeam, 'after-dispatch-directory');
+    await syncDirectory(jobRoot);
+    fault(testSeam, 'after-dispatch-parent-sync');
+    return Object.freeze({ intent_sha256: hash(bytes), intent_path: join(dispatchRoot, 'intent.json') });
+  } catch (error) {
+    if (published) await cleanupPublished(dispatchRoot, jobRoot);
+    else await rm(stagingRoot, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 export async function persistDispatchHandoff({ jobRoot, bundle, intentSha256, conversationId, conversationUrl, tool, now, testSeam } = {}) {
@@ -108,7 +121,23 @@ function baseResult({ bundle, intentSha256, now }) {
 
 async function persistResultFile(jobRoot, result, seam) {
   const dispatchRoot = join(jobRoot, 'dispatch'); await requireDirectory(dispatchRoot); await verifyIntent(dispatchRoot, result.intent_sha256);
-  await writeExclusive(join(dispatchRoot, 'result.json'), Buffer.from(`${canonicalJson(result)}\n`), 'result', seam); await syncDirectory(dispatchRoot); fault(seam, 'after-result-directory-sync'); return Object.freeze(result);
+  const finalPath = join(dispatchRoot, 'result.json');
+  const stagingPath = join(dispatchRoot, `.result-staging-${randomUUID()}.json`);
+  let published = false;
+  try {
+    await writeExclusive(stagingPath, Buffer.from(`${canonicalJson(result)}\n`), 'result', seam);
+    try { await link(stagingPath, finalPath); }
+    catch (error) { if (error?.code === 'EEXIST') fail('dispatch artifact already exists', 'ERR_DISPATCH_EXISTS'); throw error; }
+    published = true;
+    await unlink(stagingPath);
+    fault(seam, 'after-result-publish');
+    await syncDirectory(dispatchRoot);
+    return Object.freeze(result);
+  } catch (error) {
+    if (published) await cleanupPublished(finalPath, dispatchRoot);
+    else await rm(stagingPath, { force: true });
+    throw error;
+  }
 }
 
 export async function persistCompletedResult({ jobRoot, bundle, intentSha256, handoffSha256, answer, conversationId, conversationUrl, now, testSeam } = {}) {

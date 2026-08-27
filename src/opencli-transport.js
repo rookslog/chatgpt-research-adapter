@@ -11,6 +11,7 @@ const VERSION = '1.8.7';
 const OUTPUT_LIMIT = 256 * 1024;
 const VERSION_LIMIT = 4096;
 const DEFAULT_TIMEOUT = 135 * 1000;
+const MAX_EXECUTABLE_BYTES = 16 * 1024 * 1024;
 const MODE_TO_TOOL = Object.freeze({ standard: '', web: 'Web Search', deep: 'Deep Research' });
 const CHATGPT_CONVERSATION_ROOT = ['https:', '', 'chatgpt.com', 'c'].join('/');
 const CWD = fileURLToPath(new URL('..', import.meta.url));
@@ -31,9 +32,10 @@ async function executableIdentity(executablePath) {
   try { resolved = await realpath(executablePath); } catch { throw fail('OpenCLI executable is unavailable', 'ERR_OPENCLI_PATH'); }
   const entry = await lstat(resolved).catch(() => { throw fail('OpenCLI executable is unavailable', 'ERR_OPENCLI_PATH'); });
   if (!entry.isFile() || (process.platform !== 'win32' && (entry.mode & 0o111) === 0)) throw fail('OpenCLI target must be an executable regular file', 'ERR_OPENCLI_PATH');
+  if (entry.size > MAX_EXECUTABLE_BYTES) throw fail('OpenCLI executable exceeds its byte limit', 'ERR_OPENCLI_EXECUTABLE_LIMIT');
   const bytes = await readFile(resolved);
   const after = await lstat(resolved).catch(() => { throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY'); });
-  if (after.dev !== entry.dev || after.ino !== entry.ino || after.size !== entry.size || after.mtimeMs !== entry.mtimeMs) throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY');
+  if (after.dev !== entry.dev || after.ino !== entry.ino || after.size !== entry.size || after.mtimeMs !== entry.mtimeMs) throw fail('OpenCLI executable identity changed during read', 'ERR_OPENCLI_IDENTITY');
   return Object.freeze({ supplied_path: executablePath, real_path: resolved, sha256: digest(bytes), size: entry.size, device: String(entry.dev), inode: String(entry.ino) });
 }
 

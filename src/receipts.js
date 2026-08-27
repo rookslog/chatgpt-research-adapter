@@ -22,7 +22,12 @@ function validate({ outputRoot, job, turn, compiled, now }) {
   if (!compiled || typeof compiled.prompt !== 'string' || !['template_id', 'template_version', 'template_sha256', 'template_body_sha256', 'prompt_sha256', 'mode', 'mode_reason', 'rigor_protocol_id', 'rigor_protocol_version', 'rigor_profile_id', 'rigor_profile_version', 'rigor_profile_sha256', 'citation_level', 'audit_appendix'].every((key) => key in compiled) || ![compiled.template_sha256, compiled.template_body_sha256, compiled.prompt_sha256, compiled.rigor_profile_sha256].every((hash) => HASH.test(hash)) || compiled.rigor_protocol_id !== 'chatgpt-research-epistemic' || compiled.rigor_protocol_version !== '1.0.0' || !['principal', 'expanded'].includes(compiled.citation_level) || typeof compiled.audit_appendix !== 'boolean' || createHash('sha256').update(Buffer.from(compiled.prompt, 'utf8')).digest('hex') !== compiled.prompt_sha256) fail('invalid compiled prompt', 'ERR_RECEIPT_COMPILED');
 }
 
-async function validateOutputRoot(outputRoot, jobsRoot) {
+async function syncDirectory(path) {
+  const handle = await open(path, constants.O_RDONLY);
+  try { await handle.sync(); } catch (error) { if (!['EINVAL', 'ENOTSUP', 'ENOSYS'].includes(error?.code)) throw error; } finally { await handle.close(); }
+}
+
+async function validateOutputRoot(outputRoot, jobsRoot, testSeam) {
   const root = await lstat(outputRoot).catch(() => fail('output root must exist', 'ERR_RECEIPT_ROOT'));
   if (!root.isDirectory() || root.isSymbolicLink()) fail('output root must be a regular directory', 'ERR_RECEIPT_ROOT');
   let jobs;
@@ -32,6 +37,8 @@ async function validateOutputRoot(outputRoot, jobsRoot) {
     try { await mkdir(jobsRoot); } catch (error) { if (error?.code !== 'EEXIST') throw error; }
     jobs = await lstat(jobsRoot).catch(() => fail('jobs root unavailable', 'ERR_RECEIPT_ROOT'));
     if (!jobs.isDirectory() || jobs.isSymbolicLink()) fail('jobs root must be a regular directory', 'ERR_RECEIPT_ROOT');
+    await syncDirectory(outputRoot);
+    fault(testSeam, 'after-jobs-root-parent-sync');
   }
 }
 
@@ -49,16 +56,11 @@ async function writeExclusive(path, bytes, name, seam) {
   }
 }
 
-async function syncDirectory(path) {
-  const handle = await open(path, constants.O_RDONLY);
-  try { await handle.sync(); } catch (error) { if (!['EINVAL', 'ENOTSUP', 'ENOSYS'].includes(error?.code)) throw error; } finally { await handle.close(); }
-}
-
 export async function persistPreparedJob({ outputRoot, job, turn, compiled, now, testSeam } = {}) {
   validate({ outputRoot, job, turn, compiled, now });
   const jobsRoot = join(outputRoot, 'jobs');
   const published = join(jobsRoot, job.job_id);
-  await validateOutputRoot(outputRoot, jobsRoot);
+  await validateOutputRoot(outputRoot, jobsRoot, testSeam);
   try { await lstat(published); fail('job already exists', 'ERR_DUPLICATE_JOB'); } catch (error) { if (error?.code !== 'ENOENT') { if (error?.code === 'ERR_DUPLICATE_JOB') throw error; throw error; } }
   const staging = join(outputRoot, `.m002-staging-${job.job_id}-${randomUUID()}`);
   await mkdir(staging, { mode: 0o700 });
