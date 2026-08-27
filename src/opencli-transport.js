@@ -230,6 +230,8 @@ const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    if (!optionCenter?
         if (!(option instanceof HTMLElement)) return false;
         const primaryNodes = [option, ...option.querySelectorAll('span, div, p')];
         if (!primaryNodes.some((part) => labels.includes(normalize(part.textContent)))) return false;
+        const checked = option.getAttribute('aria-checked') === 'true' || option.getAttribute('aria-selected') === 'true';
+        if (checked) return true;
         option.click();
         return true;
     })()\`)), 'chatgpt tool option DOM fallback');
