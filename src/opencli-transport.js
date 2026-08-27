@@ -41,6 +41,44 @@ const OPENCLI_MARKDOWN_PATCHED_CONVERTER = String.raw`export function messageHtm
     }
 }`;
 
+const OPENCLI_WEB_TOOL_OPTIONS = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', '搜索', 'Web Search', 'Search'] },\n};";
+const OPENCLI_WEB_TOOL_OPTIONS_PATCHED = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', 'Web Search'] },\n};";
+const OPENCLI_WEB_ROOT_SELECTOR = "            const rootSelector = '[role=\"menu\"], [role=\"listbox\"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*=\"menu\"], [data-testid*=\"popover\"]';";
+const OPENCLI_WEB_ROOT_SELECTOR_PATCHED = "            const rootSelector = '[role=\"group\"], [role=\"menu\"], [role=\"listbox\"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*=\"menu\"], [data-testid*=\"popover\"]';";
+const OPENCLI_WEB_OPTION_MATCHER = String.raw`            const option = options.find((node) => {
+                if (!(node instanceof HTMLElement) || !isVisible(node) || node.closest('nav, aside')) return false;
+                const haystacks = [
+                    node.textContent,
+                    node.getAttribute('aria-label'),
+                    node.getAttribute('title'),
+                    node.getAttribute('data-testid'),
+                ];
+                return haystacks.some(matchesLabel);
+            });`;
+const OPENCLI_WEB_OPTION_MATCHER_PATCHED = String.raw`            const exactLabels = labels.map((label) => normalize(label).toLowerCase());
+            const option = options.find((node) => {
+                if (!(node instanceof HTMLElement) || !isVisible(node) || node.closest('nav, aside')) return false;
+                const primaryNodes = [node, ...node.querySelectorAll('span, div, p')];
+                return primaryNodes.some((part) => exactLabels.includes(normalize(part.textContent).toLowerCase()));
+            });`;
+const OPENCLI_WEB_POSTCONDITION = String.raw`    await page.wait(0.5);
+    const after = await getCurrentChatGPTTool(page);
+    if (after.tool !== target.key) {
+        throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
+    }`;
+const OPENCLI_WEB_POSTCONDITION_PATCHED = String.raw`    await page.wait(0.5);
+    const after = requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+        const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+        const labels = ['web search', '网页搜索'];
+        const composer = document.querySelector('#prompt-textarea[contenteditable="true"], [data-testid="prompt-textarea"][contenteditable="true"], [contenteditable="true"][role="textbox"]');
+        if (!(composer instanceof HTMLElement)) return { selected: false };
+        const chips = Array.from(composer.querySelectorAll('[contenteditable="false"]')).filter((node) => node instanceof HTMLElement);
+        return { selected: chips.filter((node) => labels.includes(normalize(node.textContent))).length === 1 };
+    })()\`)), 'chatgpt Web Search selected chip');
+    if (!after.selected) {
+        throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
+    }`;
+
 function replacePinnedMarkdownSource(source, before, after) {
   const parts = source.split(before);
   if (parts.length !== 2) throw fail('OpenCLI ChatGPT Markdown converter does not match the pinned source', 'ERR_OPENCLI_MARKDOWN_COMPAT');
@@ -52,11 +90,30 @@ function patchOpenCliMarkdownSource(source) {
   return replacePinnedMarkdownSource(withGfm, OPENCLI_MARKDOWN_CONVERTER, OPENCLI_MARKDOWN_PATCHED_CONVERTER);
 }
 
-function temporaryDirectoryRoot(source = process.env) {
+function embeddedPinnedWebSource(value) {
+  return value.replaceAll('\\`', '`').replaceAll('\\${', '${');
+}
+
+function replacePinnedWebSource(source, before, after) {
+  const pinnedBefore = embeddedPinnedWebSource(before);
+  const pinnedAfter = embeddedPinnedWebSource(after);
+  const parts = source.split(pinnedBefore);
+  if (parts.length !== 2) throw fail('OpenCLI ChatGPT Web Search selector does not match the pinned source', 'ERR_OPENCLI_WEB_COMPAT');
+  return `${parts[0]}${pinnedAfter}${parts[1]}`;
+}
+
+function patchOpenCliWebSelectorSource(source) {
+  const withLabels = replacePinnedWebSource(source, OPENCLI_WEB_TOOL_OPTIONS, OPENCLI_WEB_TOOL_OPTIONS_PATCHED);
+  const withRoot = replacePinnedWebSource(withLabels, OPENCLI_WEB_ROOT_SELECTOR, OPENCLI_WEB_ROOT_SELECTOR_PATCHED);
+  const withExactOption = replacePinnedWebSource(withRoot, OPENCLI_WEB_OPTION_MATCHER, OPENCLI_WEB_OPTION_MATCHER_PATCHED);
+  return replacePinnedWebSource(withExactOption, OPENCLI_WEB_POSTCONDITION, OPENCLI_WEB_POSTCONDITION_PATCHED);
+}
+
+function temporaryDirectoryRoot(source = process.env, compatCode = 'ERR_OPENCLI_MARKDOWN_COMPAT') {
   const candidate = process.platform === 'win32'
     ? (source.TEMP ?? source.TMP)
     : (source.TMPDIR ?? source.TMP ?? source.TEMP ?? '/tmp');
-  if (typeof candidate !== 'string' || !isAbsolute(candidate)) throw fail('OpenCLI Markdown temporary directory is unavailable', 'ERR_OPENCLI_MARKDOWN_COMPAT');
+  if (typeof candidate !== 'string' || !isAbsolute(candidate)) throw fail('OpenCLI temporary directory is unavailable', compatCode);
   return candidate;
 }
 
@@ -79,43 +136,63 @@ async function makeCopiedDirectoriesRemovable(root) {
   }
 }
 
-async function withMarkdownCompatibleOpenCli(identity, environment, run) {
+async function withPatchedOpenCli(identity, environment, { patchSource, compatCode, label, isolateHome = false }, run) {
   const entrySuffix = join('dist', 'src', 'main.js');
-  if (typeof identity?.real_path !== 'string' || !identity.real_path.endsWith(entrySuffix)) throw fail('OpenCLI package layout is incompatible with Markdown qualification', 'ERR_OPENCLI_MARKDOWN_COMPAT');
+  if (typeof identity?.real_path !== 'string' || !identity.real_path.endsWith(entrySuffix)) throw fail(`OpenCLI package layout is incompatible with ${label}`, compatCode);
   const packageRoot = dirname(dirname(dirname(identity.real_path)));
   const sourcePath = join(packageRoot, 'clis', 'chatgpt', 'utils.js');
   let source;
-  try { source = await readFile(sourcePath, 'utf8'); } catch { throw fail('OpenCLI ChatGPT Markdown converter is unavailable', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
-  const patched = patchOpenCliMarkdownSource(source);
+  try { source = await readFile(sourcePath, 'utf8'); } catch { throw fail(`OpenCLI ChatGPT source is unavailable for ${label}`, compatCode); }
+  const patched = patchSource(source);
   const dependencyRoot = nearestNodeModules(packageRoot);
   const dependencyEntry = dependencyRoot === null ? null : await lstat(dependencyRoot).catch(() => null);
-  if (dependencyEntry === null || !dependencyEntry.isDirectory()) throw fail('OpenCLI dependency root is unavailable for Markdown qualification', 'ERR_OPENCLI_MARKDOWN_COMPAT');
+  if (dependencyEntry === null || !dependencyEntry.isDirectory()) throw fail(`OpenCLI dependency root is unavailable for ${label}`, compatCode);
   let workspace;
-  try { workspace = await mkdtemp(join(temporaryDirectoryRoot(), 'chatgpt-research-opencli-')); }
-  catch { throw fail('OpenCLI Markdown temporary workspace is unavailable', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
+  try { workspace = await mkdtemp(join(temporaryDirectoryRoot(process.env, compatCode), 'chatgpt-research-opencli-')); }
+  catch (error) { if (error?.code === compatCode) throw error; throw fail(`OpenCLI temporary workspace is unavailable for ${label}`, compatCode); }
   const tempPackageRoot = join(workspace, 'opencli');
   try {
     await cp(packageRoot, tempPackageRoot, { recursive: true });
     const workspaceModulesPath = join(workspace, 'node_modules');
     try { await symlink(dependencyRoot, workspaceModulesPath, process.platform === 'win32' ? 'junction' : 'dir'); }
-    catch { throw fail('OpenCLI dependencies could not be linked into the Markdown workspace', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
-    const copiedConverterPath = join(tempPackageRoot, 'clis', 'chatgpt', 'utils.js');
-    const copiedConverter = await lstat(copiedConverterPath).catch(() => null);
-    if (copiedConverter === null || !copiedConverter.isFile()) throw fail('OpenCLI copied Markdown converter is invalid', 'ERR_OPENCLI_MARKDOWN_COMPAT');
-    try { await chmod(copiedConverterPath, copiedConverter.mode | 0o200); }
-    catch { throw fail('OpenCLI copied Markdown converter is not writable', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
-    await writeFile(copiedConverterPath, patched, 'utf8');
-    const isolatedHome = join(workspace, 'home');
-    await mkdir(isolatedHome, { mode: 0o700 });
-    const isolatedEnvironment = { ...(environment ?? process.env), HOME: isolatedHome, USERPROFILE: isolatedHome };
+    catch { throw fail(`OpenCLI dependencies could not be linked for ${label}`, compatCode); }
+    const copiedSourcePath = join(tempPackageRoot, 'clis', 'chatgpt', 'utils.js');
+    const copiedSource = await lstat(copiedSourcePath).catch(() => null);
+    if (copiedSource === null || !copiedSource.isFile()) throw fail(`OpenCLI copied ChatGPT source is invalid for ${label}`, compatCode);
+    try { await chmod(copiedSourcePath, copiedSource.mode | 0o200); }
+    catch { throw fail(`OpenCLI copied ChatGPT source is not writable for ${label}`, compatCode); }
+    await writeFile(copiedSourcePath, patched, 'utf8');
+    let runEnvironment = environment ?? process.env;
+    if (isolateHome) {
+      const isolatedHome = join(workspace, 'home');
+      await mkdir(isolatedHome, { mode: 0o700 });
+      runEnvironment = { ...runEnvironment, HOME: isolatedHome, USERPROFILE: isolatedHome };
+    }
     const copiedExecutable = join(tempPackageRoot, 'dist', 'src', 'main.js');
     const copiedIdentity = await executableIdentity(copiedExecutable);
     if (copiedIdentity.sha256 !== identity.sha256 || copiedIdentity.size !== identity.size) throw fail('OpenCLI copied executable identity changed', 'ERR_OPENCLI_IDENTITY');
-    return await run(copiedExecutable, isolatedEnvironment);
+    return await run(copiedExecutable, runEnvironment);
   } finally {
     await makeCopiedDirectoriesRemovable(tempPackageRoot);
     await rm(workspace, { recursive: true, force: true });
   }
+}
+
+async function withMarkdownCompatibleOpenCli(identity, environment, run) {
+  return withPatchedOpenCli(identity, environment, {
+    patchSource: patchOpenCliMarkdownSource,
+    compatCode: 'ERR_OPENCLI_MARKDOWN_COMPAT',
+    label: 'Markdown qualification',
+    isolateHome: true,
+  }, run);
+}
+
+async function withWebCompatibleOpenCli(identity, environment, run) {
+  return withPatchedOpenCli(identity, environment, {
+    patchSource: patchOpenCliWebSelectorSource,
+    compatCode: 'ERR_OPENCLI_WEB_COMPAT',
+    label: 'Web Search compatibility',
+  }, run);
 }
 
 function minimalEnvironment(source = process.env) {
@@ -202,7 +279,10 @@ async function runAsk({ executablePath, identity, prompt, mode, timeoutSeconds, 
   if (siteSession === 'persistent') args.push('--wait', 'false');
   if (mode === 'web') args.push('--web-search', 'true');
   if (mode === 'deep') args.push('--deep-research', 'true');
-  const result = await runProcess(identity.real_path, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment, killGraceMs });
+  const execute = (askExecutablePath, askEnvironment) => runProcess(askExecutablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment: askEnvironment, killGraceMs });
+  const result = mode === 'web'
+    ? await withWebCompatibleOpenCli(identity, environment, execute)
+    : await execute(identity.real_path, environment);
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI ask child did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   return parseOpenCliAnswer(result.stdout, { mode });
 }

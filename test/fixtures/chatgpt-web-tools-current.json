@@ -1,0 +1,36 @@
+{
+  "surface": {
+    "role": "group"
+  },
+  "options": [
+    {
+      "id": "library",
+      "tag": "div",
+      "tabindex": "0",
+      "primary": "Add from library",
+      "description": "Browse and search your files",
+      "text": "Add from libraryBrowse and search your files"
+    },
+    {
+      "id": "web-search",
+      "tag": "div",
+      "tabindex": "0",
+      "primary": "Web search",
+      "description": "Find real-time news and info",
+      "text": "Web searchFind real-time news and info"
+    },
+    {
+      "id": "deep-research",
+      "tag": "div",
+      "tabindex": "0",
+      "primary": "Deep research",
+      "description": "Get a detailed report",
+      "text": "Deep researchGet a detailed report"
+    }
+  ],
+  "selected_chip": {
+    "tag": "span",
+    "contenteditable": "false",
+    "primary": "Web search"
+  }
+}
