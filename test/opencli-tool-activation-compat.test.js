@@ -118,7 +118,7 @@ const isWeb = process.argv.includes('--web-search');
 const isDeep = process.argv.includes('--deep-research');
 const targetKey = isWeb ? 'web-search' : (isDeep ? 'deep-research' : null);
 const targetLabel = targetKey === 'web-search' ? 'Web Search' : 'Deep Research';
-const state = { menuOpen: false, selectedTool: null, nativeMenuClicks: 0, nativeOptionClicks: 0, domMenuClicks: 0, domOptionClicks: 0 };
+const state = { menuOpen: false, menuChecks: 0, selectedTool: null, nativeMenuClicks: 0, nativeOptionClicks: 0, domMenuClicks: 0, domOptionClicks: 0 };
 const page = {
   get selectedTool() { return state.selectedTool; },
   async nativeClick(x) {
@@ -135,7 +135,7 @@ const page = {
     const text = String(code);
     if (text.includes('.click()') && text.includes('composer-plus-btn')) {
       state.domMenuClicks += 1;
-      state.menuOpen = true;
+      state.menuOpen = !state.menuOpen;
       return true;
     }
     if (text.includes('.click()') && (text.includes('menuitemradio') || text.includes('tabindex'))) {
@@ -143,9 +143,16 @@ const page = {
       state.selectedTool = targetKey;
       return true;
     }
-    if (text.includes('composer-plus-btn') && text.includes('aria-expanded')) return state.menuOpen;
+    if (text.includes('composer-plus-btn') && text.includes('aria-expanded')) {
+      state.menuChecks += 1;
+      if (!state.menuOpen) return false;
+      return state.menuChecks > (scenario.menuVisibleAfterChecks ?? 0);
+    }
     if (text.includes('const optionSelector')) return state.menuOpen ? { found: true, checked: state.selectedTool === targetKey, x: 2, y: 2 } : { found: false };
-    if (text.includes('[contenteditable="false"]')) return { selected: state.selectedTool === targetKey };
+    if (text.includes('[contenteditable="false"]')) {
+      const visibilityAware = text.includes('const composers =') && text.includes('isVisible');
+      return { selected: state.selectedTool === targetKey && (!scenario.hiddenComposerFirst || visibilityAware) };
+    }
     return false;
   },
 };
@@ -200,5 +207,19 @@ test('successful native tool activation does not invoke the DOM fallback', async
   const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: true });
   assert.equal(result.tool, 'Web Search');
   assert.equal(capture.state.domMenuClicks, 0);
+  assert.equal(capture.state.domOptionClicks, 0);
+});
+
+test('slow native menu render does not toggle an already-open tools menu with the DOM fallback', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: true, menuVisibleAfterChecks: 1 });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeMenuClicks, 1);
+  assert.equal(capture.state.domMenuClicks, 0);
+});
+
+test('selected-state verification ignores hidden stale composers before the active composer', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: true, hiddenComposerFirst: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeOptionClicks, 1);
   assert.equal(capture.state.domOptionClicks, 0);
 });
