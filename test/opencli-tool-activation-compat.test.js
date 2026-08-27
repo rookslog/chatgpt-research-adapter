@@ -144,6 +144,10 @@ const page = {
     }
     if (text.includes('.click()') && (text.includes('menuitemradio') || text.includes('tabindex'))) {
       if (!state.menuOpen) return false;
+      if (scenario.recoveryCheckedAtDomClick && text.includes('aria-checked') && text.includes('aria-selected')) {
+        selectTool();
+        return true;
+      }
       state.domOptionClicks += 1;
       selectTool();
       return true;
@@ -300,4 +304,11 @@ test('recovery polls for the exact option row after the tools surface reopens', 
   assert.equal(result.tool, 'Web Search');
   assert.ok(capture.state.recoveryOptionChecks >= 2);
   assert.equal(capture.state.domOptionClicks, 1);
+});
+
+test('DOM fallback atomically rechecks refreshed option state before clicking', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: false, recoveryCheckedAtDomClick: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeOptionClicks, 1);
+  assert.equal(capture.state.domOptionClicks, 0);
 });
