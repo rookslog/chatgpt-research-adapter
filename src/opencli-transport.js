@@ -41,11 +41,11 @@ const OPENCLI_MARKDOWN_PATCHED_CONVERTER = String.raw`export function messageHtm
     }
 }`;
 
-const OPENCLI_WEB_TOOL_OPTIONS = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', '搜索', 'Web Search', 'Search'] },\n};";
-const OPENCLI_WEB_TOOL_OPTIONS_PATCHED = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', 'Web Search'] },\n};";
-const OPENCLI_WEB_ROOT_SELECTOR = "            const rootSelector = '[role=\"menu\"], [role=\"listbox\"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*=\"menu\"], [data-testid*=\"popover\"]';";
-const OPENCLI_WEB_ROOT_SELECTOR_PATCHED = "            const rootSelector = '[role=\"group\"], [role=\"menu\"], [role=\"listbox\"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*=\"menu\"], [data-testid*=\"popover\"]';";
-const OPENCLI_WEB_OPTION_MATCHER = String.raw`            const option = options.find((node) => {
+const OPENCLI_TOOL_OPTIONS = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', '搜索', 'Web Search', 'Search'] },\n};";
+const OPENCLI_TOOL_OPTIONS_PATCHED = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', 'Web Search'] },\n};";
+const OPENCLI_TOOL_ROOT_SELECTOR = "            const rootSelector = '[role=\"menu\"], [role=\"listbox\"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*=\"menu\"], [data-testid*=\"popover\"]';";
+const OPENCLI_TOOL_ROOT_SELECTOR_PATCHED = "            const rootSelector = '[role=\"group\"], [role=\"menu\"], [role=\"listbox\"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*=\"menu\"], [data-testid*=\"popover\"]';";
+const OPENCLI_TOOL_OPTION_MATCHER = String.raw`            const option = options.find((node) => {
                 if (!(node instanceof HTMLElement) || !isVisible(node) || node.closest('nav, aside')) return false;
                 const haystacks = [
                     node.textContent,
@@ -55,29 +55,105 @@ const OPENCLI_WEB_OPTION_MATCHER = String.raw`            const option = options
                 ];
                 return haystacks.some(matchesLabel);
             });`;
-const OPENCLI_WEB_OPTION_MATCHER_PATCHED = String.raw`            const exactLabels = labels.map((label) => normalize(label).toLowerCase());
+const OPENCLI_TOOL_OPTION_MATCHER_PATCHED = String.raw`            const exactLabels = labels.map((label) => normalize(label).toLowerCase());
             const option = options.find((node) => {
                 if (!(node instanceof HTMLElement) || !isVisible(node) || node.closest('nav, aside')) return false;
                 const primaryNodes = [node, ...node.querySelectorAll('span, div, p')];
                 return primaryNodes.some((part) => exactLabels.includes(normalize(part.textContent).toLowerCase()));
             });`;
-const OPENCLI_WEB_POSTCONDITION = String.raw`    await page.wait(0.5);
+const OPENCLI_TOOL_MENU_ACTIVATION = String.raw`    if (!menuButton.found) {
+        throw new CommandExecutionError('Could not find the ChatGPT tools menu button in the composer.');
+    }
+    await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
+    await page.wait(0.5);`;
+const OPENCLI_TOOL_MENU_ACTIVATION_PATCHED = String.raw`    if (!menuButton.found) {
+        throw new CommandExecutionError('Could not find the ChatGPT tools menu button in the composer.');
+    }
+    const menuIsOpen = async () => requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+        const isVisible = (el) => {
+            if (!(el instanceof HTMLElement)) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
+        const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+        const labels = \${JSON.stringify(target.labels)}.map(normalize);
+        const button = document.querySelector('button[data-testid="composer-plus-btn"]');
+        if (button instanceof HTMLElement && button.getAttribute('aria-expanded') === 'true') return true;
+        const optionSelector = '[role="menuitemradio"], [role="menuitem"], [role="option"], button, div[tabindex="0"]';
+        const rootSelector = '[role="group"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*="menu"], [data-testid*="popover"]';
+        return Array.from(document.querySelectorAll(rootSelector)).some((root) =>
+            root instanceof HTMLElement && isVisible(root) && !root.closest('nav, aside')
+            && Array.from(root.querySelectorAll(optionSelector)).some((node) => {
+                if (!(node instanceof HTMLElement) || !isVisible(node)) return false;
+                const primaryNodes = [node, ...node.querySelectorAll('span, div, p')];
+                return primaryNodes.some((part) => labels.includes(normalize(part.textContent)));
+            })
+        );
+    })()\`)), 'chatgpt tools menu activation');
+    await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
+    await page.wait(0.5);
+    if (!(await menuIsOpen())) {
+        const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+            const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
+            const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
+            if (!(button instanceof HTMLElement)) return false;
+            button.click();
+            return true;
+        })()\`)), 'chatgpt tools menu DOM fallback');
+        if (!domClicked) throw new CommandExecutionError('ChatGPT tools menu did not open.');
+        await page.wait(0.5);
+        if (!(await menuIsOpen())) throw new CommandExecutionError('ChatGPT tools menu did not open.');
+    }`;
+const OPENCLI_TOOL_OPTION_ACTIVATION = String.raw`    if (!optionCenter?.found) {
+        throw new CommandExecutionError(\`Could not find the ChatGPT \${target.label} tool option.\`);
+    }
+    if (!optionCenter.checked) {
+        await page.nativeClick(Number(optionCenter.x), Number(optionCenter.y));
+    }
+
+    await page.wait(0.5);
     const after = await getCurrentChatGPTTool(page);
     if (after.tool !== target.key) {
         throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
-    }`;
-const OPENCLI_WEB_POSTCONDITION_PATCHED = String.raw`    await page.wait(0.5);
-    const after = requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+    }
+    return { Status: optionCenter.checked ? 'Already selected' : 'Success', Tool: target.label };`;
+const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    if (!optionCenter?.found) {
+        throw new CommandExecutionError(\`Could not find the ChatGPT \${target.label} tool option.\`);
+    }
+    const selectedState = async () => requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
         const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
-        const labels = ['web search', '网页搜索'];
+        const labels = \${JSON.stringify(target.labels)}.map(normalize);
         const composer = document.querySelector('#prompt-textarea[contenteditable="true"], [data-testid="prompt-textarea"][contenteditable="true"], [contenteditable="true"][role="textbox"]');
         if (!(composer instanceof HTMLElement)) return { selected: false };
         const chips = Array.from(composer.querySelectorAll('[contenteditable="false"]')).filter((node) => node instanceof HTMLElement);
         return { selected: chips.filter((node) => labels.includes(normalize(node.textContent))).length === 1 };
-    })()\`)), 'chatgpt Web Search selected chip');
-    if (!after.selected) {
+    })()\`)), 'chatgpt selected tool chip');
+    if (!optionCenter.checked) {
+        await page.nativeClick(Number(optionCenter.x), Number(optionCenter.y));
+        await page.wait(0.5);
+        if (!(await selectedState()).selected) {
+            const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+                const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                const labels = \${JSON.stringify(target.labels)}.map(normalize);
+                const optionSelector = '[role="menuitemradio"], [role="menuitem"], [role="option"], button, div[tabindex="0"]';
+                const hit = document.elementFromPoint(\${Number(optionCenter.x)}, \${Number(optionCenter.y)});
+                const option = hit instanceof Element ? hit.closest(optionSelector) : null;
+                if (!(option instanceof HTMLElement)) return false;
+                const primaryNodes = [option, ...option.querySelectorAll('span, div, p')];
+                if (!primaryNodes.some((part) => labels.includes(normalize(part.textContent)))) return false;
+                option.click();
+                return true;
+            })()\`)), 'chatgpt tool option DOM fallback');
+            if (!domClicked) throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
+            await page.wait(0.5);
+        }
+    }
+    if (!(await selectedState()).selected) {
         throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
-    }`;
+    }
+    return { Status: optionCenter.checked ? 'Already selected' : 'Success', Tool: target.label };`;
 
 function replacePinnedMarkdownSource(source, before, after) {
   const parts = source.split(before);
@@ -90,23 +166,24 @@ function patchOpenCliMarkdownSource(source) {
   return replacePinnedMarkdownSource(withGfm, OPENCLI_MARKDOWN_CONVERTER, OPENCLI_MARKDOWN_PATCHED_CONVERTER);
 }
 
-function embeddedPinnedWebSource(value) {
+function embeddedPinnedToolSource(value) {
   return value.replaceAll('\\`', '`').replaceAll('\\${', '${');
 }
 
-function replacePinnedWebSource(source, before, after) {
-  const pinnedBefore = embeddedPinnedWebSource(before);
-  const pinnedAfter = embeddedPinnedWebSource(after);
+function replacePinnedToolSource(source, before, after, compatCode) {
+  const pinnedBefore = embeddedPinnedToolSource(before);
+  const pinnedAfter = embeddedPinnedToolSource(after);
   const parts = source.split(pinnedBefore);
-  if (parts.length !== 2) throw fail('OpenCLI ChatGPT Web Search selector does not match the pinned source', 'ERR_OPENCLI_WEB_COMPAT');
+  if (parts.length !== 2) throw fail('OpenCLI ChatGPT tool selector does not match the pinned source', compatCode);
   return `${parts[0]}${pinnedAfter}${parts[1]}`;
 }
 
-function patchOpenCliWebSelectorSource(source) {
-  const withLabels = replacePinnedWebSource(source, OPENCLI_WEB_TOOL_OPTIONS, OPENCLI_WEB_TOOL_OPTIONS_PATCHED);
-  const withRoot = replacePinnedWebSource(withLabels, OPENCLI_WEB_ROOT_SELECTOR, OPENCLI_WEB_ROOT_SELECTOR_PATCHED);
-  const withExactOption = replacePinnedWebSource(withRoot, OPENCLI_WEB_OPTION_MATCHER, OPENCLI_WEB_OPTION_MATCHER_PATCHED);
-  return replacePinnedWebSource(withExactOption, OPENCLI_WEB_POSTCONDITION, OPENCLI_WEB_POSTCONDITION_PATCHED);
+function patchOpenCliToolSelectorSource(source, compatCode) {
+  const withLabels = replacePinnedToolSource(source, OPENCLI_TOOL_OPTIONS, OPENCLI_TOOL_OPTIONS_PATCHED, compatCode);
+  const withRoot = replacePinnedToolSource(withLabels, OPENCLI_TOOL_ROOT_SELECTOR, OPENCLI_TOOL_ROOT_SELECTOR_PATCHED, compatCode);
+  const withExactOption = replacePinnedToolSource(withRoot, OPENCLI_TOOL_OPTION_MATCHER, OPENCLI_TOOL_OPTION_MATCHER_PATCHED, compatCode);
+  const withMenuActivation = replacePinnedToolSource(withExactOption, OPENCLI_TOOL_MENU_ACTIVATION, OPENCLI_TOOL_MENU_ACTIVATION_PATCHED, compatCode);
+  return replacePinnedToolSource(withMenuActivation, OPENCLI_TOOL_OPTION_ACTIVATION, OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED, compatCode);
 }
 
 function temporaryDirectoryRoot(source = process.env, compatCode = 'ERR_OPENCLI_MARKDOWN_COMPAT') {
@@ -187,11 +264,13 @@ async function withMarkdownCompatibleOpenCli(identity, environment, run) {
   }, run);
 }
 
-async function withWebCompatibleOpenCli(identity, environment, run) {
+async function withToolCompatibleOpenCli(identity, environment, mode, run) {
+  const compatCode = mode === 'web' ? 'ERR_OPENCLI_WEB_COMPAT' : 'ERR_OPENCLI_DEEP_COMPAT';
+  const label = mode === 'web' ? 'Web Search compatibility' : 'Deep Research compatibility';
   return withPatchedOpenCli(identity, environment, {
-    patchSource: patchOpenCliWebSelectorSource,
-    compatCode: 'ERR_OPENCLI_WEB_COMPAT',
-    label: 'Web Search compatibility',
+    patchSource: (source) => patchOpenCliToolSelectorSource(source, compatCode),
+    compatCode,
+    label,
   }, run);
 }
 
@@ -280,8 +359,8 @@ async function runAsk({ executablePath, identity, prompt, mode, timeoutSeconds, 
   if (mode === 'web') args.push('--web-search', 'true');
   if (mode === 'deep') args.push('--deep-research', 'true');
   const execute = (askExecutablePath, askEnvironment) => runProcess(askExecutablePath, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment: askEnvironment, killGraceMs });
-  const result = mode === 'web'
-    ? await withWebCompatibleOpenCli(identity, environment, execute)
+  const result = mode === 'web' || mode === 'deep'
+    ? await withToolCompatibleOpenCli(identity, environment, mode, execute)
     : await execute(identity.real_path, environment);
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI ask child did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   return parseOpenCliAnswer(result.stdout, { mode });
