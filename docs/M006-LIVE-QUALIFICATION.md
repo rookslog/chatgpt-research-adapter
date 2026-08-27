@@ -6,8 +6,11 @@
 - Maximum provider submissions in this bundle: two, one per turn
 - Automatic retry: prohibited
 - Purpose: satisfy #4's remaining standard-mode live regression while exercising both #5 rigor variants without changing production behavior
+- Execution receipt: [M006-LIVE-QUALIFICATION-RECEIPT.md](M006-LIVE-QUALIFICATION-RECEIPT.md)
 
 This runbook is an operator bundle, not evidence that the live criteria have already passed. Preserve deterministic, live-observation, source-check, and inference evidence as separate classes.
+
+`[ROOT LIVE OBSERVATION — 2026-08-26]` The two authorized turns were executed once each. Both transports completed without retry, but strict raw-sentinel conformance failed in both saved Markdown answers; Turn B also omitted principal citations for its repository workflow/run claims. Issues #4 and #5 therefore remain open. See the execution receipt for exact job, conversation, hash, byte-count, formatting, citation-correctness, and exactly-one-submission evidence.
 
 ## Preconditions
 

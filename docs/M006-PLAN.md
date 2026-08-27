@@ -1,6 +1,6 @@
 # M006 — Production Usability
 
-- Status: baseline/hardening and Markdown fidelity merged; bounded #4/#5 live qualification is next; selector issues #2/#3 remain open
+- Status: bounded #4/#5 live qualification executed with recorded conformance/citation-coverage defects; #2/#3 selector diagnostics captured without source changes; all four child issues remain open
 - Date: 2026-08-26
 - Closure target: a readable, dependable research adapter with the explicitly supported research modes and remaining rigor variants exercised
 - Integrated implementation baseline: `adf8d6c4c682a5c23fc54965920d2f862878f51e`
@@ -40,19 +40,21 @@ Issue #4 nevertheless remains open because its final acceptance criterion is liv
 
 ### Rigor qualification
 
-Issue #5 remains open. Expanded-citation and audit-appendix prompt compilation are deterministic and receipted, but their required bounded live observations and citation-correctness checks have not yet been recorded.
+Issue #5 remains open. The two bounded live observations completed without transport ambiguity or retry and are durably receipted, but the strict bundle did not pass: both saved answers escaped the exact raw terminal sentinel, and the audit turn omitted principal citations for its repository workflow/run claims. The emitted citations that were present were manually checked separately from structural conformance.
 
 The approved operator bundle is [M006-LIVE-QUALIFICATION.md](M006-LIVE-QUALIFICATION.md). It deliberately uses two standard-mode provider turns only and prohibits automatic retries.
 
+The exact result is [M006-LIVE-QUALIFICATION-RECEIPT.md](M006-LIVE-QUALIFICATION-RECEIPT.md). Issue #4 also remains open under the strict runbook even though the live answer preserved the GFM table, readable claim IDs, rendered final content, and exactly-one-submission evidence: its saved sentinel was not byte-exact.
+
 ### Selector compatibility
 
-Issues #2 and #3 remain open. Released OpenCLI remains pinned at v1.8.7 for this adapter. Do not assume a dependency upgrade repairs the selectors: qualification must begin from the wrapper's actual failure and current UI contract. Web Search and Deep Research must remain explicit, mutually exclusive, and fail closed if selection cannot be proven before submission.
+Issues #2 and #3 remain open. Released OpenCLI remains pinned at v1.8.7 for this adapter. A sanitized no-submission current-UI capture is recorded in [M006-SELECTOR-DIAGNOSTIC.md](M006-SELECTOR-DIAGNOSTIC.md). Both options were manually discoverable/selectable in the in-app browser, while the historical OpenCLI errors were not reproduced; the external Chrome native-click path remains unobserved in this diagnostic. Do not assume a dependency upgrade or speculative selector edit repairs the selectors. Web Search and Deep Research must remain explicit, mutually exclusive, and fail closed if selection cannot be proven before submission.
 
 ## Execution order
 
-1. Run the bounded two-turn standard-mode qualification bundle for #4/#5 when the local signed-in Chrome/OpenCLI runtime is available.
-2. Record job, turn, conversation, profile, output, formatting, citation-correctness, and exactly-one-submission evidence. Close #4 and/or #5 only if their complete acceptance criteria are satisfied.
-3. Investigate #2 and #3 from current source/UI evidence. Reproduce each selector failure with a current-UI deterministic fixture before any implementation change; prefer the minimum compatible upstream-derived change over a broad local browser fork.
+1. Preserve the completed two-turn receipt for #4/#5 and decide the minimum follow-up for the exact raw-sentinel and citation-coverage defects without resubmitting either completed job.
+2. Keep #4/#5 open until their complete acceptance criteria are satisfied; do not infer reliability from these observations.
+3. Build #2/#3 deterministic fixtures from the sanitized current-UI capture, then reproduce the actual OpenCLI failure before any implementation change; prefer the minimum compatible upstream-derived change over a broad local browser fork.
 4. Refresh parent/status documentation as M006 evidence changes and keep issue/PR cross-links auditable.
 5. Return the repository to private visibility after the temporary public-review/qualification need ends.
 
