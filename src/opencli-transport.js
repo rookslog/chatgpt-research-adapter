@@ -90,10 +90,16 @@ function patchOpenCliMarkdownSource(source) {
   return replacePinnedMarkdownSource(withGfm, OPENCLI_MARKDOWN_CONVERTER, OPENCLI_MARKDOWN_PATCHED_CONVERTER);
 }
 
+function embeddedPinnedWebSource(value) {
+  return value.replaceAll('\\`', '`').replaceAll('\\${', '${');
+}
+
 function replacePinnedWebSource(source, before, after) {
-  const parts = source.split(before);
+  const pinnedBefore = embeddedPinnedWebSource(before);
+  const pinnedAfter = embeddedPinnedWebSource(after);
+  const parts = source.split(pinnedBefore);
   if (parts.length !== 2) throw fail('OpenCLI ChatGPT Web Search selector does not match the pinned source', 'ERR_OPENCLI_WEB_COMPAT');
-  return `${parts[0]}${after}${parts[1]}`;
+  return `${parts[0]}${pinnedAfter}${parts[1]}`;
 }
 
 function patchOpenCliWebSelectorSource(source) {
