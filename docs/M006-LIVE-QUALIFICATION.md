@@ -11,12 +11,16 @@ This runbook is an operator bundle, not evidence that the live criteria have alr
 
 ## Preconditions
 
-Run from the local repository/runtime previously qualified in M004. Before the first provider turn:
+Run from the local repository/runtime previously qualified in M004. A later docs-only commit is acceptable only if the executable/configuration inputs under qualification remain byte-identical to the integrated implementation target.
+
+Before the first provider turn:
 
 ```bash
-git rev-parse HEAD
+BASE=adf8d6c4c682a5c23fc54965920d2f862878f51e
+
 git diff --exit-code
 git diff --cached --exit-code
+git diff --exit-code "$BASE" -- bin src scripts rigor templates package.json
 npm test
 npm run check:authority
 npm run check:requirements
@@ -24,11 +28,12 @@ npm run check:syntax
 
 OPENCLI="$PWD/.runtime/opencli/node_modules/.bin/opencli"
 QUAL_ROOT="$PWD/.runtime/output/m006-live-qualification"
+mkdir -p "$QUAL_ROOT"
 "$OPENCLI" --version
 "$OPENCLI" doctor --verbose
 ```
 
-The implementation under qualification must be the integrated #4 implementation, not an unreviewed local source edit. Untracked `.runtime/` material is expected and is not publication evidence.
+The implementation under qualification must therefore be the integrated #4 implementation, not an unreviewed local source edit. Untracked `.runtime/` material is expected and is not publication evidence.
 
 If the Browser Bridge/account runtime is not healthy, stop before a provider submission. Do not repair a failed or ambiguous provider effect by resubmitting the same job.
 
@@ -114,7 +119,7 @@ node ./bin/chatgpt-research.js ask "$PROMPT_B" \
 
 Require and record:
 
-1. A distinct job ID, turn ID, conversation ID/URL, prompt hash, and answer/result receipt from Turn A.
+1. Job ID, turn ID, conversation ID/URL, prompt hash, and answer/result receipt are all distinct from Turn A where identity is expected to be per-turn.
 2. `result.json` is `completed`, mode is `standard`, citation level is `principal`, audit appendix is `true`, and the profile is `standard/1.0.0`.
 3. The answer contains substantive claim identifiers plus the claim-ledger fields for evidence, qualitative warrant, contrary evidence/limits, and revision trigger.
 4. The appendix contains each requested audit field in substance: evidence cutoff; source inventory/roles/dependencies; contrary evidence; coverage gaps; scope; unresolved conflicts; unchecked items; revision triggers.
