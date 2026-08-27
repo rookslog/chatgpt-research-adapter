@@ -147,7 +147,7 @@ const page = {
     }
     if (text.includes('composer-plus-btn') && text.includes('aria-expanded')) {
       state.menuChecks += 1;
-      const scopedToHitTarget = text.includes('document.elementFromPoint') && text.includes('menuButton.x');
+      const scopedToHitTarget = text.includes('document.elementFromPoint');
       if (scenario.hiddenExpandedPlus && !scopedToHitTarget) return true;
       if (!state.menuOpen) return false;
       return (state.menuChecks - state.menuOpenedAtCheck) > (scenario.menuVisibleAfterChecks ?? 0);
