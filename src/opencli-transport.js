@@ -107,7 +107,7 @@ async function withMarkdownCompatibleOpenCli(identity, environment, run) {
     await writeFile(copiedConverterPath, patched, 'utf8');
     const isolatedHome = join(workspace, 'home');
     await mkdir(isolatedHome, { mode: 0o700 });
-    const isolatedEnvironment = { ...(environment ?? process.env), HOME: isolatedHome };
+    const isolatedEnvironment = { ...(environment ?? process.env), HOME: isolatedHome, USERPROFILE: isolatedHome };
     const copiedExecutable = join(tempPackageRoot, 'dist', 'src', 'main.js');
     const copiedIdentity = await executableIdentity(copiedExecutable);
     if (copiedIdentity.sha256 !== identity.sha256 || copiedIdentity.size !== identity.size) throw fail('OpenCLI copied executable identity changed', 'ERR_OPENCLI_IDENTITY');
@@ -120,7 +120,7 @@ async function withMarkdownCompatibleOpenCli(identity, environment, run) {
 
 function minimalEnvironment(source = process.env) {
   const result = {};
-  for (const key of ['HOME', 'PATH', 'TMPDIR', 'LANG', 'LC_ALL', 'XDG_CONFIG_HOME', 'OPENCLI_CONFIG_DIR']) if (typeof source[key] === 'string') result[key] = source[key];
+  for (const key of ['HOME', 'USERPROFILE', 'PATH', 'TMPDIR', 'LANG', 'LC_ALL', 'XDG_CONFIG_HOME', 'OPENCLI_CONFIG_DIR']) if (typeof source[key] === 'string') result[key] = source[key];
   return result;
 }
 
