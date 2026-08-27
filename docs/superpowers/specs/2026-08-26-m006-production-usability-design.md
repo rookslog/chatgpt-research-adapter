@@ -20,11 +20,11 @@ The implementation should preserve the existing standard-mode behavior, typed `s
 
 ## 2. Current-state findings
 
-### 2.1 Repository baseline is not yet committed here
+### 2.1 Repository baseline recovered
 
-At design time, `rookslog/chatgpt-research-adapter` contains milestone issues but no committed implementation tree. The issues refer to an existing wrapper and a pinned OpenCLI dependency, so source recovery is a prerequisite to implementation. The existing implementation must be recovered rather than recreated from inference.
+At design time, `rookslog/chatgpt-research-adapter` contained milestone issues but no committed implementation tree. The exact implementation was subsequently recovered from `/Users/rookslog/Development/chatgpt-research-adapter` and corroborated by local Git tree `d7c0014bdd99c0b9e078015aa5f12922367803ff`. The recovered source/test bytes, 82-test baseline, OpenCLI pin, prompt profiles, receipt schemas, and runtime observations are recorded under `docs/recovery/` and published through PR #6.
 
-**Gate B0 — baseline provenance:** no implementation PR may silently replace the missing wrapper. Recover the actual working source, its dependency/pin metadata, test command, prompt profiles, and receipt format first.
+**Gate B0 — baseline provenance:** satisfied by PR #6. Later implementation PRs must modify the recovered wrapper rather than replace it from inference.
 
 ### 2.2 Selector issues share an upstream failure class
 
@@ -78,7 +78,7 @@ Required contents:
 - minimal repository documentation needed to reproduce tests;
 - a mechanical PR-size check or documented command used on every subsequent PR.
 
-If recovering the existing baseline itself exceeds 1,200 changed source/test lines, split the import along the implementation's existing module boundaries. Do not refactor while importing.
+The recovered baseline contains 2,223 implementation/test lines. The owner authorized one intact provenance import through PR #6 so the ChatGPT/GitHub-connector experiment can inspect the complete working system. This is a one-time PR 0 exception; do not refactor while importing, and retain the 1,200-line hard limit for all feature PRs.
 
 **Target:** <800 lines per import slice; hard maximum 1,199.
 

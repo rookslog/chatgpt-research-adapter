@@ -1,0 +1,52 @@
+{
+  "name": "chatgpt-research-adapter",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "chatgpt-research": "bin/chatgpt-research.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "templates/",
+    "rigor/",
+    "scripts/",
+    "package.json",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check:authority": "node scripts/m002-authority-check.js",
+    "check:requirements": "node scripts/check-requirements.js",
+    "check:syntax": "find bin scripts src test -type f -name '*.js' -print0 | sort -z | xargs -0 -n1 node --check"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "optionalDependencies": {},
+  "peerDependencies": {},
+  "m002Authority": {
+    "sourceSha256": {
+      "bin/chatgpt-research.js": "356e5a94e739727e810d56046b882483efa8cb8987dfb8ad1a624dcc78f2f836",
+      "scripts/check-requirements.js": "24978950b46831618f241999724fb31047d0691b08ccf4d8eee7a7964d2a2557",
+      "scripts/m002-authority-check.js": "4629c014da016e58e75c53e77eef07195800c01aa55bb67675d3313c987613c2",
+      "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
+      "src/cli.js": "a2ad8b09c8df455c9dc38e5854f813f5f87cf6e5b00842adb644cc1c39d47b7f",
+      "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
+      "src/direct-ask.js": "8b08b35ec4b2fc0aab899b915341e3711efeda58e6665f8622ae7f25402182d4",
+      "src/dispatch-receipts.js": "2b8a7ff13fc20a85dfb467bca59d6963ec5bab606a480c2c16371e61e1890564",
+      "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
+      "src/opencli-transport.js": "10a0d90d9421df67bbef871e07723721dd549ff28366a46077a1ed65b6c71713",
+      "src/prepare.js": "31ddd778bca5cffc187986a41684e328fa8de31f1a617fdf56da29f596e8db00",
+      "src/prepared-bundle.js": "9c73d5c3b5d945652492e24965958513e5946e60e0c66c6c3add2d3616bbedc2",
+      "src/receipts.js": "473f891f69473224948585cbc077b02ba0419216bc839d147baa68533fe9e0e5",
+      "src/rigor-profile.js": "318b9704cd45b370a8f5a3ef619a43fe69391202bf0db138a5b14ff283db7133",
+      "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
+      "src/submit-once.js": "51fd39cc0d1b25819ae8197ae6166a0929626488b9c363a6de09070431df73d4",
+      "src/template-registry.js": "94b1f51bc0c6da8028930ecc2760eb955e113f72775252b72c3343c68a2daa4b"
+    }
+  }
+}
