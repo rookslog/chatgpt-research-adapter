@@ -93,8 +93,15 @@ const OPENCLI_TOOL_MENU_ACTIVATION_PATCHED = String.raw`    if (!menuButton.foun
         );
     })()\`)), 'chatgpt tools menu activation');
     await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
-    await page.wait(0.5);
-    if (!(await menuIsOpen())) {
+    let menuOpened = false;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        await page.wait(0.5);
+        if (await menuIsOpen()) {
+            menuOpened = true;
+            break;
+        }
+    }
+    if (!menuOpened) {
         const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
             const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
             const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
@@ -123,11 +130,22 @@ const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    if (!optionCenter?
         throw new CommandExecutionError(\`Could not find the ChatGPT \${target.label} tool option.\`);
     }
     const selectedState = async () => requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+        const isVisible = (el) => {
+            if (!(el instanceof HTMLElement)) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
         const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
         const labels = \${JSON.stringify(target.labels)}.map(normalize);
-        const composer = document.querySelector('#prompt-textarea[contenteditable="true"], [data-testid="prompt-textarea"][contenteditable="true"], [contenteditable="true"][role="textbox"]');
+        const composerSelector = '#prompt-textarea[contenteditable="true"], [data-testid="prompt-textarea"][contenteditable="true"], [contenteditable="true"][role="textbox"]';
+        const composers = Array.from(document.querySelectorAll(composerSelector))
+            .filter((node) => node instanceof HTMLElement && isVisible(node));
+        const composer = composers.find((node) => !node.closest('nav, aside')) || null;
         if (!(composer instanceof HTMLElement)) return { selected: false };
-        const chips = Array.from(composer.querySelectorAll('[contenteditable="false"]')).filter((node) => node instanceof HTMLElement);
+        const chips = Array.from(composer.querySelectorAll('[contenteditable="false"]'))
+            .filter((node) => node instanceof HTMLElement && isVisible(node));
         return { selected: chips.filter((node) => labels.includes(normalize(node.textContent))).length === 1 };
     })()\`)), 'chatgpt selected tool chip');
     if (!optionCenter.checked) {
