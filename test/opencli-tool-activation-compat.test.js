@@ -34,6 +34,9 @@ export async function selectChatGPTTool(page, tool) {
     }
 
     const menuButton = { found: true, x: 1, y: 1 };
+    if (!menuButton.found) {
+        throw new CommandExecutionError('Could not find the ChatGPT tools menu button in the composer.');
+    }
     await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
     await page.wait(0.5);
 
