@@ -147,30 +147,84 @@ const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    if (!optionCenter?
             .filter((node) => node instanceof HTMLElement && isVisible(node));
         return { selected: chips.filter((node) => labels.includes(normalize(node.textContent))).length === 1 };
     })()\`)), 'chatgpt selected tool chip');
-    if (!optionCenter.checked) {
-        await page.nativeClick(Number(optionCenter.x), Number(optionCenter.y));
-        await page.wait(0.5);
-        if (!(await selectedState()).selected) {
-            const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
-                const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
-                const labels = \${JSON.stringify(target.labels)}.map(normalize);
-                const optionSelector = '[role="menuitemradio"], [role="menuitem"], [role="option"], button, div[tabindex="0"]';
-                const hit = document.elementFromPoint(\${Number(optionCenter.x)}, \${Number(optionCenter.y)});
-                const option = hit instanceof Element ? hit.closest(optionSelector) : null;
-                if (!(option instanceof HTMLElement)) return false;
-                const primaryNodes = [option, ...option.querySelectorAll('span, div, p')];
-                if (!primaryNodes.some((part) => labels.includes(normalize(part.textContent)))) return false;
-                option.click();
-                return true;
-            })()\`)), 'chatgpt tool option DOM fallback');
-            if (!domClicked) throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
+    const waitForSelectedState = async () => {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
             await page.wait(0.5);
+            if ((await selectedState()).selected) return true;
         }
+        return false;
+    };
+    const reopenMenuForFallback = async () => {
+        if (await menuIsOpen()) return true;
+        await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
+        if (await waitForMenuOpen()) return true;
+        const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+            const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
+            const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
+            if (!(button instanceof HTMLElement)) return false;
+            button.click();
+            return true;
+        })()\`)), 'chatgpt tools menu reopen DOM fallback');
+        return domClicked ? waitForMenuOpen() : false;
+    };
+    const resolveExactOption = async () => requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+        const isVisible = (el) => {
+            if (!(el instanceof HTMLElement)) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
+        const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+        const labels = \${JSON.stringify(target.labels)}.map(normalize);
+        const optionSelector = '[role="menuitemradio"], [role="menuitem"], [role="option"], button, div[tabindex="0"]';
+        const rootSelector = '[role="group"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*="menu"], [data-testid*="popover"]';
+        const visibleRoots = Array.from(document.querySelectorAll(rootSelector))
+            .filter((node) => node instanceof HTMLElement && isVisible(node) && !node.closest('nav, aside'));
+        const searchRoots = visibleRoots.length ? visibleRoots : [document];
+        const options = Array.from(new Set(searchRoots.flatMap((root) => {
+            const matchesRoot = root instanceof HTMLElement && root.matches(optionSelector) ? [root] : [];
+            return matchesRoot.concat(Array.from(root.querySelectorAll(optionSelector)));
+        })));
+        const option = options.find((node) => {
+            if (!(node instanceof HTMLElement) || !isVisible(node) || node.closest('nav, aside')) return false;
+            const primaryNodes = [node, ...node.querySelectorAll('span, div, p')];
+            return primaryNodes.some((part) => labels.includes(normalize(part.textContent)));
+        });
+        if (!(option instanceof HTMLElement)) return { found: false };
+        option.scrollIntoView({ block: 'center', inline: 'center' });
+        const rect = option.getBoundingClientRect();
+        return {
+            found: true,
+            x: Math.round(rect.left + rect.width / 2),
+            y: Math.round(rect.top + rect.height / 2),
+        };
+    })()\`)), 'chatgpt tool option fallback resolution');
+    if (optionCenter.checked) {
+        if (!(await waitForSelectedState())) throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
+        return { Status: 'Already selected', Tool: target.label };
     }
-    if (!(await selectedState()).selected) {
+    await page.nativeClick(Number(optionCenter.x), Number(optionCenter.y));
+    if (await waitForSelectedState()) return { Status: 'Success', Tool: target.label };
+    if (!(await reopenMenuForFallback())) throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
+    const fallbackOptionCenter = await resolveExactOption();
+    if (!fallbackOptionCenter?.found) throw new CommandExecutionError(\`Could not find the ChatGPT \${target.label} tool option.\`);
+    const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+        const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+        const labels = \${JSON.stringify(target.labels)}.map(normalize);
+        const optionSelector = '[role="menuitemradio"], [role="menuitem"], [role="option"], button, div[tabindex="0"]';
+        const hit = document.elementFromPoint(\${Number(fallbackOptionCenter.x)}, \${Number(fallbackOptionCenter.y)});
+        const option = hit instanceof Element ? hit.closest(optionSelector) : null;
+        if (!(option instanceof HTMLElement)) return false;
+        const primaryNodes = [option, ...option.querySelectorAll('span, div, p')];
+        if (!primaryNodes.some((part) => labels.includes(normalize(part.textContent)))) return false;
+        option.click();
+        return true;
+    })()\`)), 'chatgpt tool option DOM fallback');
+    if (!domClicked || !(await waitForSelectedState())) {
         throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
     }
-    return { Status: optionCenter.checked ? 'Already selected' : 'Success', Tool: target.label };`;
+    return { Status: 'Success', Tool: target.label };`;
 
 function replacePinnedMarkdownSource(source, before, after) {
   const parts = source.split(before);
