@@ -118,8 +118,9 @@ const isWeb = process.argv.includes('--web-search');
 const isDeep = process.argv.includes('--deep-research');
 const targetKey = isWeb ? 'web-search' : (isDeep ? 'deep-research' : null);
 const targetLabel = targetKey === 'web-search' ? 'Web Search' : 'Deep Research';
-const state = { menuOpen: false, menuChecks: 0, menuOpenedAtCheck: 0, selectedTool: null, nativeMenuClicks: 0, nativeOptionClicks: 0, domMenuClicks: 0, domOptionClicks: 0 };
+const state = { menuOpen: false, menuChecks: 0, menuOpenedAtCheck: 0, selectedTool: null, selectedChecks: 0, selectedAtCheck: 0, nativeMenuClicks: 0, nativeOptionClicks: 0, domMenuClicks: 0, domOptionClicks: 0 };
 const openMenu = () => { state.menuOpen = true; state.menuOpenedAtCheck = state.menuChecks; };
+const selectTool = () => { state.selectedTool = targetKey; state.selectedAtCheck = state.selectedChecks; };
 const page = {
   get selectedTool() { return state.selectedTool; },
   async nativeClick(x) {
@@ -129,7 +130,8 @@ const page = {
       return;
     }
     state.nativeOptionClicks += 1;
-    if (scenario.optionNativeWorks) state.selectedTool = targetKey;
+    if (scenario.optionNativeDismissesMenu) state.menuOpen = false;
+    if (scenario.optionNativeWorks) selectTool();
   },
   async wait() {},
   async evaluate(code) {
@@ -141,8 +143,9 @@ const page = {
       return true;
     }
     if (text.includes('.click()') && (text.includes('menuitemradio') || text.includes('tabindex'))) {
+      if (!state.menuOpen) return false;
       state.domOptionClicks += 1;
-      state.selectedTool = targetKey;
+      selectTool();
       return true;
     }
     if (text.includes('composer-plus-btn') && text.includes('aria-expanded')) {
@@ -154,8 +157,11 @@ const page = {
     }
     if (text.includes('const optionSelector')) return state.menuOpen ? { found: true, checked: state.selectedTool === targetKey, x: 2, y: 2 } : { found: false };
     if (text.includes('[contenteditable="false"]')) {
+      state.selectedChecks += 1;
       const visibilityAware = text.includes('const composers =') && text.includes('isVisible');
-      return { selected: state.selectedTool === targetKey && (!scenario.hiddenComposerFirst || visibilityAware) };
+      const visibleAfter = scenario.selectedVisibleAfterChecks ?? 0;
+      const selectedVisible = state.selectedTool === targetKey && (state.selectedChecks - state.selectedAtCheck) > visibleAfter;
+      return { selected: selectedVisible && (!scenario.hiddenComposerFirst || visibilityAware) };
     }
     return false;
   },
@@ -240,4 +246,26 @@ test('hidden stale expanded plus button does not suppress fallback for the activ
   assert.equal(result.tool, 'Web Search');
   assert.equal(capture.state.nativeMenuClicks, 1);
   assert.equal(capture.state.domMenuClicks, 1);
+});
+
+test('slow native selected-chip render is polled before issuing an option fallback', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: true, selectedVisibleAfterChecks: 1 });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeOptionClicks, 1);
+  assert.equal(capture.state.domOptionClicks, 0);
+});
+
+test('slow DOM-fallback selected-chip render is polled before selector failure', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: false, selectedVisibleAfterChecks: 1 });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeOptionClicks, 1);
+  assert.equal(capture.state.domOptionClicks, 1);
+});
+
+test('dismissed menu is reopened and exact option is resolved again before DOM fallback', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: false, optionNativeDismissesMenu: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeOptionClicks, 1);
+  assert.ok(capture.state.nativeMenuClicks >= 2 || capture.state.domMenuClicks >= 1);
+  assert.equal(capture.state.domOptionClicks, 1);
 });
