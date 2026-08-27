@@ -95,11 +95,12 @@
       "id": "REQ-OPENCLI-MARKDOWN-001",
       "level": "hard",
       "external": false,
-      "statement": "Markdown compatibility detail reads must patch and clean up only a private copy, isolate disposable HOME-derived OpenCLI state, and preserve the caller's explicitly selected OpenCLI/XDG configuration.",
+      "statement": "Markdown compatibility detail reads must patch and clean up only a private copy, isolate disposable HOME/USERPROFILE-derived OpenCLI state, and preserve the caller's explicitly selected OpenCLI/XDG configuration.",
       "bindings": [
         { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 patches a read-only converter only inside the private workspace" },
         { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 isolates the copied OpenCLI user runtime from caller HOME" },
         { "type": "integration", "path": "test/review-assurance7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 preserves caller OpenCLI and XDG config while isolating HOME" },
+        { "type": "integration", "path": "test/review-assurance7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 isolates Windows USERPROFILE with the disposable HOME" },
         { "type": "integration", "path": "test/review-assurance7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 cleans up a compatibility copy whose source directories are read-only" }
       ]
     },
