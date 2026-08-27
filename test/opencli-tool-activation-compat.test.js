@@ -118,7 +118,7 @@ const isWeb = process.argv.includes('--web-search');
 const isDeep = process.argv.includes('--deep-research');
 const targetKey = isWeb ? 'web-search' : (isDeep ? 'deep-research' : null);
 const targetLabel = targetKey === 'web-search' ? 'Web Search' : 'Deep Research';
-const state = { menuOpen: false, menuChecks: 0, menuOpenedAtCheck: 0, selectedTool: null, selectedChecks: 0, selectedAtCheck: 0, nativeMenuClicks: 0, nativeOptionClicks: 0, domMenuClicks: 0, domOptionClicks: 0 };
+const state = { menuOpen: false, menuChecks: 0, menuOpenedAtCheck: 0, selectedTool: null, selectedChecks: 0, selectedAtCheck: 0, recoveryOptionChecks: 0, nativeMenuClicks: 0, nativeOptionClicks: 0, domMenuClicks: 0, domOptionClicks: 0 };
 const openMenu = () => { state.menuOpen = true; state.menuOpenedAtCheck = state.menuChecks; };
 const selectTool = () => { state.selectedTool = targetKey; state.selectedAtCheck = state.selectedChecks; };
 const page = {
@@ -152,10 +152,20 @@ const page = {
       state.menuChecks += 1;
       const scopedToHitTarget = text.includes('document.elementFromPoint');
       if (scenario.hiddenExpandedPlus && !scopedToHitTarget) return true;
+      if (scenario.activeStaleExpanded && scopedToHitTarget && !state.menuOpen) return true;
       if (!state.menuOpen) return false;
       return (state.menuChecks - state.menuOpenedAtCheck) > (scenario.menuVisibleAfterChecks ?? 0);
     }
-    if (text.includes('const optionSelector')) return state.menuOpen ? { found: true, checked: state.selectedTool === targetKey, x: 2, y: 2 } : { found: false };
+    if (text.includes('const optionSelector')) {
+      const recoveryResolution = text.includes('const labels =') && !text.includes('const exactLabels');
+      if (recoveryResolution) {
+        state.recoveryOptionChecks += 1;
+        if (!state.menuOpen) return { found: false };
+        if (state.recoveryOptionChecks <= (scenario.recoveryOptionVisibleAfterChecks ?? 0)) return { found: false };
+        if (scenario.recoveryOptionChecked) return { found: true, checked: true, x: 2, y: 2 };
+      }
+      return state.menuOpen ? { found: true, checked: state.selectedTool === targetKey, x: 2, y: 2 } : { found: false };
+    }
     if (text.includes('[contenteditable="false"]')) {
       state.selectedChecks += 1;
       const visibilityAware = text.includes('const composers =') && text.includes('isVisible');
@@ -267,5 +277,27 @@ test('dismissed menu is reopened and exact option is resolved again before DOM f
   assert.equal(result.tool, 'Web Search');
   assert.equal(capture.state.nativeOptionClicks, 1);
   assert.ok(capture.state.nativeMenuClicks >= 2 || capture.state.domMenuClicks >= 1);
+  assert.equal(capture.state.domOptionClicks, 1);
+});
+
+test('refreshed checked option is not clicked again after selected-state polling times out', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: false, recoveryOptionChecked: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeOptionClicks, 1);
+  assert.equal(capture.state.domOptionClicks, 0);
+});
+
+test('stale expanded active plus does not substitute for a visible exact option surface during recovery', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: false, optionNativeDismissesMenu: true, activeStaleExpanded: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeOptionClicks, 1);
+  assert.ok(capture.state.nativeMenuClicks >= 2 || capture.state.domMenuClicks >= 1);
+  assert.equal(capture.state.domOptionClicks, 1);
+});
+
+test('recovery polls for the exact option row after the tools surface reopens', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: false, optionNativeDismissesMenu: true, recoveryOptionVisibleAfterChecks: 1 });
+  assert.equal(result.tool, 'Web Search');
+  assert.ok(capture.state.recoveryOptionChecks >= 2);
   assert.equal(capture.state.domOptionClicks, 1);
 });
