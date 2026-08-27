@@ -125,10 +125,7 @@ const OPENCLI_TOOL_OPTION_ACTIVATION = String.raw`    if (!optionCenter?.found) 
         throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
     }
     return { Status: optionCenter.checked ? 'Already selected' : 'Success', Tool: target.label };`;
-const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    if (!optionCenter?.found) {
-        throw new CommandExecutionError(\`Could not find the ChatGPT \${target.label} tool option.\`);
-    }
-    const selectedState = async () => requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    const selectedState = async () => requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
         const isVisible = (el) => {
             if (!(el instanceof HTMLElement)) return false;
             const style = window.getComputedStyle(el);
@@ -197,14 +194,41 @@ const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    if (!optionCenter?
         }
         return { found: false };
     };
+    const resolveCurrentMenuButton = async () => requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+        const isVisible = (el) => {
+            if (!(el instanceof HTMLElement)) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
+        const selector = 'button[data-testid="composer-plus-btn"]';
+        const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
+        const current = hit instanceof Element ? hit.closest(selector) : null;
+        if (current instanceof HTMLElement && isVisible(current) && !current.closest('nav, aside')) {
+            const rect = current.getBoundingClientRect();
+            return { found: true, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+        }
+        const buttons = Array.from(document.querySelectorAll(selector))
+            .filter((node) => node instanceof HTMLElement && isVisible(node) && !node.closest('nav, aside'));
+        if (buttons.length !== 1) return { found: false };
+        const button = buttons[0];
+        button.scrollIntoView({ block: 'center', inline: 'center' });
+        const rect = button.getBoundingClientRect();
+        return { found: true, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+    })()\`)), 'chatgpt tools menu reopen target');
     const reopenForExactOption = async () => {
         let resolved = await waitForExactOption();
         if (resolved.found) return resolved;
-        await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
+        const recoveryMenuButton = await resolveCurrentMenuButton();
+        if (!recoveryMenuButton.found) return { found: false };
+        await page.nativeClick(Number(recoveryMenuButton.x), Number(recoveryMenuButton.y));
         resolved = await waitForExactOption();
         if (resolved.found) return resolved;
+        const domMenuButton = await resolveCurrentMenuButton();
+        if (!domMenuButton.found) return { found: false };
         const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
-            const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
+            const hit = document.elementFromPoint(\${Number(domMenuButton.x)}, \${Number(domMenuButton.y)});
             const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
             if (!(button instanceof HTMLElement)) return false;
             button.click();
@@ -212,16 +236,19 @@ const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    if (!optionCenter?
         })()\`)), 'chatgpt tools menu reopen DOM fallback');
         return domClicked ? waitForExactOption() : { found: false };
     };
-    if (optionCenter.checked) {
+    let activeOptionCenter = optionCenter;
+    if (!activeOptionCenter?.found) activeOptionCenter = await reopenForExactOption();
+    if (!activeOptionCenter?.found) throw new CommandExecutionError(\`Could not find the ChatGPT \${target.label} tool option.\`);
+    if (activeOptionCenter.checked) {
         if (!(await waitForSelectedState())) throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
         return { Status: 'Already selected', Tool: target.label };
     }
-    await page.nativeClick(Number(optionCenter.x), Number(optionCenter.y));
+    await page.nativeClick(Number(activeOptionCenter.x), Number(activeOptionCenter.y));
     if (await waitForSelectedState()) return { Status: 'Success', Tool: target.label };
     const fallbackOptionCenter = await reopenForExactOption();
     if (!fallbackOptionCenter?.found) throw new CommandExecutionError(\`Could not find the ChatGPT \${target.label} tool option.\`);
     if (fallbackOptionCenter.checked || (await selectedState()).selected) return { Status: 'Success', Tool: target.label };
-    const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+    requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
         const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
         const labels = \${JSON.stringify(target.labels)}.map(normalize);
         const optionSelector = '[role="menuitemradio"], [role="menuitem"], [role="option"], button, div[tabindex="0"]';
@@ -235,7 +262,7 @@ const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    if (!optionCenter?
         option.click();
         return true;
     })()\`)), 'chatgpt tool option DOM fallback');
-    if (!domClicked || !(await waitForSelectedState())) {
+    if (!(await waitForSelectedState())) {
         throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
     }
     return { Status: 'Success', Tool: target.label };`;
