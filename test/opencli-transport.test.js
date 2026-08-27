@@ -87,23 +87,23 @@ else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.env)); c
   assert.equal(received.CHATGPT_RESEARCH_SECRET_PROBE, undefined);
 }));
 
-test('maps standard, web, and deep modes to practical OpenCLI ask arguments', async () => withFake('', async ({ root, path }) => {
+test('maps standard and deep modes to the original practical OpenCLI ask arguments', async () => withFake('', async ({ root, path }) => {
   const capture = join(root, 'argv.jsonl');
   await writeFile(path, `#!/usr/bin/env node
 import { appendFileSync } from 'node:fs';
 if (process.argv[2] === '--version') console.log('1.8.7');
 else {
-  const args = process.argv.slice(2); appendFileSync(${JSON.stringify(capture)}, JSON.stringify(args) + '\\n');
-  const tool = args.includes('--web-search') ? 'Web Search' : args.includes('--deep-research') ? 'Deep Research' : '';
+  const args = process.argv.slice(2); appendFileSync(${JSON.stringify(capture)}, JSON.stringify({ args, executable: process.argv[1] }) + '\\n');
+  const tool = args.includes('--deep-research') ? 'Deep Research' : '';
   console.log(JSON.stringify([{conversationId:'mode-1',conversationUrl:'https://chatgpt.com/c/mode-1',tool,response:'done'}]));
 }
 `, { mode: 0o700 });
   const identity = await preflightOpenCli({ executablePath: path });
-  for (const mode of ['standard', 'web', 'deep']) await runOpenCliAsk({ executablePath: path, identity, prompt: 'research this', mode, timeoutSeconds: 600 });
+  for (const mode of ['standard', 'deep']) await runOpenCliAsk({ executablePath: path, identity, prompt: 'research this', mode, timeoutSeconds: 600 });
   const calls = (await readFile(capture, 'utf8')).trim().split('\n').map(JSON.parse);
-  assert.deepEqual(calls[0], ['chatgpt', 'ask', 'research this', '--new', 'true', '--site-session', 'persistent', '--timeout', '600', '--format', 'json', '--wait', 'false']);
-  assert.deepEqual(calls[1], [...calls[0], '--web-search', 'true']);
-  assert.deepEqual(calls[2], [...calls[0], '--deep-research', 'true']);
+  const base = ['chatgpt', 'ask', 'research this', '--new', 'true', '--site-session', 'persistent', '--timeout', '600', '--format', 'json', '--wait', 'false'];
+  assert.deepEqual(calls[0], { args: base, executable: path });
+  assert.deepEqual(calls[1], { args: [...base, '--deep-research', 'true'], executable: path });
 }));
 
 test('accepts blank handoff rows for read-after-submit collection', () => {
