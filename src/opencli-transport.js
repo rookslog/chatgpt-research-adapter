@@ -79,8 +79,9 @@ const OPENCLI_TOOL_MENU_ACTIVATION_PATCHED = String.raw`    if (!menuButton.foun
         };
         const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
         const labels = \${JSON.stringify(target.labels)}.map(normalize);
-        const button = document.querySelector('button[data-testid="composer-plus-btn"]');
-        if (button instanceof HTMLElement && button.getAttribute('aria-expanded') === 'true') return true;
+        const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
+        const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
+        if (button instanceof HTMLElement && isVisible(button) && !button.closest('nav, aside') && button.getAttribute('aria-expanded') === 'true') return true;
         const optionSelector = '[role="menuitemradio"], [role="menuitem"], [role="option"], button, div[tabindex="0"]';
         const rootSelector = '[role="group"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*="menu"], [data-testid*="popover"]';
         return Array.from(document.querySelectorAll(rootSelector)).some((root) =>
@@ -92,16 +93,15 @@ const OPENCLI_TOOL_MENU_ACTIVATION_PATCHED = String.raw`    if (!menuButton.foun
             })
         );
     })()\`)), 'chatgpt tools menu activation');
-    await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
-    let menuOpened = false;
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-        await page.wait(0.5);
-        if (await menuIsOpen()) {
-            menuOpened = true;
-            break;
+    const waitForMenuOpen = async () => {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+            await page.wait(0.5);
+            if (await menuIsOpen()) return true;
         }
-    }
-    if (!menuOpened) {
+        return false;
+    };
+    await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
+    if (!(await waitForMenuOpen())) {
         const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
             const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
             const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
@@ -110,8 +110,7 @@ const OPENCLI_TOOL_MENU_ACTIVATION_PATCHED = String.raw`    if (!menuButton.foun
             return true;
         })()\`)), 'chatgpt tools menu DOM fallback');
         if (!domClicked) throw new CommandExecutionError('ChatGPT tools menu did not open.');
-        await page.wait(0.5);
-        if (!(await menuIsOpen())) throw new CommandExecutionError('ChatGPT tools menu did not open.');
+        if (!(await waitForMenuOpen())) throw new CommandExecutionError('ChatGPT tools menu did not open.');
     }`;
 const OPENCLI_TOOL_OPTION_ACTIVATION = String.raw`    if (!optionCenter?.found) {
         throw new CommandExecutionError(\`Could not find the ChatGPT \${target.label} tool option.\`);
