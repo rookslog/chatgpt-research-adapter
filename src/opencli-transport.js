@@ -64,7 +64,7 @@ const OPENCLI_WEB_OPTION_MATCHER_PATCHED = String.raw`            const exactLab
 const OPENCLI_WEB_POSTCONDITION = String.raw`    await page.wait(0.5);
     const after = await getCurrentChatGPTTool(page);
     if (after.tool !== target.key) {
-        throw new CommandExecutionError(\`ChatGPT tool did not switch to ${target.label}.\`);
+        throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
     }`;
 const OPENCLI_WEB_POSTCONDITION_PATCHED = String.raw`    await page.wait(0.5);
     const after = requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
@@ -76,7 +76,7 @@ const OPENCLI_WEB_POSTCONDITION_PATCHED = String.raw`    await page.wait(0.5);
         return { selected: chips.filter((node) => labels.includes(normalize(node.textContent))).length === 1 };
     })()\`)), 'chatgpt Web Search selected chip');
     if (!after.selected) {
-        throw new CommandExecutionError(\`ChatGPT tool did not switch to ${target.label}.\`);
+        throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
     }`;
 
 function replacePinnedMarkdownSource(source, before, after) {
