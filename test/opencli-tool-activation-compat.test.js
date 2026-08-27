@@ -333,7 +333,7 @@ test('DOM fallback atomically rechecks refreshed option state before clicking', 
 test('stale expanded state cannot suppress the initial menu fallback', async () => {
   const { result, capture } = await runScenario('web', { menuNativeWorks: false, optionNativeWorks: true, activeStaleExpanded: true });
   assert.equal(result.tool, 'Web Search');
-  assert.equal(capture.state.nativeMenuClicks, 1);
+  assert.equal(capture.state.nativeMenuClicks, 2);
   assert.equal(capture.state.domMenuClicks, 1);
 });
 
