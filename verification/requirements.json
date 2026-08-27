@@ -27,17 +27,20 @@
       "bindings": [
         { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-002 persists direct intent before ask and provider handoff before collection" },
         { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-DISPATCH-003 records recovery when Deep Research result canonicalization fails after handoff" },
-        { "type": "integration", "path": "test/review-final6.test.js", "test": "REQ-DISPATCH-003 submit-once records recovery when completed-result persistence fails after handoff" }
+        { "type": "integration", "path": "test/review-final6.test.js", "test": "REQ-DISPATCH-003 submit-once records recovery when completed-result persistence fails after handoff" },
+        { "type": "integration", "path": "test/review-assurance6.test.js", "test": "REQ-DISPATCH-003 submit-once recovers when completed result fails after result bytes are written" },
+        { "type": "integration", "path": "test/review-assurance6.test.js", "test": "REQ-DISPATCH-003 direct ask preserves recovery when completed result fails after result bytes are written" }
       ]
     },
     {
       "id": "REQ-DISPATCH-004",
       "level": "hard",
       "external": false,
-      "statement": "A known-unsent pre-intent failure must not permanently wedge the dispatch slot.",
+      "statement": "A known-unsent pre-intent or intent-publication failure must not permanently wedge the dispatch slot.",
       "bindings": [
         { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-004 failed intent publication does not publish or wedge the dispatch slot" },
-        { "type": "integration", "path": "test/review-final6.test.js", "test": "REQ-DISPATCH-004 direct intent publication failure does not wedge a known-unsent job" }
+        { "type": "integration", "path": "test/review-final6.test.js", "test": "REQ-DISPATCH-004 direct intent publication failure does not wedge a known-unsent job" },
+        { "type": "integration", "path": "test/review-assurance6.test.js", "test": "REQ-DISPATCH-004 post-rename intent failure does not wedge a known-unsent submit" }
       ]
     },
     {
@@ -92,10 +95,12 @@
       "id": "REQ-OPENCLI-MARKDOWN-001",
       "level": "hard",
       "external": false,
-      "statement": "Markdown compatibility detail reads must patch only a private writable copy and must isolate disposable OpenCLI user and config state from the caller.",
+      "statement": "Markdown compatibility detail reads must patch and clean up only a private copy, isolate disposable HOME-derived OpenCLI state, and preserve the caller's explicitly selected OpenCLI/XDG configuration.",
       "bindings": [
         { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 patches a read-only converter only inside the private workspace" },
-        { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 isolates the copied OpenCLI user runtime from caller HOME" }
+        { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 isolates the copied OpenCLI user runtime from caller HOME" },
+        { "type": "integration", "path": "test/review-assurance7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 preserves caller OpenCLI and XDG config while isolating HOME" },
+        { "type": "integration", "path": "test/review-assurance7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 cleans up a compatibility copy whose source directories are read-only" }
       ]
     },
     {
@@ -117,6 +122,15 @@
       ]
     },
     {
+      "id": "REQ-OPENCLI-002",
+      "level": "hard",
+      "external": false,
+      "statement": "OpenCLI executable bytes must be size-bounded before the executable is read into memory for identity verification.",
+      "bindings": [
+        { "type": "integration", "path": "test/review-assurance6.test.js", "test": "REQ-OPENCLI-002 rejects oversized executable bytes before reading the executable" }
+      ]
+    },
+    {
       "id": "REQ-CLI-001",
       "level": "hard",
       "external": false,
@@ -129,9 +143,10 @@
       "id": "REQ-PREPARED-001",
       "level": "hard",
       "external": false,
-      "statement": "Prepared-job publication must sync the jobs directory before reporting success.",
+      "statement": "Prepared-job publication must sync each newly created parent directory entry required to make the published job durable.",
       "bindings": [
-        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-PREPARED-001 syncs the jobs directory after publishing a prepared job" }
+        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-PREPARED-001 syncs the jobs directory after publishing a prepared job" },
+        { "type": "integration", "path": "test/review-assurance6.test.js", "test": "REQ-PREPARED-001 syncs output root after first jobs directory publication" }
       ]
     },
     {

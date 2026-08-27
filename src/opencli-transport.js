@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, cp, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, cp, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,6 +11,7 @@ const VERSION = '1.8.7';
 const OUTPUT_LIMIT = 256 * 1024;
 const VERSION_LIMIT = 4096;
 const DEFAULT_TIMEOUT = 135 * 1000;
+const MAX_EXECUTABLE_BYTES = 16 * 1024 * 1024;
 const MODE_TO_TOOL = Object.freeze({ standard: '', web: 'Web Search', deep: 'Deep Research' });
 const CHATGPT_CONVERSATION_ROOT = ['https:', '', 'chatgpt.com', 'c'].join('/');
 const CWD = fileURLToPath(new URL('..', import.meta.url));
@@ -68,6 +69,16 @@ function nearestNodeModules(packageRoot) {
   return basename(current) === 'node_modules' ? current : null;
 }
 
+async function makeCopiedDirectoriesRemovable(root) {
+  const entry = await lstat(root).catch(() => null);
+  if (entry === null || !entry.isDirectory() || entry.isSymbolicLink()) return;
+  await chmod(root, entry.mode | 0o700);
+  const children = await readdir(root, { withFileTypes: true });
+  for (const child of children) {
+    if (child.isDirectory() && !child.isSymbolicLink()) await makeCopiedDirectoriesRemovable(join(root, child.name));
+  }
+}
+
 async function withMarkdownCompatibleOpenCli(identity, environment, run) {
   const entrySuffix = join('dist', 'src', 'main.js');
   if (typeof identity?.real_path !== 'string' || !identity.real_path.endsWith(entrySuffix)) throw fail('OpenCLI package layout is incompatible with Markdown qualification', 'ERR_OPENCLI_MARKDOWN_COMPAT');
@@ -95,15 +106,16 @@ async function withMarkdownCompatibleOpenCli(identity, environment, run) {
     catch { throw fail('OpenCLI copied Markdown converter is not writable', 'ERR_OPENCLI_MARKDOWN_COMPAT'); }
     await writeFile(copiedConverterPath, patched, 'utf8');
     const isolatedHome = join(workspace, 'home');
-    const isolatedXdg = join(workspace, 'xdg');
-    const isolatedConfig = join(workspace, 'config');
-    await Promise.all([mkdir(isolatedHome, { mode: 0o700 }), mkdir(isolatedXdg, { mode: 0o700 }), mkdir(isolatedConfig, { mode: 0o700 })]);
-    const isolatedEnvironment = { ...(environment ?? process.env), HOME: isolatedHome, XDG_CONFIG_HOME: isolatedXdg, OPENCLI_CONFIG_DIR: isolatedConfig };
+    await mkdir(isolatedHome, { mode: 0o700 });
+    const isolatedEnvironment = { ...(environment ?? process.env), HOME: isolatedHome };
     const copiedExecutable = join(tempPackageRoot, 'dist', 'src', 'main.js');
     const copiedIdentity = await executableIdentity(copiedExecutable);
     if (copiedIdentity.sha256 !== identity.sha256 || copiedIdentity.size !== identity.size) throw fail('OpenCLI copied executable identity changed', 'ERR_OPENCLI_IDENTITY');
     return await run(copiedExecutable, isolatedEnvironment);
-  } finally { await rm(workspace, { recursive: true, force: true }); }
+  } finally {
+    await makeCopiedDirectoriesRemovable(tempPackageRoot);
+    await rm(workspace, { recursive: true, force: true });
+  }
 }
 
 function minimalEnvironment(source = process.env) {
@@ -118,9 +130,10 @@ async function executableIdentity(executablePath) {
   try { resolved = await realpath(executablePath); } catch { throw fail('OpenCLI executable is unavailable', 'ERR_OPENCLI_PATH'); }
   const entry = await lstat(resolved).catch(() => { throw fail('OpenCLI executable is unavailable', 'ERR_OPENCLI_PATH'); });
   if (!entry.isFile() || (process.platform !== 'win32' && (entry.mode & 0o111) === 0)) throw fail('OpenCLI target must be an executable regular file', 'ERR_OPENCLI_PATH');
+  if (entry.size > MAX_EXECUTABLE_BYTES) throw fail('OpenCLI executable exceeds its byte limit', 'ERR_OPENCLI_EXECUTABLE_LIMIT');
   const bytes = await readFile(resolved);
   const after = await lstat(resolved).catch(() => { throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY'); });
-  if (after.dev !== entry.dev || after.ino !== entry.ino || after.size !== entry.size || after.mtimeMs !== entry.mtimeMs) throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY');
+  if (after.dev !== entry.dev || after.ino !== entry.ino || after.size !== entry.size || after.mtimeMs !== entry.mtimeMs) throw fail('OpenCLI executable identity changed during read', 'ERR_OPENCLI_IDENTITY');
   return Object.freeze({ supplied_path: executablePath, real_path: resolved, sha256: digest(bytes), size: entry.size, device: String(entry.dev), inode: String(entry.ino) });
 }
 

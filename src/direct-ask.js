@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { mkdir, open, rename, rm } from 'node:fs/promises';
+import { link, mkdir, open, rename, rm, unlink } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -76,9 +76,39 @@ function directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256 = n
   return { schema: 'm004.direct-result.v1', job_id: jobId, mode, rigor_protocol_id: bundle.rigor_protocol_id, rigor_protocol_version: bundle.rigor_protocol_version, rigor_profile_id: bundle.rigor_profile_id, rigor_profile_version: bundle.rigor_profile_version, rigor_profile_sha256: bundle.rigor_profile_sha256, citation_level: bundle.citation_level, audit_appendix: bundle.audit_appendix, intent_sha256: intentSha256, handoff_sha256: handoffSha256, conversation_id: conversationId, conversation_url: conversationUrl, tool, answer_path: null, answer_sha256: null, answer_bytes: null, report_path: null, report_sha256: null, report_bytes: null, sources: [], finished_at: now };
 }
 
-async function persistDirectResult(responseRoot, result) {
-  await writeDurableJson(join(responseRoot, 'result.json'), Object.freeze(result), responseRoot);
-  return Object.freeze(result);
+async function persistDirectResult(responseRoot, result, testSeam) {
+  const finalPath = join(responseRoot, 'result.json');
+  const stagingPath = join(responseRoot, `.result-staging-${randomUUID()}.json`);
+  const payload = Buffer.from(`${canonicalJson(Object.freeze(result))}\n`);
+  let handle;
+  let published = false;
+  try {
+    handle = await open(stagingPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0), 0o600);
+    try {
+      await handle.writeFile(payload);
+      fault(testSeam, 'after-direct-result-write');
+      await handle.sync();
+    } finally {
+      await handle.close();
+      handle = undefined;
+    }
+    try { await link(stagingPath, finalPath); }
+    catch (error) { if (error?.code === 'EEXIST') fail('direct response already exists', 'ERR_DIRECT_EXISTS'); throw error; }
+    published = true;
+    await unlink(stagingPath);
+    fault(testSeam, 'after-direct-result-publish');
+    await syncDirectory(responseRoot);
+    return Object.freeze(result);
+  } catch (error) {
+    if (handle) await handle.close().catch(() => {});
+    if (published) {
+      await rm(finalPath, { force: true });
+      await syncDirectory(responseRoot);
+    } else {
+      await rm(stagingPath, { force: true });
+    }
+    throw error;
+  }
 }
 
 export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath, openCliPath, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, ask = runOpenCliAsk, readDetail = runOpenCliDetail, readDeep = runOpenCliDeepResearchResult, receiptTestSeam } = {}) {
@@ -135,7 +165,7 @@ export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath
     }
     const result = { ...directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, tool: answer.tool, now: now() }), status: 'completed', process_disposition: 'exit_0_validated', remote_effect: 'completed', retry_decision: 'not_applicable', answer_path: answerPath, answer_sha256: answerSha256, answer_bytes: answerBytes, report_path: reportPath, report_sha256: reportSha256, report_bytes: reportBytes, sources: report?.sources ?? [] };
     canonicalJson(result);
-    return await persistDirectResult(responseRoot, result);
+    return await persistDirectResult(responseRoot, result, receiptTestSeam);
   } catch (error) {
     await persistDirectResult(responseRoot, { ...directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256, conversationId: answer.conversationId, conversationUrl: answer.conversationUrl, tool: answer.tool, now: now() }), status: 'recovery_required', process_disposition: disposition(error), remote_effect: 'accepted', retry_decision: 'prohibited' });
     throw error;

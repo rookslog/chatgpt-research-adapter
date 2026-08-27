@@ -3,9 +3,21 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
-  "bin": { "chatgpt-research": "bin/chatgpt-research.js" },
-  "files": ["bin/", "src/", "templates/", "rigor/", "scripts/", "package.json", "README.md"],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "chatgpt-research": "bin/chatgpt-research.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "templates/",
+    "rigor/",
+    "scripts/",
+    "package.json",
+    "README.md"
+  ],
   "scripts": {
     "test": "node --test",
     "check:authority": "node scripts/m002-authority-check.js",
@@ -24,16 +36,16 @@
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
       "src/cli.js": "a2ad8b09c8df455c9dc38e5854f813f5f87cf6e5b00842adb644cc1c39d47b7f",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
-      "src/direct-ask.js": "75f2267e09ccc0408e7772d31c15ae6f14231fb56c4c4821cc45f087a2f3b92e",
-      "src/dispatch-receipts.js": "82a55ae5b22e04ac1e16a2f5d0694f5c21c400c7b287a9cdcb4ea86503e0ab34",
+      "src/direct-ask.js": "8b08b35ec4b2fc0aab899b915341e3711efeda58e6665f8622ae7f25402182d4",
+      "src/dispatch-receipts.js": "2b8a7ff13fc20a85dfb467bca59d6963ec5bab606a480c2c16371e61e1890564",
       "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
-      "src/opencli-transport.js": "7603d1c987130c393166296c20ae9fb75950b20e803e56628d4d917547570626",
+      "src/opencli-transport.js": "10a0d90d9421df67bbef871e07723721dd549ff28366a46077a1ed65b6c71713",
       "src/prepare.js": "31ddd778bca5cffc187986a41684e328fa8de31f1a617fdf56da29f596e8db00",
       "src/prepared-bundle.js": "9c73d5c3b5d945652492e24965958513e5946e60e0c66c6c3add2d3616bbedc2",
-      "src/receipts.js": "f3c48aa06067b46e5d108ca2c5bc9ec62aea65c659eb47b6804add9c04da9cd4",
+      "src/receipts.js": "473f891f69473224948585cbc077b02ba0419216bc839d147baa68533fe9e0e5",
       "src/rigor-profile.js": "318b9704cd45b370a8f5a3ef619a43fe69391202bf0db138a5b14ff283db7133",
       "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
-      "src/submit-once.js": "985d97d38b237a342688db018852cd1cfc2e37b8b8fc782aa60b041ea2b10a70",
+      "src/submit-once.js": "51fd39cc0d1b25819ae8197ae6166a0929626488b9c363a6de09070431df73d4",
       "src/template-registry.js": "94b1f51bc0c6da8028930ecc2760eb955e113f72775252b72c3343c68a2daa4b"
     }
   }
