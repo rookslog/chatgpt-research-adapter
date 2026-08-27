@@ -143,7 +143,7 @@ const page = {
   async wait() {},
   async evaluate(code) {
     const text = String(code);
-    if (text.includes("querySelectorAll('button[data-testid=\"composer-plus-btn\"]')")) {
+    if (text.includes('const buttons =') && text.includes('composer-plus-btn') && text.includes('querySelectorAll')) {
       state.recoveryMenuResolveChecks += 1;
       return { found: true, x: state.layoutShifted ? 3 : 1, y: 1 };
     }
