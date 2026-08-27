@@ -154,19 +154,6 @@ const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    if (!optionCenter?
         }
         return false;
     };
-    const reopenMenuForFallback = async () => {
-        if (await menuIsOpen()) return true;
-        await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
-        if (await waitForMenuOpen()) return true;
-        const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
-            const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
-            const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
-            if (!(button instanceof HTMLElement)) return false;
-            button.click();
-            return true;
-        })()\`)), 'chatgpt tools menu reopen DOM fallback');
-        return domClicked ? waitForMenuOpen() : false;
-    };
     const resolveExactOption = async () => requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
         const isVisible = (el) => {
             if (!(el instanceof HTMLElement)) return false;
@@ -192,23 +179,48 @@ const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    if (!optionCenter?
             return primaryNodes.some((part) => labels.includes(normalize(part.textContent)));
         });
         if (!(option instanceof HTMLElement)) return { found: false };
+        const checked = option.getAttribute('aria-checked') === 'true' || option.getAttribute('aria-selected') === 'true';
         option.scrollIntoView({ block: 'center', inline: 'center' });
         const rect = option.getBoundingClientRect();
         return {
             found: true,
+            checked,
             x: Math.round(rect.left + rect.width / 2),
             y: Math.round(rect.top + rect.height / 2),
         };
     })()\`)), 'chatgpt tool option fallback resolution');
+    const waitForExactOption = async () => {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+            const resolved = await resolveExactOption();
+            if (resolved.found) return resolved;
+            await page.wait(0.5);
+        }
+        return { found: false };
+    };
+    const reopenForExactOption = async () => {
+        let resolved = await waitForExactOption();
+        if (resolved.found) return resolved;
+        await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
+        resolved = await waitForExactOption();
+        if (resolved.found) return resolved;
+        const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+            const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
+            const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
+            if (!(button instanceof HTMLElement)) return false;
+            button.click();
+            return true;
+        })()\`)), 'chatgpt tools menu reopen DOM fallback');
+        return domClicked ? waitForExactOption() : { found: false };
+    };
     if (optionCenter.checked) {
         if (!(await waitForSelectedState())) throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
         return { Status: 'Already selected', Tool: target.label };
     }
     await page.nativeClick(Number(optionCenter.x), Number(optionCenter.y));
     if (await waitForSelectedState()) return { Status: 'Success', Tool: target.label };
-    if (!(await reopenMenuForFallback())) throw new CommandExecutionError(\`ChatGPT tool did not switch to \${target.label}.\`);
-    const fallbackOptionCenter = await resolveExactOption();
+    const fallbackOptionCenter = await reopenForExactOption();
     if (!fallbackOptionCenter?.found) throw new CommandExecutionError(\`Could not find the ChatGPT \${target.label} tool option.\`);
+    if (fallbackOptionCenter.checked || (await selectedState()).selected) return { Status: 'Success', Tool: target.label };
     const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
         const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
         const labels = \${JSON.stringify(target.labels)}.map(normalize);
