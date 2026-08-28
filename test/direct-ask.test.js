@@ -259,6 +259,24 @@ test('rejects duplicate Deep submission before preflight or provider spawn', asy
   await assert.rejects(submitDirectPreparedJob({ mode: 'deep', outputRoot, jobId: 'job_duplicate', jobPath: outcome.jobPath, openCliPath: '/tmp/opencli', preflight: async () => assert.fail('must not preflight'), ask: async () => assert.fail('must not spawn') }), { code: 'ERR_DIRECT_EXISTS' });
 }));
 
+test('concurrent Deep submissions produce one running handoff and one duplicate before a second ask', async () => withOutputRoot(async (outputRoot) => {
+  const prepared = await directAsk({
+    question: 'concurrent submit', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_concurrent_submit', newTurnId: () => 'turn_concurrent_submit', submit: async () => Object.freeze({ status: 'prepared' })
+  });
+  let preflights = 0; let release; const barrier = new Promise((resolve) => { release = resolve; }); let asks = 0;
+  const options = { mode: 'deep', outputRoot, jobId: 'job_concurrent_submit', jobPath: prepared.jobPath, openCliPath: '/tmp/opencli', preflight: async () => { preflights += 1; if (preflights === 2) release(); await barrier; return { version: '1.8.7' }; }, ask: async () => { asks += 1; return { conversationId: 'deep-concurrent-1', conversationUrl: 'https://chatgpt.com/c/deep-concurrent-1', tool: 'Deep Research', response: '' }; } };
+  const settled = await Promise.allSettled([submitDirectPreparedJob(options), submitDirectPreparedJob(options)]);
+  assert.equal(preflights, 2);
+  assert.equal(asks, 1);
+  assert.equal(settled.filter((entry) => entry.status === 'fulfilled').length, 1);
+  assert.equal(settled.filter((entry) => entry.status === 'rejected')[0].reason.code, 'ERR_DIRECT_EXISTS');
+  const responseRoot = join(prepared.jobPath, 'response');
+  const original = await Promise.all(['intent.json', 'handoff.json', 'running.json'].map((name) => readFile(join(responseRoot, name))));
+  await assert.rejects(submitDirectPreparedJob({ ...options, preflight: async () => assert.fail('duplicate must fail before provider access'), ask: async () => assert.fail('duplicate must not ask') }), { code: 'ERR_DIRECT_EXISTS' });
+  assert.deepEqual(await Promise.all(['intent.json', 'handoff.json', 'running.json'].map((name) => readFile(join(responseRoot, name)))), original);
+}));
+
 test('serializes concurrent Deep collectors onto one immutable completed result', async () => withOutputRoot(async (outputRoot) => {
   await directAsk({
     question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
