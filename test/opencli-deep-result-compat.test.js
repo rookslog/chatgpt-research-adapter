@@ -11,6 +11,7 @@ function pinnedDeepResearchSource() {
 function pickFirstObject(...values) { return values.find((value) => value && typeof value === 'object' && !Array.isArray(value)) || {}; }
 function extractDeepResearchFromWidgetState() { return null; }
 function deepResearchCandidateScore() { return 0; }
+function parseJsonMaybe(value) { try { return JSON.parse(String(value)); } catch { return null; } }
 
 function extractDeepResearchFromConversationPayload(payload, { expectedConversationId = '' } = {}) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -68,7 +69,40 @@ function extractDeepResearchFromConversationPayload(payload, { expectedConversat
     return candidates[0] || null;
 }
 
+function conversationIdFromBackendConversationUrl(url) {
+    const match = String(url || '').match(/\\/backend-api\\/conversation\\/([^/?#]+)/);
+    return match?.[1] ? decodeURIComponent(match[1]) : '';
+}
+
+function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId = '' } = {}) {
+    const candidates = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+        const url = String(entry?.url || '');
+        if (!/\\/backend-api\\/conversation\\//.test(url)) continue;
+        const entryConversationId = conversationIdFromBackendConversationUrl(url);
+        if (expectedConversationId && entryConversationId !== expectedConversationId) continue;
+        const body = parseJsonMaybe(entry?.responsePreview) || parseJsonMaybe(entry?.body) || null;
+        if (!body) {
+            throw new CommandExecutionError(\`Malformed ChatGPT conversation network payload for \${entryConversationId || 'unknown conversation'}.\`);
+        }
+        const extracted = extractDeepResearchFromConversationPayload(body, { expectedConversationId });
+        if (extracted) {
+            candidates.push({
+                ...extracted,
+                method: extracted.status === 'completed'
+                    ? 'network-conversation-widget-state'
+                    : 'network-conversation-widget-progress',
+                networkUrl: url,
+            });
+        }
+    }
+    candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
+    return candidates[0] || null;
+}
+
 export async function getChatGPTDeepResearchResult(page, { conversationId = '' } = {}) {
+    const network = extractDeepResearchFromNetworkEntries(await page.networkEntries(), { expectedConversationId: conversationId });
+    if (network?.status === 'completed') return network;
     const conversation = await page.fetchConversation();
     const extracted = extractDeepResearchFromConversationPayload(conversation.payload, { expectedConversationId: conversationId });
     if (extracted) return extracted;
@@ -84,6 +118,7 @@ function driftedDeepResearchSource(drift) {
   if (drift === 'id-binding') return source.replace('payloadConversationId !== expectedConversationId', 'payloadConversationId === expectedConversationId');
   if (drift === 'mismatch-guard') return source.replace('if (expectedConversationId && payloadConversationId && payloadConversationId !== expectedConversationId) {', 'if (false) {');
   if (drift === 'malformed-payload-guard') return source.replace("if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {", 'if (false) {');
+  if (drift === 'network-target-anchor') return source.replace('if (expectedConversationId && entryConversationId !== expectedConversationId) continue;', 'if (false) continue;');
   throw new Error(`unknown source drift: ${drift}`);
 }
 
@@ -96,7 +131,7 @@ async function assertCompatibilityCopyRemoved(observed) {
   await assert.rejects(lstat(compatibilityWorkspace(observed.executable)), { code: 'ENOENT' });
 }
 
-async function withDeepResultOpenCli(run, { payload = { conversation_id: 'deep-current-1' }, sourceDrift = '' } = {}) {
+async function withDeepResultOpenCli(run, { payload = { conversation_id: 'deep-current-1' }, networkEntries = [], sourceDrift = '' } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'm006-deep-result-'));
   const packageRoot = join(root, 'install', 'node_modules', '@jackwener', 'opencli');
   const sourcePath = join(packageRoot, 'clis', 'chatgpt', 'utils.js');
@@ -112,8 +147,10 @@ import { writeFileSync } from 'node:fs';
 import { getChatGPTDeepResearchResult } from '../../clis/chatgpt/utils.js';
 const capturePath = ${JSON.stringify(capturePath)};
 const payload = ${JSON.stringify(payload)};
+const networkEntries = ${JSON.stringify(networkEntries)};
 let fallbackCalls = 0;
 const page = {
+  async networkEntries() { return networkEntries; },
   async fetchConversation() { return { payload }; },
   async existingFallback() {
     fallbackCalls += 1;
@@ -142,7 +179,7 @@ if (process.argv[2] === '--version') {
   finally { await rm(root, { recursive: true, force: true }); }
 }
 
-test('deep reader reaches an existing completed fallback when its matching conversation has no mapping', async () => withDeepResultOpenCli(async ({ root, sourcePath, executablePath, capturePath }) => {
+test('deep reader reaches an existing completed fallback when its trusted matching network conversation has no id or mapping', async () => withDeepResultOpenCli(async ({ root, sourcePath, executablePath, capturePath }) => {
   const installedBefore = await readFile(sourcePath);
   const environment = { HOME: join(root, 'persistent-home'), PATH: process.env.PATH, OPENCLI_CONFIG_DIR: join(root, 'opencli-config') };
   const identity = await preflightOpenCli({ executablePath, environment });
@@ -156,7 +193,7 @@ test('deep reader reaches an existing completed fallback when its matching conve
   assert.deepEqual(observed.environment, { HOME: environment.HOME, OPENCLI_CONFIG_DIR: environment.OPENCLI_CONFIG_DIR });
   assert.deepEqual(await readFile(sourcePath), installedBefore);
   await assertCompatibilityCopyRemoved(observed);
-}));
+}, { networkEntries: [{ url: 'https://chatgpt.com/backend-api/conversation/deep-current-1', responsePreview: '{}' }] }));
 
 test('deep reader fails closed before child execution when the pinned extractor source drifts', async () => withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
   const identity = await preflightOpenCli({ executablePath });
@@ -168,6 +205,7 @@ for (const [drift, name] of [
   ['id-binding', 'changes conversation ID binding'],
   ['mismatch-guard', 'disables the mismatch guard'],
   ['malformed-payload-guard', 'disables the malformed-payload guard'],
+  ['network-target-anchor', 'changes the network target anchor'],
 ]) {
   test(`deep reader fails closed before child execution when the pinned extractor ${name}`, async () => withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
     const identity = await preflightOpenCli({ executablePath });
@@ -204,3 +242,23 @@ test('deep reader preserves an own invalid mapping as a failure without probing 
   assert.notEqual(observed.executable, identity.real_path);
   await assertCompatibilityCopyRemoved(observed);
 }, { payload: { conversation_id: 'deep-current-1', mapping: [] } }));
+
+test('deep reader skips a mismatched network conversation URL before its mapping-less body', async () => withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
+  const identity = await preflightOpenCli({ executablePath });
+  const result = await runOpenCliDeepResearchResult({ executablePath, identity, conversationId: 'deep-current-1', timeoutSeconds: 60 });
+  const observed = JSON.parse(await readFile(capturePath, 'utf8'));
+  assert.equal(result.report, '# Completed report\n\nA complete Deep Research report from the existing fallback.');
+  assert.equal(observed.fallbackCalls, 1);
+}, { networkEntries: [{ url: 'https://chatgpt.com/backend-api/conversation/another-conversation', responsePreview: '{}' }] }));
+
+for (const [name, responsePreview] of [
+  ['malformed network JSON', 'not json'],
+  ['non-object network JSON', '[]'],
+]) {
+  test(`deep reader rejects ${name} without probing the existing fallback`, async () => withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    await assert.rejects(runOpenCliDeepResearchResult({ executablePath, identity, conversationId: 'deep-current-1', timeoutSeconds: 60 }), { code: 'ERR_OPENCLI_EXIT' });
+    const observed = JSON.parse(await readFile(capturePath, 'utf8'));
+    assert.equal(observed.fallbackCalls, 0);
+  }, { networkEntries: [{ url: 'https://chatgpt.com/backend-api/conversation/deep-current-1', responsePreview }] }));
+}

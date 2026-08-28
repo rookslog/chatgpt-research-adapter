@@ -103,6 +103,32 @@ function extractDeepResearchFromConversationPayload(payload, { expectedConversat
     candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
     return candidates[0] || null;
 }
+
+function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId = '' } = {}) {
+    const candidates = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+        const url = String(entry?.url || '');
+        if (!/\\/backend-api\\/conversation\\//.test(url)) continue;
+        const entryConversationId = conversationIdFromBackendConversationUrl(url);
+        if (expectedConversationId && entryConversationId !== expectedConversationId) continue;
+        const body = parseJsonMaybe(entry?.responsePreview) || parseJsonMaybe(entry?.body) || null;
+        if (!body) {
+            throw new CommandExecutionError(\`Malformed ChatGPT conversation network payload for \${entryConversationId || 'unknown conversation'}.\`);
+        }
+        const extracted = extractDeepResearchFromConversationPayload(body, { expectedConversationId });
+        if (extracted) {
+            candidates.push({
+                ...extracted,
+                method: extracted.status === 'completed'
+                    ? 'network-conversation-widget-state'
+                    : 'network-conversation-widget-progress',
+                networkUrl: url,
+            });
+        }
+    }
+    candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
+    return candidates[0] || null;
+}
 `);
   await writeFile(path, `#!/usr/bin/env node
 import { writeFileSync } from 'node:fs';

@@ -153,6 +153,60 @@ const OPENCLI_DEEP_RESULT_PATCHED_EXTRACTOR = String.raw`function extractDeepRes
     candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
     return candidates[0] || null;
 }`;
+const OPENCLI_DEEP_RESULT_NETWORK_EXTRACTOR = String.raw`function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId = '' } = {}) {
+    const candidates = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+        const url = String(entry?.url || '');
+        if (!/\/backend-api\/conversation\/@SLASH@.test(url)) continue;
+        const entryConversationId = conversationIdFromBackendConversationUrl(url);
+        if (expectedConversationId && entryConversationId !== expectedConversationId) continue;
+        const body = parseJsonMaybe(entry?.responsePreview) || parseJsonMaybe(entry?.body) || null;
+        if (!body) {
+            throw new CommandExecutionError(\`Malformed ChatGPT conversation network payload for \${entryConversationId || 'unknown conversation'}.\`);
+        }
+        const extracted = extractDeepResearchFromConversationPayload(body, { expectedConversationId });
+        if (extracted) {
+            candidates.push({
+                ...extracted,
+                method: extracted.status === 'completed'
+                    ? 'network-conversation-widget-state'
+                    : 'network-conversation-widget-progress',
+                networkUrl: url,
+            });
+        }
+    }
+    candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
+    return candidates[0] || null;
+}`.replace('@SLASH@', '/');
+const OPENCLI_DEEP_RESULT_PATCHED_NETWORK_EXTRACTOR = String.raw`function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId = '' } = {}) {
+    const candidates = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+        const url = String(entry?.url || '');
+        if (!/\/backend-api\/conversation\/@SLASH@.test(url)) continue;
+        const entryConversationId = conversationIdFromBackendConversationUrl(url);
+        if (expectedConversationId && entryConversationId !== expectedConversationId) continue;
+        const body = parseJsonMaybe(entry?.responsePreview) || parseJsonMaybe(entry?.body) || null;
+        if (!body) {
+            throw new CommandExecutionError(\`Malformed ChatGPT conversation network payload for \${entryConversationId || 'unknown conversation'}.\`);
+        }
+        const boundBody = expectedConversationId && entryConversationId === expectedConversationId && body && typeof body === 'object' && !Array.isArray(body)
+            && !Object.hasOwn(body, 'conversation_id') && !Object.hasOwn(body, 'conversationId') && !Object.hasOwn(body, 'id')
+            ? { ...body, conversation_id: entryConversationId }
+            : body;
+        const extracted = extractDeepResearchFromConversationPayload(boundBody, { expectedConversationId });
+        if (extracted) {
+            candidates.push({
+                ...extracted,
+                method: extracted.status === 'completed'
+                    ? 'network-conversation-widget-state'
+                    : 'network-conversation-widget-progress',
+                networkUrl: url,
+            });
+        }
+    }
+    candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
+    return candidates[0] || null;
+}`.replace('@SLASH@', '/');
 
 const OPENCLI_TOOL_OPTIONS = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', '搜索', 'Web Search', 'Search'] },\n};";
 const OPENCLI_TOOL_OPTIONS_PATCHED = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', 'Web Search'] },\n};";
@@ -445,7 +499,11 @@ function patchOpenCliDeepResearchResultSource(source) {
   const replacement = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_PATCHED_EXTRACTOR);
   const parts = source.split(expected);
   if (parts.length !== 2) throw fail('OpenCLI Deep Research extractor does not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
-  return `${parts[0]}${replacement}${parts[1]}`;
+  const networkExpected = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_NETWORK_EXTRACTOR);
+  const networkReplacement = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_PATCHED_NETWORK_EXTRACTOR);
+  const networkParts = `${parts[0]}${replacement}${parts[1]}`.split(networkExpected);
+  if (networkParts.length !== 2) throw fail('OpenCLI Deep Research network extractor does not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+  return `${networkParts[0]}${networkReplacement}${networkParts[1]}`;
 }
 
 function embeddedPinnedToolSource(value) {
