@@ -137,6 +137,7 @@ async function persistDirectResult(responseRoot, result, testSeam) {
   const finalPath = join(responseRoot, 'result.json');
   const stagingPath = join(responseRoot, `.result-staging-${randomUUID()}.json`);
   const payload = Buffer.from(`${canonicalJson(Object.freeze(result))}\n`);
+  if (payload.length > RESPONSE_FILE_LIMIT) fail('direct response receipt exceeds its byte limit', 'ERR_DIRECT_RECEIPT');
   let handle;
   let published = false;
   try {
