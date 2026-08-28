@@ -750,14 +750,16 @@ export async function runOpenCliDetail({ executablePath, identity, conversationI
   return Object.freeze({ response: assistant.Text, rows: Object.freeze(rows) });
 }
 
-export async function runOpenCliDeepResearchResult({ executablePath, identity, conversationId, timeoutSeconds = 1200, spawnImpl, environment, timeoutMs, killGraceMs = 2000 } = {}) {
+async function runOpenCliDeepResearchObservation({ executablePath, identity, conversationId, wait, timeoutSeconds = 1200, spawnImpl, environment, timeoutMs, killGraceMs = 2000 } = {}) {
   if (!identity || identity.version !== VERSION) throw fail('OpenCLI identity is required', 'ERR_OPENCLI_IDENTITY');
   if (typeof conversationId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(conversationId)) throw fail('OpenCLI conversation id is invalid', 'ERR_OPENCLI_CONVERSATION');
   const seconds = requireTimeoutSeconds(timeoutSeconds);
   const current = await executableIdentity(executablePath);
   if (!sameIdentity(identity, current)) throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY');
-  const args = ['chatgpt', 'deep-research-result', conversationId, '--wait', 'true', '--timeout', String(seconds), '--stable', '6', '--site-session', 'persistent', '--format', 'json'];
+  if (typeof wait !== 'boolean') throw fail('OpenCLI Deep Research wait mode is invalid', 'ERR_OPENCLI_WAIT');
+  const args = ['chatgpt', 'deep-research-result', conversationId, '--wait', String(wait), '--timeout', String(seconds), '--stable', '6', '--site-session', 'persistent', '--format', 'json'];
   const result = await withDeepResearchCompatibleOpenCli(identity, environment, (patchedExecutable, patchedEnvironment) => runProcess(patchedExecutable, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment: patchedEnvironment, killGraceMs }));
+  if (!wait && result.code === 66 && result.signal === null) return Object.freeze({ status: 'not_ready', conversationId });
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI Deep Research reader did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   let parsed;
   try { parsed = parseStrictJsonBuffer(result.stdout); } catch { throw fail('OpenCLI Deep Research output must be strict UTF-8 JSON', 'ERR_OPENCLI_OUTPUT'); }
@@ -765,6 +767,14 @@ export async function runOpenCliDeepResearchResult({ executablePath, identity, c
   const row = parsed[0];
   if (!row || Array.isArray(row) || typeof row !== 'object' || row.conversationId !== conversationId || row.status !== 'completed' || typeof row.report !== 'string' || row.report.trim().length === 0 || !Array.isArray(row.sources)) throw fail('OpenCLI Deep Research output is incomplete', 'ERR_OPENCLI_OUTPUT');
   return Object.freeze(row);
+}
+
+export async function runOpenCliDeepResearchStatus(options = {}) {
+  return runOpenCliDeepResearchObservation({ ...options, wait: false });
+}
+
+export async function runOpenCliDeepResearchResult(options = {}) {
+  return runOpenCliDeepResearchObservation({ ...options, wait: true });
 }
 
 export async function runOpenCliStandard({ executablePath, identity, prompt, spawnImpl, environment, timeoutMs = DEFAULT_TIMEOUT, killGraceMs = 2000 } = {}) {

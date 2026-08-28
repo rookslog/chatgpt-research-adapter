@@ -4,13 +4,14 @@ import { isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { canonicalJson } from './canonical-json.js';
-import { directAsk } from './direct-ask.js';
+import { collectDeepPreparedJob, directAsk, getDeepPreparedJobStatus, waitDeepPreparedJob } from './direct-ask.js';
 import { prepareResearchJob } from './prepare.js';
 import { parseStrictJsonBuffer } from './strict-json.js';
 import { submitPreparedJobOnce } from './submit-once.js';
 
 const fail = (message, code) => { const error = new Error(message); error.code = code; throw error; };
 const ASK_USAGE = 'usage: ask <prompt> [--mode standard|web|deep] [--rigor light|standard|strict | --rigor-file <absolute-json>] [--citations principal|expanded] [--audit-appendix] --output-root <directory> --opencli <absolute-path>';
+const LIFECYCLE_USAGE = 'status --output-root <directory> --job-id <id> | collect --output-root <directory> --job-id <id> --opencli <absolute-path> | wait --output-root <directory> --job-id <id> --opencli <absolute-path>';
 
 function parseAsk(argv) {
   if (!Array.isArray(argv) || argv[0] !== 'ask' || typeof argv[1] !== 'string' || argv[1].trim().length === 0 || argv.length < 6) return null;
@@ -36,7 +37,7 @@ function parseAsk(argv) {
   return options;
 }
 
-export async function runCli(argv, { stdout = process.stdout, templatesRoot = fileURLToPath(new URL('../templates/', import.meta.url)), ask = directAsk, submit = submitPreparedJobOnce } = {}) {
+export async function runCli(argv, { stdout = process.stdout, templatesRoot = fileURLToPath(new URL('../templates/', import.meta.url)), ask = directAsk, submit = submitPreparedJobOnce, status = getDeepPreparedJobStatus, collect = collectDeepPreparedJob, wait = waitDeepPreparedJob } = {}) {
   const askOptions = parseAsk(argv);
   if (askOptions) {
     const summary = await ask(askOptions);
@@ -48,7 +49,17 @@ export async function runCli(argv, { stdout = process.stdout, templatesRoot = fi
     stdout.write(`${canonicalJson(summary)}\n`);
     return summary;
   }
-  if (!Array.isArray(argv) || argv.length !== 5 || argv[0] !== 'prepare' || argv[1] !== '--request' || argv[3] !== '--output-root' || typeof argv[2] !== 'string' || typeof argv[4] !== 'string' || !isAbsolute(argv[4])) fail(`${ASK_USAGE} | prepare --request <json-file> --output-root <directory> | submit-once --output-root <directory> --job-id <id> --opencli <absolute-path>`, 'ERR_CLI_USAGE');
+  if (Array.isArray(argv) && argv.length === 5 && argv[0] === 'status' && argv[1] === '--output-root' && argv[3] === '--job-id' && typeof argv[2] === 'string' && typeof argv[4] === 'string') {
+    const summary = await status({ outputRoot: argv[2], jobId: argv[4] });
+    stdout.write(`${canonicalJson(summary)}\n`);
+    return summary;
+  }
+  if (Array.isArray(argv) && argv.length === 7 && (argv[0] === 'collect' || argv[0] === 'wait') && argv[1] === '--output-root' && argv[3] === '--job-id' && argv[5] === '--opencli' && typeof argv[2] === 'string' && typeof argv[4] === 'string' && typeof argv[6] === 'string' && isAbsolute(argv[6])) {
+    const summary = await (argv[0] === 'collect' ? collect : wait)({ outputRoot: argv[2], jobId: argv[4], openCliPath: argv[6] });
+    stdout.write(`${canonicalJson(summary)}\n`);
+    return summary;
+  }
+  if (!Array.isArray(argv) || argv.length !== 5 || argv[0] !== 'prepare' || argv[1] !== '--request' || argv[3] !== '--output-root' || typeof argv[2] !== 'string' || typeof argv[4] !== 'string' || !isAbsolute(argv[4])) fail(`${ASK_USAGE} | prepare --request <json-file> --output-root <directory> | submit-once --output-root <directory> --job-id <id> --opencli <absolute-path> | ${LIFECYCLE_USAGE}`, 'ERR_CLI_USAGE');
   const requestPath = argv[2];
   const entry = await lstat(requestPath).catch(() => fail('request file is unavailable', 'ERR_CLI_REQUEST'));
   if (!entry.isFile() || entry.isSymbolicLink()) fail('request file must be a regular non-symlink file', 'ERR_CLI_REQUEST');

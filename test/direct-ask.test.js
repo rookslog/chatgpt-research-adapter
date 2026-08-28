@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { directAsk, submitDirectPreparedJob } from '../src/direct-ask.js';
+import { collectDeepPreparedJob, directAsk, getDeepPreparedJobStatus, submitDirectPreparedJob, waitDeepPreparedJob } from '../src/direct-ask.js';
 
 const templatesRoot = new URL('../templates/', import.meta.url).pathname;
 const preparedAt = '2026-08-24T01:02:03.456Z';
@@ -164,7 +164,7 @@ test('requires recovery without publishing when duplicate Web reads grow on the 
   assert.equal(result.retry_decision, 'prohibited');
 }));
 
-test('persists the completed report after one Deep Research submission', async () => withOutputRoot(async (outputRoot) => {
+test('returns an immutable Deep running receipt after one handoff without reading a result', async () => withOutputRoot(async (outputRoot) => {
   const calls = [];
   const outcome = await directAsk({
     question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
@@ -173,11 +173,89 @@ test('persists the completed report after one Deep Research submission', async (
       ...options,
       preflight: async () => ({ version: '1.8.7' }),
       ask: async ({ mode }) => { calls.push(mode); return { conversationId: 'deep-1', conversationUrl: 'https://chatgpt.com/c/deep-1', tool: 'Deep Research', response: '' }; },
-      readDeep: async ({ conversationId }) => ({ conversationId, status: 'completed', report: '# Completed report', sources: [{ title: 'Example', url: 'https://example.com' }] })
+      readDeep: async () => assert.fail('Deep submission must not read a result')
     })
   });
   assert.deepEqual(calls, ['deep']);
   await assert.rejects(readFile(join(outcome.jobPath, 'response', 'answer.md')), { code: 'ENOENT' });
-  assert.equal(await readFile(join(outcome.jobPath, 'response', 'report.md'), 'utf8'), '# Completed report');
-  assert.equal(outcome.result.report_path, join(outcome.jobPath, 'response', 'report.md'));
+  await assert.rejects(readFile(join(outcome.jobPath, 'response', 'report.md')), { code: 'ENOENT' });
+  assert.equal(outcome.result.status, 'running');
+  assert.equal(outcome.result.remote_effect, 'accepted');
+  assert.equal(JSON.parse(await readFile(join(outcome.jobPath, 'response', 'running.json'), 'utf8')).conversation_id, 'deep-1');
+}));
+
+test('resumes a persisted Deep handoff through pending, collect, and wait without resubmitting', async () => withOutputRoot(async (outputRoot) => {
+  const running = await directAsk({
+    question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_resume', newTurnId: () => 'turn_resume',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-resume-1', conversationUrl: 'https://chatgpt.com/c/deep-resume-1', tool: 'Deep Research', response: '' }), readDeep: async () => assert.fail('must not read during submit') })
+  });
+  const before = await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_resume' });
+  assert.equal(before.status, 'running');
+  const pending = await collectDeepPreparedJob({ outputRoot, jobId: 'job_resume', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'not_ready', conversationId: 'deep-resume-1' }) });
+  assert.equal(pending.status, 'running');
+  const completed = await waitDeepPreparedJob({ outputRoot, jobId: 'job_resume', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readDeep: async () => ({ status: 'completed', conversationId: 'deep-resume-1', report: '# Resumed report', sources: [{ title: 'Source', url: 'https://example.com' }] }) });
+  assert.equal(completed.status, 'completed');
+  assert.equal(await readFile(join(running.jobPath, 'response', 'report.md'), 'utf8'), '# Resumed report');
+  assert.deepEqual(await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_resume' }), completed);
+}));
+
+test('keeps accepted Deep collection failures nonterminal and does not resubmit', async () => withOutputRoot(async (outputRoot) => {
+  await directAsk({
+    question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_collect_error', newTurnId: () => 'turn_collect_error',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-error-1', conversationUrl: 'https://chatgpt.com/c/deep-error-1', tool: 'Deep Research', response: '' }) })
+  });
+  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_collect_error', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => { const error = new Error('timeout'); error.code = 'ERR_OPENCLI_TIMEOUT'; throw error; } });
+  assert.equal(result.status, 'running');
+  assert.equal(result.collection_disposition, 'ERR_OPENCLI_TIMEOUT');
+  const durable = await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_collect_error' });
+  assert.equal(durable.status, 'running');
+  await assert.rejects(readFile(join(outputRoot, 'jobs', 'job_collect_error', 'response', 'result.json')), { code: 'ENOENT' });
+}));
+
+test('keeps malformed Deep collection output collectable without terminal publication', async () => withOutputRoot(async (outputRoot) => {
+  await directAsk({
+    question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_collect_malformed', newTurnId: () => 'turn_collect_malformed',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-malformed-1', conversationUrl: 'https://chatgpt.com/c/deep-malformed-1', tool: 'Deep Research', response: '' }) })
+  });
+  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_collect_malformed', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-malformed-1', report: '  ', sources: {} }) });
+  assert.equal(result.status, 'running');
+  assert.equal(result.collection_disposition, 'ERR_OPENCLI_OUTPUT');
+  await assert.rejects(readFile(join(outputRoot, 'jobs', 'job_collect_malformed', 'response', 'result.json')), { code: 'ENOENT' });
+}));
+
+test('retains an ambiguous Deep ask failure as terminal instead of treating it as a resubmittable intent', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_ambiguous', newTurnId: () => 'turn_ambiguous',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => { const error = new Error('exit'); error.code = 'ERR_OPENCLI_EXIT'; throw error; } })
+  });
+  assert.equal(outcome.result.status, 'ambiguous_effect');
+  assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_ambiguous' })).status, 'ambiguous_effect');
+}));
+
+test('rejects duplicate Deep submission before preflight or provider spawn', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_duplicate', newTurnId: () => 'turn_duplicate',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-duplicate-1', conversationUrl: 'https://chatgpt.com/c/deep-duplicate-1', tool: 'Deep Research', response: '' }) })
+  });
+  await assert.rejects(submitDirectPreparedJob({ mode: 'deep', outputRoot, jobId: 'job_duplicate', jobPath: outcome.jobPath, openCliPath: '/tmp/opencli', preflight: async () => assert.fail('must not preflight'), ask: async () => assert.fail('must not spawn') }), { code: 'ERR_DIRECT_EXISTS' });
+}));
+
+test('serializes concurrent Deep collectors onto one immutable completed result', async () => withOutputRoot(async (outputRoot) => {
+  await directAsk({
+    question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_race', newTurnId: () => 'turn_race',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-race-1', conversationUrl: 'https://chatgpt.com/c/deep-race-1', tool: 'Deep Research', response: '' }) })
+  });
+  let reads = 0;
+  const options = { outputRoot, jobId: 'job_race', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => { reads += 1; await new Promise((resolve) => setTimeout(resolve, 20)); return { status: 'completed', conversationId: 'deep-race-1', report: '# Race report', sources: [{ title: 'Source', url: 'https://example.com' }] }; } };
+  const [left, right] = await Promise.all([collectDeepPreparedJob(options), collectDeepPreparedJob(options)]);
+  assert.equal(reads, 1);
+  assert.deepEqual(left, right);
+  const bytes = await readFile(join(outputRoot, 'jobs', 'job_race', 'response', 'result.json'));
+  assert.deepEqual(await readFile(join(outputRoot, 'jobs', 'job_race', 'response', 'result.json')), bytes);
 }));

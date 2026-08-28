@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { OPENCLI_COMMAND_CONTRACT_SHA256, parseOpenCliAnswer, preflightOpenCli, runOpenCliAsk, runOpenCliDeepResearchResult, runOpenCliDetail, runOpenCliStandard } from '../src/opencli-transport.js';
+import { OPENCLI_COMMAND_CONTRACT_SHA256, parseOpenCliAnswer, preflightOpenCli, runOpenCliAsk, runOpenCliDeepResearchResult, runOpenCliDeepResearchStatus, runOpenCliDetail, runOpenCliStandard } from '../src/opencli-transport.js';
 
 async function withFake(body, run) {
   const root = await mkdtemp(join(tmpdir(), 'm003-opencli-'));
@@ -36,7 +36,7 @@ async function withMarkdownFixtureOpenCli(run, { converterDrift = false } = {}) 
   try { return await run({ root, path, expected, capture }); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
-async function withDeepResultFixtureOpenCli(run) {
+async function withDeepResultFixtureOpenCli(run, { notReadyWhenNonwaiting = false } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'm006-deep-result-transport-'));
   const packageRoot = join(root, 'install', 'node_modules', '@jackwener', 'opencli');
   const sourcePath = join(packageRoot, 'clis', 'chatgpt', 'utils.js');
@@ -133,7 +133,7 @@ function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId
   await writeFile(path, `#!/usr/bin/env node
 import { writeFileSync } from 'node:fs';
 if (process.argv[2] === '--version') console.log('1.8.7');
-else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.argv.slice(2))); console.log(${JSON.stringify(JSON.stringify([deepRow]))}); }
+else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.argv.slice(2))); if (${JSON.stringify(notReadyWhenNonwaiting)} && process.argv.includes('false')) process.exit(66); console.log(${JSON.stringify(JSON.stringify([deepRow]))}); }
 `, { mode: 0o700 });
   try { return await run({ path, capture, deepRow }); } finally { await rm(root, { recursive: true, force: true }); }
 }
@@ -242,6 +242,13 @@ test('collects one completed Deep Research report by conversation id', async () 
   assert.equal(result.report, deepRow.report);
   assert.deepEqual(await readFile(capture, 'utf8').then(JSON.parse), ['chatgpt', 'deep-research-result', 'deep-1', '--wait', 'true', '--timeout', '1200', '--stable', '6', '--site-session', 'persistent', '--format', 'json']);
 }));
+
+test('uses a nonwaiting Deep observation and maps only exit 66 to not-ready', async () => withDeepResultFixtureOpenCli(async ({ path, capture }) => {
+  const identity = await preflightOpenCli({ executablePath: path });
+  const result = await runOpenCliDeepResearchStatus({ executablePath: path, identity, conversationId: 'deep-1', timeoutSeconds: 1200 });
+  assert.deepEqual(result, { status: 'not_ready', conversationId: 'deep-1' });
+  assert.deepEqual(await readFile(capture, 'utf8').then(JSON.parse), ['chatgpt', 'deep-research-result', 'deep-1', '--wait', 'false', '--timeout', '1200', '--stable', '6', '--site-session', 'persistent', '--format', 'json']);
+}, { notReadyWhenNonwaiting: true }));
 
 test('strictly validates the one-row standard ChatGPT output contract', () => {
   assert.deepEqual(parseOpenCliAnswer(Buffer.from(JSON.stringify([validRow]))), validRow);

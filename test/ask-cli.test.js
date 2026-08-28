@@ -41,3 +41,25 @@ test('routes rigor, expanded citation, and audit appendix options to direct ask'
   assert.deepEqual(calls, [{ question: 'Audit this', mode: 'standard', rigorProfile: 'strict', citationLevel: 'expanded', auditAppendix: true, outputRoot: '/tmp/out', openCliPath: '/tmp/opencli' }]);
   assert.deepEqual(JSON.parse(output), summary);
 });
+
+test('routes typed Deep lifecycle commands without accepting prompts or modes', async () => {
+  const calls = []; let output = '';
+  const status = { status: 'running', job_id: 'job_deep' };
+  const completed = { status: 'completed', job_id: 'job_deep' };
+  const common = { stdout: { write: (value) => { output += value; } }, status: async (options) => { calls.push(['status', options]); return status; }, collect: async (options) => { calls.push(['collect', options]); return completed; }, wait: async (options) => { calls.push(['wait', options]); return completed; } };
+  await runCli(['status', '--output-root', '/tmp/out', '--job-id', 'job_deep'], common);
+  await runCli(['collect', '--output-root', '/tmp/out', '--job-id', 'job_deep', '--opencli', '/tmp/opencli'], common);
+  await runCli(['wait', '--output-root', '/tmp/out', '--job-id', 'job_deep', '--opencli', '/tmp/opencli'], common);
+  assert.deepEqual(calls, [
+    ['status', { outputRoot: '/tmp/out', jobId: 'job_deep' }],
+    ['collect', { outputRoot: '/tmp/out', jobId: 'job_deep', openCliPath: '/tmp/opencli' }],
+    ['wait', { outputRoot: '/tmp/out', jobId: 'job_deep', openCliPath: '/tmp/opencli' }]
+  ]);
+  assert.equal(output, '{"job_id":"job_deep","status":"running"}\n{"job_id":"job_deep","status":"completed"}\n{"job_id":"job_deep","status":"completed"}\n');
+  for (const argv of [
+    ['status', 'prompt', '--output-root', '/tmp/out', '--job-id', 'job_deep'],
+    ['status', '--output-root', '/tmp/out', '--job-id', 'job_deep', '--opencli', '/tmp/opencli'],
+    ['collect', '--output-root', '/tmp/out', '--job-id', 'job_deep', '--opencli', '/tmp/opencli', '--mode', 'deep'],
+    ['wait', '--output-root', '/tmp/out', '--job-id', 'job_deep', '--opencli', '/tmp/opencli', 'prompt']
+  ]) await assert.rejects(runCli(argv, common), { code: 'ERR_CLI_USAGE' });
+});
