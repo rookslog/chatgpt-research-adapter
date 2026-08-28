@@ -111,6 +111,16 @@ async function persistDirectResult(responseRoot, result, testSeam) {
   }
 }
 
+async function readStableWebDetail(readDetail, detailOptions) {
+  await readDetail(detailOptions);
+  const second = await readDetail(detailOptions);
+  const third = await readDetail(detailOptions);
+  if (third.response !== second.response) {
+    fail('ChatGPT Web answer did not stabilize before the bounded read limit', 'ERR_OPENCLI_DETAIL_UNSTABLE');
+  }
+  return third;
+}
+
 export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath, openCliPath, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, ask = runOpenCliAsk, readDetail = runOpenCliDetail, readDeep = runOpenCliDeepResearchResult, receiptTestSeam } = {}) {
   const bundle = await loadPreparedBundle({ outputRoot, jobId, allowedModes: [mode] });
   if (bundle.mode !== mode || bundle.job_root !== jobPath) fail('prepared job does not match direct ask', 'ERR_DIRECT_ASK_JOB');
@@ -157,7 +167,10 @@ export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath
       reportSha256 = await writeDurableExclusive(reportPath, reportPayload, responseRoot);
       reportBytes = reportPayload.length;
     } else {
-      const detail = await readDetail({ ...runtimeOptions, executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: askTimeoutSeconds });
+      const detailOptions = { ...runtimeOptions, executablePath: openCliPath, identity, conversationId: answer.conversationId, timeoutSeconds: askTimeoutSeconds };
+      const detail = mode === 'web'
+        ? await readStableWebDetail(readDetail, detailOptions)
+        : await readDetail(detailOptions);
       const answerPayload = Buffer.from(detail.response);
       answerPath = join(responseRoot, 'answer.md');
       answerSha256 = await writeDurableExclusive(answerPath, answerPayload, responseRoot);

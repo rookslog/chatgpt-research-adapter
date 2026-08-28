@@ -101,6 +101,69 @@ test('persists a standard answer from one mode-aware OpenCLI ask', async () => w
   assert.equal(result.conversation_url, 'https://chatgpt.com/c/live-1');
 }));
 
+test('persists a Web answer only after the same conversation repeats its grown final content', async () => withOutputRoot(async (outputRoot) => {
+  const responses = ['partial answer', 'complete answer\n\n## Claim ledger\n\n## Audit appendix', 'complete answer\n\n## Claim ledger\n\n## Audit appendix'];
+  const readConversationIds = [];
+  let askCalls = 0;
+  const answerPath = join(outputRoot, 'jobs', 'job_web_stable', 'response', 'answer.md');
+
+  await directAsk({
+    question: 'Research current evidence', mode: 'web', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_web_stable', newTurnId: () => 'turn_web_stable',
+    submit: (options) => submitDirectPreparedJob({
+      ...options,
+      preflight: async () => ({ version: '1.8.7' }),
+      ask: async () => {
+        askCalls += 1;
+        return { conversationId: 'web-stable-1', conversationUrl: 'https://chatgpt.com/c/web-stable-1', tool: 'Web Search', response: '' };
+      },
+      readDetail: async ({ conversationId }) => {
+        readConversationIds.push(conversationId);
+        await assert.rejects(readFile(answerPath), { code: 'ENOENT' });
+        return { response: responses[readConversationIds.length - 1] };
+      }
+    })
+  });
+
+  assert.equal(askCalls, 1);
+  assert.deepEqual(readConversationIds, ['web-stable-1', 'web-stable-1', 'web-stable-1']);
+  assert.equal(await readFile(answerPath, 'utf8'), responses[2]);
+}));
+
+test('requires recovery without publishing when duplicate Web reads grow on the final bounded read', async () => withOutputRoot(async (outputRoot) => {
+  const responses = ['partial', 'partial', 'grown after duplicate'];
+  let askCalls = 0;
+  let detailCalls = 0;
+  const responseRoot = join(outputRoot, 'jobs', 'job_web_unstable', 'response');
+
+  await assert.rejects(directAsk({
+    question: 'Research current evidence', mode: 'web', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_web_unstable', newTurnId: () => 'turn_web_unstable',
+    submit: (options) => submitDirectPreparedJob({
+      ...options,
+      preflight: async () => ({ version: '1.8.7' }),
+      ask: async () => {
+        askCalls += 1;
+        return { conversationId: 'web-unstable-1', conversationUrl: 'https://chatgpt.com/c/web-unstable-1', tool: 'Web Search', response: '' };
+      },
+      readDetail: async ({ conversationId }) => {
+        assert.equal(conversationId, 'web-unstable-1');
+        const response = responses[detailCalls];
+        detailCalls += 1;
+        return { response };
+      }
+    })
+  }), { code: 'ERR_OPENCLI_DETAIL_UNSTABLE' });
+
+  assert.equal(askCalls, 1);
+  assert.equal(detailCalls, 3);
+  await assert.rejects(readFile(join(responseRoot, 'answer.md')), { code: 'ENOENT' });
+  const result = JSON.parse(await readFile(join(responseRoot, 'result.json'), 'utf8'));
+  assert.equal(result.status, 'recovery_required');
+  assert.equal(result.remote_effect, 'accepted');
+  assert.equal(result.retry_decision, 'prohibited');
+}));
+
 test('persists the completed report after one Deep Research submission', async () => withOutputRoot(async (outputRoot) => {
   const calls = [];
   const outcome = await directAsk({

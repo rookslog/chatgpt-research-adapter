@@ -36,7 +36,7 @@
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
       "src/cli.js": "a2ad8b09c8df455c9dc38e5854f813f5f87cf6e5b00842adb644cc1c39d47b7f",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
-      "src/direct-ask.js": "8b08b35ec4b2fc0aab899b915341e3711efeda58e6665f8622ae7f25402182d4",
+      "src/direct-ask.js": "57f31350394ad850842650da9bbc0ef1e03e99afad8bd8ddf270e1b2335f7931",
       "src/dispatch-receipts.js": "2b8a7ff13fc20a85dfb467bca59d6963ec5bab606a480c2c16371e61e1890564",
       "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
       "src/opencli-transport.js": "597c1dbff1078cd41f7a2f324873816e056b5f1976a46d05363a4592af921c46",
