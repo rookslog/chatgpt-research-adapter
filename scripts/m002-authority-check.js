@@ -33,6 +33,7 @@ const CAPABILITY_TOKENS = Object.freeze(['fe' + 'tch', 'getBuiltin' + 'Module', 
 const PROCESS_ALLOW = Object.freeze({
   'bin/chatgpt-research.js': [['pro', 'cess.argv.slice(2)'].join(''), ['pro', 'cess.stderr.write'].join(''), ['pro', 'cess.exitCode = 1'].join('')],
   'src/cli.js': [['pro', 'cess.stdout'].join('')],
+  'src/direct-ask.js': [['pro', 'cess.pid'].join(''), ['pro', 'cess.kill(pid, 0)'].join('')],
   'src/opencli-transport.js': [['pro', 'cess.env'].join(''), ['pro', 'cess.platform'].join('')],
   'scripts/check-requirements.js': [['pro', 'cess.argv[1]'].join(''), ['pro', 'cess.argv[2]'].join(''), ['pro', 'cess.argv[3]'].join(''), ['pro', 'cess.stdout.write'].join(''), ['pro', 'cess.exitCode = 1'].join('')],
   'scripts/m002-authority-check.js': [['pro', 'cess.argv[1]'].join(''), ['pro', 'cess.stdout.write'].join(''), ['pro', 'cess.exitCode = 1'].join('')]

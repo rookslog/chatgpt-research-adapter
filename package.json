@@ -32,11 +32,11 @@
     "sourceSha256": {
       "bin/chatgpt-research.js": "356e5a94e739727e810d56046b882483efa8cb8987dfb8ad1a624dcc78f2f836",
       "scripts/check-requirements.js": "24978950b46831618f241999724fb31047d0691b08ccf4d8eee7a7964d2a2557",
-      "scripts/m002-authority-check.js": "4629c014da016e58e75c53e77eef07195800c01aa55bb67675d3313c987613c2",
+      "scripts/m002-authority-check.js": "92e4efbf5211e8052cdc01e165c008ea9bb26f2e7fc3b621065dbcd18ecf0208",
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
       "src/cli.js": "5e566c0c0b018de268036d3bca546dc45acb3fc409fa0e5481a15751a0c85598",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
-      "src/direct-ask.js": "3c7237255815e126cd25d40cd17d7c076edec9c193a361ba0716956abfe0b5ad",
+      "src/direct-ask.js": "34336b54b76c881a71e0951d18aad7867a0a718a0932815f95bb316889bee9cb",
       "src/dispatch-receipts.js": "2b8a7ff13fc20a85dfb467bca59d6963ec5bab606a480c2c16371e61e1890564",
       "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
       "src/opencli-transport.js": "95bb439ef55b31b4021c68ae08cfd796d39ba65321faeee1f497946428e7afa0",

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -258,4 +258,88 @@ test('serializes concurrent Deep collectors onto one immutable completed result'
   assert.deepEqual(left, right);
   const bytes = await readFile(join(outputRoot, 'jobs', 'job_race', 'response', 'result.json'));
   assert.deepEqual(await readFile(join(outputRoot, 'jobs', 'job_race', 'response', 'result.json')), bytes);
+}));
+
+test('reclaims an empty legacy Deep collector lock after its owner is gone', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_stale_lock', newTurnId: () => 'turn_stale_lock',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-stale-1', conversationUrl: 'https://chatgpt.com/c/deep-stale-1', tool: 'Deep Research', response: '' }) })
+  });
+  await writeFile(join(outcome.jobPath, 'response', '.collect.lock'), '');
+  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_stale_lock', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-stale-1', report: '# Stale lock recovery', sources: [] }) });
+  assert.equal(result.status, 'completed');
+}));
+
+test('reclaims a canonical Deep collector lock only after its process is provably absent', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_dead_lock', newTurnId: () => 'turn_dead_lock',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-dead-1', conversationUrl: 'https://chatgpt.com/c/deep-dead-1', tool: 'Deep Research', response: '' }) })
+  });
+  await writeFile(join(outcome.jobPath, 'response', '.collect.lock'), '{"acquired_at":"2026-08-24T01:02:03.456Z","nonce":"00000000-0000-4000-8000-000000000000","pid":2147483647,"schema":"m006.deep-collector-lock.v1"}\n');
+  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_dead_lock', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-dead-1', report: '# Dead lock recovery', sources: [] }) });
+  assert.equal(result.status, 'completed');
+}));
+
+test('does not unlink a replacement collector lock when releasing its own token', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'protect replacement lock', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_lock_token', newTurnId: () => 'turn_lock_token',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-token-1', conversationUrl: 'https://chatgpt.com/c/deep-token-1', tool: 'Deep Research', response: '' }) })
+  });
+  let release; const gate = new Promise((resolve) => { release = resolve; });
+  const collecting = collectDeepPreparedJob({ outputRoot, jobId: 'job_lock_token', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => { await gate; return { status: 'completed', conversationId: 'deep-token-1', report: '# Report', sources: [] }; } });
+  const lockPath = join(outcome.jobPath, 'response', '.collect.lock');
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    try { await readFile(lockPath); break; } catch { await new Promise((resolve) => setTimeout(resolve, 5)); }
+  }
+  const replacement = '{"acquired_at":"2026-08-24T01:02:03.456Z","nonce":"11111111-1111-4111-8111-111111111111","pid":2147483647,"schema":"m006.deep-collector-lock.v1"}\n';
+  await writeFile(lockPath, replacement);
+  release();
+  await collecting;
+  assert.equal(await readFile(lockPath, 'utf8'), replacement);
+}));
+
+test('rolls back only its post-link result before publishing Standard recovery', async () => withOutputRoot(async (outputRoot) => {
+  await assert.rejects(directAsk({
+    question: 'recover result publish', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_result_rollback', newTurnId: () => 'turn_result_rollback',
+    submit: (options) => submitDirectPreparedJob({ ...options, receiptTestSeam: { failAt: 'after-direct-result-publish' }, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'rollback-1', conversationUrl: 'https://chatgpt.com/c/rollback-1', tool: '', response: '' }), readDetail: async () => ({ response: 'answer' }) })
+  }), { code: 'ERR_INJECTED_FAULT' });
+  const result = JSON.parse(await readFile(join(outputRoot, 'jobs', 'job_result_rollback', 'response', 'result.json'), 'utf8'));
+  assert.equal(result.status, 'recovery_required');
+}));
+
+test('rolls back only its post-link result before publishing Web recovery', async () => withOutputRoot(async (outputRoot) => {
+  await assert.rejects(directAsk({
+    question: 'recover web result publish', mode: 'web', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_web_result_rollback', newTurnId: () => 'turn_web_result_rollback',
+    submit: (options) => submitDirectPreparedJob({ ...options, receiptTestSeam: { failAt: 'after-direct-result-publish' }, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'rollback-web-1', conversationUrl: 'https://chatgpt.com/c/rollback-web-1', tool: 'Web Search', response: '' }), readDetail: async () => ({ response: 'answer' }) })
+  }), { code: 'ERR_INJECTED_FAULT' });
+  const result = JSON.parse(await readFile(join(outputRoot, 'jobs', 'job_web_result_rollback', 'response', 'result.json'), 'utf8'));
+  assert.equal(result.status, 'recovery_required');
+}));
+
+test('rolls back only its post-link Deep result and leaves the handoff collectable', async () => withOutputRoot(async (outputRoot) => {
+  await directAsk({
+    question: 'recover deep result publish', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_deep_result_rollback', newTurnId: () => 'turn_deep_result_rollback',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'rollback-deep-1', conversationUrl: 'https://chatgpt.com/c/rollback-deep-1', tool: 'Deep Research', response: '' }) })
+  });
+  await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId: 'job_deep_result_rollback', openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-direct-result-publish' }, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'rollback-deep-1', report: '# Report', sources: [] }) }), { code: 'ERR_INJECTED_FAULT' });
+  assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_deep_result_rollback' })).status, 'running');
+}));
+
+test('refuses a preexisting symlinked Deep report instead of following it', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'protect report', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_report_symlink', newTurnId: () => 'turn_report_symlink',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'report-symlink-1', conversationUrl: 'https://chatgpt.com/c/report-symlink-1', tool: 'Deep Research', response: '' }) })
+  });
+  const outside = join(outputRoot, 'outside-report.md');
+  await writeFile(outside, 'outside');
+  await symlink(outside, join(outcome.jobPath, 'response', 'report.md'));
+  await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId: 'job_report_symlink', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'report-symlink-1', report: '# Report', sources: [] }) }), { code: 'ERR_DIRECT_RECEIPT' });
+  assert.equal(await readFile(outside, 'utf8'), 'outside');
 }));

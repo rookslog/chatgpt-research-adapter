@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { directAsk, submitDirectPreparedJob } from '../src/direct-ask.js';
+import { collectDeepPreparedJob, directAsk, getDeepPreparedJobStatus, submitDirectPreparedJob } from '../src/direct-ask.js';
 import { parseOpenCliAnswer } from '../src/opencli-transport.js';
 import { prepareResearchJob } from '../src/prepare.js';
 import { submitPreparedJobOnce } from '../src/submit-once.js';
@@ -62,8 +62,7 @@ test('REQ-DISPATCH-003 records recovery when Deep Research result canonicalizati
   const root = await mkdtemp(join(tmpdir(), 'review-round3-deep-'));
   const outputRoot = join(root, 'output');
   try {
-    await assert.rejects(
-      directAsk({
+    const outcome = await directAsk({
         question: 'deep canonicalization',
         mode: 'deep',
         outputRoot,
@@ -76,17 +75,16 @@ test('REQ-DISPATCH-003 records recovery when Deep Research result canonicalizati
           ...options,
           preflight: async () => ({ version: '1.8.7' }),
           ask: async () => ({ conversationId: 'deep-canonical-1', conversationUrl: 'https://chatgpt.com/c/deep-canonical-1', tool: 'Deep Research', response: '' }),
-          readDeep: async () => ({ conversationId: 'deep-canonical-1', status: 'completed', report: '# Report\n', sources: [{ rank: -0 }] })
+          readDeep: async () => assert.fail('Deep submit must not read')
         })
-      }),
-      { code: 'ERR_CANONICAL_JSON' }
-    );
+      });
+    const collected = await collectDeepPreparedJob({ outputRoot, jobId: 'job_round3_deep', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ conversationId: 'deep-canonical-1', status: 'completed', report: '# Report\n', sources: [{ rank: -0 }] }) });
+    assert.equal(outcome.result.status, 'running');
+    assert.equal(collected.status, 'running');
+    assert.equal(collected.collection_disposition, 'ERR_CANONICAL_JSON');
     const responseRoot = join(outputRoot, 'jobs', 'job_round3_deep', 'response');
-    const result = JSON.parse(await readFile(join(responseRoot, 'result.json'), 'utf8'));
-    assert.equal(result.status, 'recovery_required');
-    assert.equal(result.process_disposition, 'ERR_CANONICAL_JSON');
-    assert.equal(result.conversation_id, 'deep-canonical-1');
-    assert.equal(result.retry_decision, 'prohibited');
+    await assert.rejects(readFile(join(responseRoot, 'result.json')), { code: 'ENOENT' });
+    assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_round3_deep' })).status, 'running');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

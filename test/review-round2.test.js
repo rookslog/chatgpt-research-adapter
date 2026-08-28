@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { directAsk, submitDirectPreparedJob } from '../src/direct-ask.js';
+import { collectDeepPreparedJob, directAsk, submitDirectPreparedJob } from '../src/direct-ask.js';
 import { loadRigorProfile } from '../src/rigor-profile.js';
 
 const rigorRoot = new URL('../rigor/', import.meta.url).pathname;
@@ -79,7 +79,9 @@ test('REQ-DISPATCH-008 binds durable direct answer and report bytes into the com
           readDeep: async () => ({ conversationId: item.conversationId, status: 'completed', report: item.payload, sources: [] })
         })
       });
-      const result = outcome.result;
+      const result = item.kind === 'report'
+        ? await collectDeepPreparedJob({ outputRoot: join(root, item.kind), jobId: `job_${item.kind}_hash`, openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ conversationId: item.conversationId, status: 'completed', report: item.payload, sources: [] }) })
+        : outcome.result;
       const artifactPath = result[`${item.kind}_path`];
       const bytes = await readFile(artifactPath);
       assert.equal(result[`${item.kind}_sha256`], createHash('sha256').update(bytes).digest('hex'));
