@@ -204,6 +204,65 @@ test('resumes a persisted Deep handoff through pending, collect, and wait withou
   assert.deepEqual(await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_resume' }), completed);
 }));
 
+test('publishes one exact completion event only after the durable Deep result and report', async () => withOutputRoot(async (outputRoot) => {
+  const running = await directAsk({
+    question: 'event ordering', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_event', newTurnId: () => 'turn_event',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-event-1', conversationUrl: 'https://chatgpt.com/c/deep-event-1', tool: 'Deep Research', response: '' }) })
+  });
+  const responseRoot = join(running.jobPath, 'response');
+  const eventPath = join(responseRoot, 'events', 'research.completed.v1.json');
+  await assert.rejects(readFile(eventPath), { code: 'ENOENT' });
+  const completed = await collectDeepPreparedJob({ outputRoot, jobId: 'job_event', openCliPath: '/tmp/opencli', now: () => preparedAt, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-event-1', report: '# Event report', sources: [{ title: 'Source', url: 'https://example.com' }] }) });
+  const [resultBytes, reportBytes, eventBytes] = await Promise.all([readFile(join(responseRoot, 'result.json')), readFile(join(responseRoot, 'report.md')), readFile(eventPath)]);
+  assert.deepEqual(JSON.parse(eventBytes), { schema: 'm006.research-completion-event.v1', type: 'research.completed.v1', job_id: 'job_event', turn_id: 'turn_event', conversation_id: 'deep-event-1', conversation_url: 'https://chatgpt.com/c/deep-event-1', result_path: join(responseRoot, 'result.json'), result_sha256: hash(resultBytes), report_path: join(responseRoot, 'report.md'), report_sha256: hash(reportBytes), source_count: 1, completed_at: completed.finished_at });
+  assert.equal(eventBytes.toString('utf8'), `${JSON.stringify(JSON.parse(eventBytes))}\n`);
+}));
+
+test('recovers event staging and final-link interruptions without another Deep reader', async () => withOutputRoot(async (outputRoot) => {
+  for (const [jobId, conversationId, failAt] of [['job_event_stage', 'deep-event-stage', 'after-completion-event-write'], ['job_event_link', 'deep-event-link', 'after-completion-event-publish']]) {
+    const outcome = await directAsk({
+      question: jobId, mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+      clock: () => preparedAt, newJobId: () => jobId, newTurnId: () => `turn_${jobId}`,
+      submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId, conversationUrl: `https://chatgpt.com/c/${conversationId}`, tool: 'Deep Research', response: '' }) })
+    });
+    const options = { outputRoot, jobId, openCliPath: '/tmp/opencli', now: () => preparedAt, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId, report: '# Event recovery', sources: [] }) };
+    await assert.rejects(collectDeepPreparedJob({ ...options, receiptTestSeam: { failAt } }), { code: 'ERR_INJECTED_FAULT' });
+    const eventPath = join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json');
+    if (failAt === 'after-completion-event-write') {
+      await assert.rejects(readFile(eventPath), { code: 'ENOENT' });
+      assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId })).status, 'completed');
+    }
+    if (failAt === 'after-completion-event-publish') {
+      await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-events-directory-sync' }, preflight: async () => assert.fail('event-directory repair must not preflight'), readStatus: async () => assert.fail('event-directory repair must not read') }), { code: 'ERR_INJECTED_FAULT' });
+      await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-event-existing-sync' }, preflight: async () => assert.fail('existing-event repair must not preflight'), readStatus: async () => assert.fail('existing-event repair must not read') }), { code: 'ERR_INJECTED_FAULT' });
+    }
+    await assert.doesNotReject(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', preflight: async () => assert.fail('completed-event recovery must not preflight'), readStatus: async () => assert.fail('completed-event recovery must not read') }));
+    assert.ok((await readFile(eventPath)).length > 0);
+  }
+}));
+
+test('fails closed for malformed, symlinked, or different preexisting completion events', async () => withOutputRoot(async (outputRoot) => {
+  for (const [jobId, mutate] of [
+    ['job_event_malformed', async (path) => writeFile(path, '{}\n')],
+    ['job_event_symlink', async (path) => { const outside = join(outputRoot, 'outside-event.json'); await writeFile(outside, '{}\n'); await symlink(outside, path); }],
+    ['job_event_different', async (path) => writeFile(path, '{"completed_at":"2026-08-24T01:02:03.456Z"}\n')]
+  ]) {
+    const conversationId = `${jobId}-conversation`;
+    const outcome = await directAsk({
+      question: jobId, mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+      clock: () => preparedAt, newJobId: () => jobId, newTurnId: () => `turn_${jobId}`,
+      submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId, conversationUrl: `https://chatgpt.com/c/${conversationId}`, tool: 'Deep Research', response: '' }) })
+    });
+    const options = { outputRoot, jobId, openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId, report: '# Event rejection', sources: [] }) };
+    await assert.rejects(collectDeepPreparedJob({ ...options, receiptTestSeam: { failAt: 'after-completion-event-write' } }), { code: 'ERR_INJECTED_FAULT' });
+    const eventPath = join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json');
+    await mutate(eventPath);
+    await assert.rejects(getDeepPreparedJobStatus({ outputRoot, jobId }), { code: 'ERR_DIRECT_RECEIPT' });
+    await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', preflight: async () => assert.fail('event validation must not preflight'), readStatus: async () => assert.fail('event validation must not read') }), { code: 'ERR_DIRECT_RECEIPT' });
+  }
+}));
+
 test('keeps accepted Deep collection failures nonterminal and does not resubmit', async () => withOutputRoot(async (outputRoot) => {
   await directAsk({
     question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
@@ -290,8 +349,48 @@ test('serializes concurrent Deep collectors onto one immutable completed result'
   assert.deepEqual(left, right);
   const bytes = await readFile(join(outputRoot, 'jobs', 'job_race', 'response', 'result.json'));
   assert.deepEqual(await readFile(join(outputRoot, 'jobs', 'job_race', 'response', 'result.json')), bytes);
+  const eventPath = join(outputRoot, 'jobs', 'job_race', 'response', 'events', 'research.completed.v1.json');
+  const eventBytes = await readFile(eventPath);
   assert.deepEqual(await collectDeepPreparedJob(options), left);
   assert.equal(reads, 1);
+  assert.deepEqual(await readFile(eventPath), eventBytes);
+  assert.deepEqual((await readdir(join(outputRoot, 'jobs', 'job_race', 'response', 'events'))).filter((name) => !name.startsWith('.')), ['research.completed.v1.json']);
+}));
+
+test('a collector that waited for a terminal result finalizes its missing event without transport', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'follower event', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_event_follower', newTurnId: () => 'turn_event_follower',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-event-follower-1', conversationUrl: 'https://chatgpt.com/c/deep-event-follower-1', tool: 'Deep Research', response: '' }) })
+  });
+  let release; const reading = new Promise((resolve) => { release = resolve; }); let started; const startedReading = new Promise((resolve) => { started = resolve; });
+  const leader = collectDeepPreparedJob({ outputRoot, jobId: 'job_event_follower', openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-event-write' }, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => { started(); await reading; return { status: 'completed', conversationId: 'deep-event-follower-1', report: '# Follower event', sources: [] }; } });
+  await startedReading;
+  const follower = collectDeepPreparedJob({ outputRoot, jobId: 'job_event_follower', openCliPath: '/tmp/opencli', preflight: async () => assert.fail('follower must not preflight'), readStatus: async () => assert.fail('follower must not read') });
+  release();
+  await assert.rejects(leader, { code: 'ERR_INJECTED_FAULT' });
+  assert.equal((await follower).status, 'completed');
+  assert.ok((await readFile(join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json'))).length > 0);
+}));
+
+test('a wait-null follower rereads and finalizes a result published in that gap', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'wait-null event', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_wait_null', newTurnId: () => 'turn_wait_null',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-wait-null-1', conversationUrl: 'https://chatgpt.com/c/deep-wait-null-1', tool: 'Deep Research', response: '' }) })
+  });
+  const locks = join(outcome.jobPath, 'response', 'collector-locks'); const owner = collectorOwner(1, process.pid, '33333333-3333-4333-8333-333333333333');
+  await mkdir(locks); await writeFile(join(locks, '1.owner.json'), owner);
+  let resumeFollower; const followerPaused = new Promise((resolve) => { resumeFollower = resolve; }); let nullSeen; const waitNull = new Promise((resolve) => { nullSeen = resolve; }); let waiting; const waitStarted = new Promise((resolve) => { waiting = resolve; });
+  const follower = collectDeepPreparedJob({ outputRoot, jobId: 'job_wait_null', openCliPath: '/tmp/opencli', receiptTestSeam: { afterCollectionWaitStart: waiting, afterCollectionWaitNull: async () => { nullSeen(); await followerPaused; } }, preflight: async () => assert.fail('wait-null follower must not preflight'), readStatus: async () => assert.fail('wait-null follower must not read') });
+  await waitStarted;
+  await writeFile(join(locks, '1.released.json'), collectorRelease(1, process.pid, '33333333-3333-4333-8333-333333333333', owner));
+  await waitNull;
+  const publisher = collectDeepPreparedJob({ outputRoot, jobId: 'job_wait_null', openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-event-write' }, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-wait-null-1', report: '# Wait null', sources: [] }) });
+  await assert.rejects(publisher, { code: 'ERR_INJECTED_FAULT' });
+  resumeFollower();
+  assert.equal((await follower).status, 'completed');
+  assert.ok((await readFile(join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json'))).length > 0);
 }));
 
 test('advances beyond a provably dead immutable collector owner without deleting it', async () => withOutputRoot(async (outputRoot) => {

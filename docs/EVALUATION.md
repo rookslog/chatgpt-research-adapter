@@ -152,11 +152,20 @@ working sequence is a one-time `chatgpt ask --wait false` followed by a wait on
 the returned conversation through `chatgpt detail`; this resolves the practical
 standard-mode viability question left open by M003.
 
-`[OBSERVATION]` Current OpenCLI Web Search and Deep Research tool selection is
+`[HISTORICAL LIVE OBSERVATION — 2026-08-24]` The then-current OpenCLI Web Search and Deep Research tool selection was
 incompatible with the tested ChatGPT UI. Both mode checks failed before prompt
 submission with explicit selector errors. OpenCLI remains selected because the
 default standard handoff now works and the project deliberately avoids building
 a second generic browser controller merely to patch optional modes.
+
+`[IMPLEMENTATION OBSERVATION — deterministic local tests, 2026-08-28]` Exact
+OpenCLI v1.8.7 now supports a local split Deep lifecycle: one durable
+submission/handoff returns `running`; process-free status and non-submitting
+collect/wait operations later observe the same conversation; collectors publish
+report, terminal result, and then a local completion event. This establishes no
+live selector or completed-report qualification. The current Deep report/source
+extraction remains blocked by the separately approval-gated Browser Bridge diagnostic;
+no new provider submission occurred in this implementation phase.
 
 ## M001 execution checkpoint — 2026-08-24
 

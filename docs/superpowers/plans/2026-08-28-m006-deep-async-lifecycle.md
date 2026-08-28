@@ -61,7 +61,7 @@
 payload and reaches the existing fallbacks, but the current live Deep iframe is
 cross-origin and absent from the Bridge frame tree. The exact-src target AX
 route also failed. Root AX contained the compiled prompt, not the report. Full
-report/source extraction therefore remains blocked on a separately approved,
+report/source extraction therefore remains blocked on a separately approval-gated,
 XHigh-reviewed private Browser Bridge diagnostic; it is not silently broadened
 into this OpenCLI reader slice.
 
@@ -119,12 +119,20 @@ duplicate, and the original receipt bytes remain immutable.
 **Interfaces:**
 - Produces: `<job>/response/events/research.completed.v1.json` with schema, event type, job/turn/conversation identity, result path/hash, report path/hash, source count, and completion time.
 
-- [ ] RED: completion event is absent before report and terminal result are durable.
-- [ ] RED: interrupted event publication is recoverable by a later read-only collector without another provider operation.
-- [ ] RED: repeated or concurrent collectors publish at most one byte-identical event and return the existing completed result.
-- [ ] Implement canonical exclusive/idempotent event publication after completed result persistence.
-- [ ] Keep attention/failure states typed but do not add external delivery callbacks.
-- [ ] GREEN: run focused tests; refresh the source pin; commit.
+- [x] RED: completion event is absent before report and terminal result are durable.
+- [x] RED: interrupted event publication is recoverable by a later read-only collector without another provider operation.
+- [x] RED: repeated or concurrent collectors publish at most one byte-identical event and return the existing completed result.
+- [x] Implement canonical exclusive/idempotent event publication after completed result persistence.
+- [x] Keep attention/failure states typed but do not add external delivery callbacks.
+- [x] GREEN: run focused tests; refresh the source pin; commit.
+
+**Observed Task 3 disposition:** accepted at
+`07d7a0dcb2c49998d353a308c5b28adcd80c06f0`. The canonical event is
+`response/events/research.completed.v1.json` with schema
+`m006.research-completion-event.v1` and type `research.completed.v1`. It is
+published only after durable report and result bytes. Existing event bytes are
+validated and directory durability is repaired before completed collection
+returns; status validates an existing event but leaves a missing event absent.
 
 ### Task 4: Propagate contracts, requirements, and milestone evidence
 
@@ -139,10 +147,14 @@ duplicate, and the original receipt bytes remain immutable.
 **Interfaces:**
 - Produces: current CLI/runbook documentation and deterministic requirement bindings for split submission, read-only collection, completed extraction, and event ordering.
 
-- [ ] Add hard deterministic requirements for no-submit collectors, resumable accepted state, completed report extraction, and result-before-event ordering.
-- [ ] Replace stale claims that Web/Deep remain selector-blocked with dated current observations.
-- [ ] Link #15–#17 beneath #1 and record that adaptive multi-wave orchestration is deferred to the next milestone.
-- [ ] Run requirements and reference checks; commit documentation and requirement bindings.
+- [x] Add hard deterministic requirements for no-submit collectors, resumable accepted state, completed report extraction, and result-before-event ordering.
+- [x] Replace stale claims that Web/Deep remain selector-blocked with dated current observations.
+- [x] Link #15–#17 beneath #1 and record that adaptive multi-wave orchestration is deferred to the next milestone.
+- [x] Run requirements and reference checks; commit documentation and requirement bindings.
+
+**Observed Task 4 disposition:** requirements and runbook prose now describe
+only the implemented deterministic lifecycle. They do not claim live Deep
+completion or add a new provider submission.
 
 ### Task 5: Exact-head review, qualification, and disposition
 

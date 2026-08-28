@@ -120,6 +120,7 @@ function directResultBase({ bundle, jobId, mode, intentSha256, handoffSha256 = n
 }
 
 const DIRECT_RESULT_KEYS = Object.freeze(['schema', 'job_id', 'mode', 'rigor_protocol_id', 'rigor_protocol_version', 'rigor_profile_id', 'rigor_profile_version', 'rigor_profile_sha256', 'citation_level', 'audit_appendix', 'intent_sha256', 'handoff_sha256', 'conversation_id', 'conversation_url', 'tool', 'answer_path', 'answer_sha256', 'answer_bytes', 'report_path', 'report_sha256', 'report_bytes', 'sources', 'finished_at', 'status', 'process_disposition', 'remote_effect', 'retry_decision']);
+const COMPLETION_EVENT_KEYS = Object.freeze(['schema', 'type', 'job_id', 'turn_id', 'conversation_id', 'conversation_url', 'result_path', 'result_sha256', 'report_path', 'report_sha256', 'source_count', 'completed_at']);
 
 function validateDeepCompletedResult(value, state, jobId) {
   if (!sameKeys(value, DIRECT_RESULT_KEYS) || value.schema !== 'm004.direct-result.v1' || value.status !== 'completed' || value.mode !== 'deep' || value.job_id !== jobId || value.intent_sha256 !== state.intentSha256 || value.handoff_sha256 !== state.handoffSha256 || value.conversation_id !== state.handoff.conversation_id || value.conversation_url !== state.handoff.conversation_url || value.tool !== 'Deep Research' || value.answer_path !== null || value.answer_sha256 !== null || value.answer_bytes !== null || value.report_path !== join(state.responseRoot, 'report.md') || !isHash(value.report_sha256) || !Number.isSafeInteger(value.report_bytes) || value.report_bytes < 1 || !Array.isArray(value.sources) || value.process_disposition !== 'exit_0_validated' || value.remote_effect !== 'completed' || value.retry_decision !== 'not_applicable' || !isCanonicalTime(value.finished_at)) fail('Deep completed result is invalid', 'ERR_DIRECT_RECEIPT');
@@ -205,13 +206,69 @@ async function readDeepResponse({ outputRoot, jobId }) {
     const result = validateDeepCompletedResult(parseCanonicalJsonBytes(resultBytes), { bundle, responseRoot, intentSha256, handoffSha256, handoff }, jobId);
     const report = await readResponseBytes(result.report_path, 256 * 1024).catch(() => fail('Deep completed report is unavailable', 'ERR_DIRECT_RECEIPT'));
     if (hash(report) !== result.report_sha256 || report.length !== result.report_bytes || report.toString('utf8').trim().length === 0) fail('Deep completed report is invalid', 'ERR_DIRECT_RECEIPT');
-    return Object.freeze({ bundle, responseRoot, intent, intentSha256, handoff, handoffSha256, result, status: result });
+    return Object.freeze({ bundle, responseRoot, intent, intentSha256, handoff, handoffSha256, result, resultBytes, reportBytes: report, status: result });
   }
   const runningPath = join(responseRoot, 'running.json');
   const runningEntry = await lstat(runningPath).catch(() => null);
   if (!runningEntry) return Object.freeze({ bundle, responseRoot, intent, intentSha256, handoff, handoffSha256, status: Object.freeze({ ...handoff }) });
   const running = validateDeepRunning(parseCanonicalJsonBytes(await readResponseBytes(runningPath)), intentSha256, handoffSha256, handoff, jobId);
   return Object.freeze({ bundle, responseRoot, intent, intentSha256, handoff, handoffSha256, running, status: running });
+}
+
+function completionEvent(state) {
+  const event = Object.freeze({ schema: 'm006.research-completion-event.v1', type: 'research.completed.v1', job_id: state.bundle.job_id, turn_id: state.bundle.turn_id, conversation_id: state.result.conversation_id, conversation_url: state.result.conversation_url, result_path: join(state.responseRoot, 'result.json'), result_sha256: hash(state.resultBytes), report_path: state.result.report_path, report_sha256: hash(state.reportBytes), source_count: state.result.sources.length, completed_at: state.result.finished_at });
+  if (!sameKeys(event, COMPLETION_EVENT_KEYS) || event.job_id !== state.result.job_id || event.conversation_id !== state.handoff.conversation_id || event.conversation_url !== state.handoff.conversation_url || event.result_path !== join(state.responseRoot, 'result.json') || event.result_sha256 !== hash(state.resultBytes) || event.report_path !== state.result.report_path || event.report_sha256 !== state.result.report_sha256 || event.source_count !== state.result.sources.length || event.completed_at !== state.result.finished_at) fail('Deep completion event is invalid', 'ERR_DIRECT_RECEIPT');
+  return event;
+}
+
+function completionEventBytes(state) { return Buffer.from(`${canonicalJson(completionEvent(state))}\n`); }
+
+async function validateExistingCompletionEvent(state) {
+  if (state.status.status !== 'completed' || !state.resultBytes || !state.reportBytes) return;
+  const root = join(state.responseRoot, 'events');
+  const directory = await lstat(root).catch(() => null);
+  if (!directory) return;
+  if (!directory.isDirectory() || directory.isSymbolicLink()) fail('Deep completion event directory is invalid', 'ERR_DIRECT_RECEIPT');
+  const eventPath = join(root, 'research.completed.v1.json');
+  const entry = await lstat(eventPath).catch(() => null);
+  if (!entry) return;
+  const existing = await readResponseBytes(eventPath);
+  if (!existing.equals(completionEventBytes(state))) fail('Deep completion event differs from the durable result', 'ERR_DIRECT_RECEIPT');
+}
+
+async function completionEventsRoot(responseRoot, receiptTestSeam) {
+  const path = join(responseRoot, 'events');
+  try { await mkdir(path, { mode: 0o700 }); }
+  catch (error) { if (error?.code !== 'EEXIST') throw error; }
+  const entry = await lstat(path).catch(() => null);
+  if (!entry?.isDirectory() || entry.isSymbolicLink()) fail('Deep completion event directory is invalid', 'ERR_DIRECT_RECEIPT');
+  await syncDirectory(responseRoot);
+  fault(receiptTestSeam, 'after-completion-events-directory-sync');
+  return path;
+}
+
+async function finalizeDeepCompletionEvent(state, receiptTestSeam) {
+  if (state.status.status !== 'completed' || !state.resultBytes || !state.reportBytes) return state.result;
+  const root = await completionEventsRoot(state.responseRoot, receiptTestSeam);
+  const eventPath = join(root, 'research.completed.v1.json');
+  const stagingPath = join(root, `.research-completed-staging-${randomUUID()}.json`);
+  const payload = completionEventBytes(state);
+  await writeDurableExclusive(stagingPath, payload, root);
+  try {
+    fault(receiptTestSeam, 'after-completion-event-write');
+    try { await link(stagingPath, eventPath); }
+    catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      const existing = await readResponseBytes(eventPath);
+      if (!existing.equals(payload)) fail('Deep completion event differs from the durable result', 'ERR_DIRECT_RECEIPT');
+      await syncDirectory(root);
+      fault(receiptTestSeam, 'after-completion-event-existing-sync');
+      return state.result;
+    }
+    fault(receiptTestSeam, 'after-completion-event-publish');
+    await syncDirectory(root);
+    return state.result;
+  } finally { await unlink(stagingPath).catch(() => {}); }
 }
 
 const MAX_COLLECTOR_GENERATIONS = 1024;
@@ -332,12 +389,16 @@ async function releaseCollectionLock(lock, now, testSeam) {
 
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
 
-async function waitForCollection(responseRoot, outputRoot, jobId) {
+async function waitForCollection(responseRoot, outputRoot, jobId, receiptTestSeam) {
+  await receiptTestSeam?.afterCollectionWaitStart?.();
   for (let attempt = 0; attempt < 500; attempt += 1) {
     const state = await readDeepResponse({ outputRoot, jobId });
     if (state.status.status === 'completed') return state.result;
     const lock = await readCollectorState(responseRoot);
-    if (!lock.current || !isOwnerLive(lock.current.owner.value.pid)) return null;
+    if (!lock.current || !isOwnerLive(lock.current.owner.value.pid)) {
+      await receiptTestSeam?.afterCollectionWaitNull?.();
+      return null;
+    }
     await delay(10);
   }
   return null;
@@ -364,20 +425,28 @@ async function publishDeepReport(responseRoot, payload, testSeam) {
 
 export async function getDeepPreparedJobStatus({ outputRoot, jobId } = {}) {
   const state = await readDeepResponse({ outputRoot, jobId });
+  await validateExistingCompletionEvent(state);
   return Object.freeze(state.status);
+}
+
+async function completedStateOrStatus(state, receiptTestSeam) {
+  return state.status.status === 'completed'
+    ? Object.freeze(await finalizeDeepCompletionEvent(state, receiptTestSeam))
+    : Object.freeze(state.status);
 }
 
 async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, wait, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, readDeep = runOpenCliDeepResearchResult, readStatus = runOpenCliDeepResearchStatus, receiptTestSeam } = {}) {
   let state = await readDeepResponse({ outputRoot, jobId });
-  if (state.status.status !== 'running' && state.status.status !== 'accepted') return Object.freeze(state.status);
+  if (state.status.status !== 'running' && state.status.status !== 'accepted') return completedStateOrStatus(state, receiptTestSeam);
   const lock = await acquireCollectionLock(state.responseRoot, now, receiptTestSeam);
   if (!lock.acquired) {
-    const completed = await waitForCollection(state.responseRoot, outputRoot, jobId);
-    return completed ?? Object.freeze((await readDeepResponse({ outputRoot, jobId })).status);
+    await waitForCollection(state.responseRoot, outputRoot, jobId, receiptTestSeam);
+    state = await readDeepResponse({ outputRoot, jobId });
+    return completedStateOrStatus(state, receiptTestSeam);
   }
   try {
     state = await readDeepResponse({ outputRoot, jobId });
-    if (state.status.status !== 'running' && state.status.status !== 'accepted') return Object.freeze(state.status);
+    if (state.status.status !== 'running' && state.status.status !== 'accepted') return completedStateOrStatus(state, receiptTestSeam);
     const { deepTimeoutSeconds, runtimeOptions } = directTransportOptions(transportOptions);
     let observation;
     try {
@@ -396,11 +465,12 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
     const reportSha256 = hash(report);
     if (reportSha256 !== hash(reportPayload) || report.length !== reportPayload.length) fail('Deep report publication raced with a different payload', 'ERR_DIRECT_RECEIPT');
     const result = { ...directResultBase({ bundle: state.bundle, jobId, mode: 'deep', intentSha256: state.intentSha256, handoffSha256: state.handoffSha256, conversationId: state.handoff.conversation_id, conversationUrl: state.handoff.conversation_url, tool: state.handoff.tool, now: now() }), status: 'completed', process_disposition: 'exit_0_validated', remote_effect: 'completed', retry_decision: 'not_applicable', report_path: reportPath, report_sha256: reportSha256, report_bytes: report.length, sources: observation.sources };
-    try { return await persistDirectResult(state.responseRoot, result, receiptTestSeam); }
+    try { await persistDirectResult(state.responseRoot, result, receiptTestSeam); }
     catch (error) {
       if (error?.code !== 'ERR_DIRECT_EXISTS') throw error;
-      return (await readDeepResponse({ outputRoot, jobId })).result;
     }
+    state = await readDeepResponse({ outputRoot, jobId });
+    return Object.freeze(await finalizeDeepCompletionEvent(state, receiptTestSeam));
   } finally { if (lock.acquired) await releaseCollectionLock(lock, now, receiptTestSeam); }
 }
 

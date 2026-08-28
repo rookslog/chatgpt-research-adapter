@@ -1,9 +1,9 @@
 # M006 — Production Usability
 
-- Status: baseline publication in PR #6; M006 feature implementation not started
-- Date: 2026-08-25
+- Status: Deep asynchronous lifecycle and completion-event contracts implemented deterministically; live Deep extraction qualification remains open
+- Date: 2026-08-28
 - Closure target: a readable, dependable research adapter with the explicitly supported research modes and remaining rigor variants exercised
-- Remote: private `rookslog/chatgpt-research-adapter`; recovered baseline in `m006/baseline-recovery`
+- Remote: public `rookslog/chatgpt-research-adapter`; recovered baseline in `m006/baseline-recovery`
 - Commit and push authority: granted 2026-08-26 for baseline publication and the bounded ChatGPT/GitHub-connector implementation experiment
 
 ## Owner decision
@@ -18,8 +18,11 @@
   - [#3 — Restore Deep Research selector compatibility](https://github.com/rookslog/chatgpt-research-adapter/issues/3)
   - [#4 — Preserve GFM tables and claim IDs](https://github.com/rookslog/chatgpt-research-adapter/issues/4)
   - [#5 — Live-test expanded citations and audit appendix](https://github.com/rookslog/chatgpt-research-adapter/issues/5)
+  - [#15 — Deep Research resumable lifecycle](https://github.com/rookslog/chatgpt-research-adapter/issues/15)
+  - [#16 — Deep Research completed report/source extraction](https://github.com/rookslog/chatgpt-research-adapter/issues/16)
+  - [#17 — Deep Research completion event](https://github.com/rookslog/chatgpt-research-adapter/issues/17)
 
-All five issues are open and assigned to `M006 — Production usability`; #2–#5 are direct sub-issues of #1.
+Issues #2–#5 and #15–#17 are tracked beneath #1 in `M006 — Production usability`. The deterministic implementation at `07d7a0dcb2c49998d353a308c5b28adcd80c06f0` establishes #15's split lifecycle and #17's local completion-event contract; it does not establish #16 or live Deep usability.
 
 ## Connector capability observation
 
@@ -31,7 +34,8 @@ Because correct hierarchy was part of the acceptance contract, root created #2�
 
 1. #4 Markdown/GFM preservation — smallest user-visible QoL fix for the working standard mode.
 2. #2 Web Search selector compatibility — restore the lighter current-information path.
-3. #3 Deep Research selector compatibility — restore the explicit long-form path.
-4. #5 Expanded-citation and audit-appendix live conformance — exercise the remaining rigor variants after output formatting is stable.
+3. #15/#17 Deep lifecycle and completion event — implemented deterministically without a new provider submission.
+4. #16 Deep completed report/source extraction — remains blocked on the separately approval-gated Bridge diagnostic.
+5. #3 Deep Research selector compatibility retains its live qualification criterion. #5 is closed after its bounded qualification, including preserved negative citation-coverage findings.
 
-Issue acceptance criteria are authoritative for their slices. The owner subsequently authorized publication of the recovered baseline and local/offline implementation commits and PRs for the ChatGPT/GitHub-connector experiment. Dependency changes, live provider turns, merge, publication, and deployment retain their applicable separate gates.
+Issue acceptance criteria are authoritative for their slices. The owner subsequently authorized publication of the recovered baseline and local/offline implementation commits and PRs for the ChatGPT/GitHub-connector experiment. Dependency changes, live provider turns, merge, publication, and deployment retain their applicable separate gates. Adaptive multi-wave orchestration is deferred to the next milestone; no new provider submission is part of this implementation phase.

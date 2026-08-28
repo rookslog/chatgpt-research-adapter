@@ -1,6 +1,6 @@
 # Project Boundary
 
-- Status: pinned OpenCLI plus wrapper protocol selected; M004 standard mode live-verified; M005 rigor profiles implemented and one standard conformance turn observed; M006 production-usability work tracked in a private GitHub milestone; web/deep selectors blocked upstream
+- Status: pinned exact OpenCLI v1.8.7 plus wrapper protocol selected; M004 standard mode live-verified; M005 rigor profiles implemented and one standard conformance turn observed; M006 Deep lifecycle/event contracts implemented deterministically; live Deep report/source extraction remains separately blocked
 - Product: adapter to ordinary signed-in ChatGPT Chat only
 
 ## Product intent
@@ -26,7 +26,7 @@ V1 is not a coding runtime, general browser controller, provider router, autonom
 |---|---|---|
 | `standard` | Default for basic questions, synthesis from the supplied prompt, or attached context | `chatgpt ask`; no composer tool selected |
 | `web` | Current facts, external research, or source links are required | `chatgpt ask --web-search`; mutually exclusive with Deep Research |
-| `deep` | Caller explicitly requests broad, long-form investigation and accepts longer/less predictable completion | `chatgpt ask --deep-research` plus result polling |
+| `deep` | Caller explicitly requests broad, long-form investigation and accepts longer/less predictable completion | one `chatgpt ask --deep-research` handoff, then separately typed result observation |
 | `image` | Caller explicitly requests generation or editing and approves inputs/output root | Separate OpenCLI ChatGPT image command |
 
 The skill may recommend `deep` but must not silently escalate to it. It must record the selected mode and reason in the job receipt. A first attempt may not automatically resubmit through another mode after an ambiguous remote effect.
@@ -134,9 +134,19 @@ M002's two-event schema and write-once prepared bundle remain provisional pre-di
 
 `[OWNER DECISION — 2026-08-25]` The wrapper owns a compact epistemic-rigor protocol. `standard` automatically covers substantive claims; `light` and `strict`, expanded citations, an audit appendix, and a versioned custom profile are explicit caller choices. AHR-C v2.0 was supplied as a design example, not adopted as adapter governance. `[OBSERVATION — deterministic local tests, 2026-08-25]` Exact profile selection, prompt bytes, hashes, and prepared/dispatch/result propagation are testable offline. Whether a provider response follows the requested claim ledger remains a separate output-conformance observation.
 
+### M006 Deep lifecycle and local completion event
+
+`[IMPLEMENTATION OBSERVATION — deterministic local tests, 2026-08-28]` Deep `ask` is the only operation that may submit a prompt. It durably writes intent, performs one exact OpenCLI v1.8.7 ask, validates the durable conversation handoff, writes immutable `response/running.json`, and returns `running` without reading a result. An intent without a handoff is `attention_required` and never auto-resubmits. Standard and Web keep their existing synchronous behavior.
+
+The Deep follow-up surface is closed: `status --output-root <absolute> --job-id <id>` is process-free/read-only; `collect --output-root <absolute> --job-id <id> --opencli <absolute>` uses only `deep-research-result --wait false`; and `wait` with the same required arguments uses only `--wait true`. These grammars accept neither a prompt nor mode and cannot submit. Status validates an existing completion event but does not create a missing event.
+
+Accepted jobs are resumable. Collectors use immutable append-only generation owner/release receipts in `response/collector-locks/`; only a released or provably dead owner can be superseded, and a live owner is never time-stolen. Completion publishes staged, immutable artifacts in order: `response/report.md`, `response/result.json`, then `response/events/research.completed.v1.json`; any completed collector return has first finalized or validated the event. The event schema is `m006.research-completion-event.v1`; its type is `research.completed.v1`; its exact fields are `schema`, `type`, `job_id`, `turn_id`, `conversation_id`, `conversation_url`, `result_path`, `result_sha256`, `report_path`, `report_sha256`, `source_count`, and `completed_at`. A later non-submitting collection can repair an interrupted event publication; no callback, delivery, or provider submission is added.
+
+This deterministic implementation made no new provider submission. `[CURRENT LIVE QUALIFICATION LIMIT — 2026-08-28]` The completed Deep report/source extraction remains blocked because the iframe is cross-origin and absent from the Bridge frame tree; the separately approval-gated Browser Bridge diagnostic remains required. This does not establish #16 or live Deep usability.
+
 ### M006 setup
 
-`[OWNER DECISION — 2026-08-25]` Create a private GitHub remote and use a parent/sub-issue milestone to drive the smallest remaining production-usability work. The private remote is code-empty: no commit or push was authorized. Milestone `M006 — Production usability` contains parent issue #1 and four direct children for Web Search selection, Deep Research selection, Markdown/GFM preservation, and live expanded-citation/audit-appendix conformance. The approved ChatGPT-connector experiment was limited to one potential child; after it reported no parent-link operation and made no write, root used authenticated `gh` to create all four correctly parented children.
+`[HISTORICAL OWNER DECISION — 2026-08-25]` Create a private GitHub remote and use a parent/sub-issue milestone to drive the smallest remaining production-usability work. At that checkpoint the remote was intentionally code-empty and no commit or push was authorized. The approved ChatGPT-connector experiment was limited to one potential child; after it reported no parent-link operation and made no write, root used authenticated `gh` to create the initial correctly parented children. `[CURRENT REPOSITORY OBSERVATION — 2026-08-28]` The remote is now public and populated; M006 parent #1 has sub-issues #2–#5 and #15–#17.
 
 ## Decision provenance constitution
 
