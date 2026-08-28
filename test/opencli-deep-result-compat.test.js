@@ -9,8 +9,8 @@ import { preflightOpenCli, runOpenCliDeepResearchResult } from '../src/opencli-t
 function pinnedDeepResearchSource() {
   return `class CommandExecutionError extends Error {}
 function pickFirstObject(...values) { return values.find((value) => value && typeof value === 'object' && !Array.isArray(value)) || {}; }
-function extractDeepResearchFromWidgetState() { return null; }
-function deepResearchCandidateScore() { return 0; }
+function extractDeepResearchFromWidgetState(value) { return value?.fixture === 'completed' ? { status: 'completed', report: '# Captured network completion', sources: [], reportLength: 28 } : null; }
+function deepResearchCandidateScore() { return 1; }
 function parseJsonMaybe(value) { try { return JSON.parse(String(value)); } catch { return null; } }
 
 function extractDeepResearchFromConversationPayload(payload, { expectedConversationId = '' } = {}) {
@@ -119,6 +119,7 @@ function driftedDeepResearchSource(drift) {
   if (drift === 'mismatch-guard') return source.replace('if (expectedConversationId && payloadConversationId && payloadConversationId !== expectedConversationId) {', 'if (false) {');
   if (drift === 'malformed-payload-guard') return source.replace("if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {", 'if (false) {');
   if (drift === 'network-target-anchor') return source.replace('if (expectedConversationId && entryConversationId !== expectedConversationId) continue;', 'if (false) continue;');
+  if (drift === 'network-url-parser-call-site') return source.replace('const entryConversationId = conversationIdFromBackendConversationUrl(url);', "const entryConversationId = 'deep-current-1';");
   throw new Error(`unknown source drift: ${drift}`);
 }
 
@@ -206,6 +207,7 @@ for (const [drift, name] of [
   ['mismatch-guard', 'disables the mismatch guard'],
   ['malformed-payload-guard', 'disables the malformed-payload guard'],
   ['network-target-anchor', 'changes the network target anchor'],
+  ['network-url-parser-call-site', 'changes the network URL-parser call site'],
 ]) {
   test(`deep reader fails closed before child execution when the pinned extractor ${name}`, async () => withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
     const identity = await preflightOpenCli({ executablePath });
@@ -261,4 +263,30 @@ for (const [name, responsePreview] of [
     const observed = JSON.parse(await readFile(capturePath, 'utf8'));
     assert.equal(observed.fallbackCalls, 0);
   }, { networkEntries: [{ url: 'https://chatgpt.com/backend-api/conversation/deep-current-1', responsePreview }] }));
+}
+
+const completedNetworkBody = {
+  mapping: {
+    message: {
+      message: { metadata: { chatgpt_sdk: { widget_state: { fixture: 'completed' } } } },
+    },
+  },
+};
+
+for (const [name, url] of [
+  ['foreign origin', 'https://evil.example/backend-api/conversation/deep-current-1'],
+  ['http protocol', 'http://chatgpt.com/backend-api/conversation/deep-current-1'],
+  ['lookalike hostname', 'https://chatgpt.com.evil.example/backend-api/conversation/deep-current-1'],
+  ['credentials', 'https://user@chatgpt.com/backend-api/conversation/deep-current-1'],
+  ['port', 'https://chatgpt.com:444/backend-api/conversation/deep-current-1'],
+  ['query', 'https://chatgpt.com/backend-api/conversation/deep-current-1?extra=1'],
+  ['path suffix', 'https://chatgpt.com/backend-api/conversation/deep-current-1/extra'],
+]) {
+  test(`deep reader skips a network conversation URL with ${name}`, async () => withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    const result = await runOpenCliDeepResearchResult({ executablePath, identity, conversationId: 'deep-current-1', timeoutSeconds: 60 });
+    const observed = JSON.parse(await readFile(capturePath, 'utf8'));
+    assert.equal(result.report, '# Completed report\n\nA complete Deep Research report from the existing fallback.');
+    assert.equal(observed.fallbackCalls, 1);
+  }, { networkEntries: [{ url, responsePreview: JSON.stringify(completedNetworkBody) }] }));
 }

@@ -182,9 +182,24 @@ const OPENCLI_DEEP_RESULT_PATCHED_NETWORK_EXTRACTOR = String.raw`function extrac
     const candidates = [];
     for (const entry of Array.isArray(entries) ? entries : []) {
         const url = String(entry?.url || '');
+        const parsedUrl = (() => {
+            try {
+                return new URL(url);
+            } catch {
+                return null;
+            }
+        })();
+        if (parsedUrl === null) continue;
         if (!/\/backend-api\/conversation\/@SLASH@.test(url)) continue;
-        const entryConversationId = conversationIdFromBackendConversationUrl(url);
-        if (expectedConversationId && entryConversationId !== expectedConversationId) continue;
+        if (parsedUrl.protocol !== 'https:'
+            || parsedUrl.hostname !== 'chatgpt.com'
+            || parsedUrl.username !== ''
+            || parsedUrl.password !== ''
+            || parsedUrl.port !== ''
+            || parsedUrl.search !== ''
+            || parsedUrl.hash !== ''
+            || parsedUrl.pathname !== \`/backend-api/conversation/\${expectedConversationId}\`) continue;
+        const entryConversationId = expectedConversationId;
         const body = parseJsonMaybe(entry?.responsePreview) || parseJsonMaybe(entry?.body) || null;
         if (!body) {
             throw new CommandExecutionError(\`Malformed ChatGPT conversation network payload for \${entryConversationId || 'unknown conversation'}.\`);
