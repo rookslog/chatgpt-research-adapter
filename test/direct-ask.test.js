@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { link, mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -277,8 +277,21 @@ test('reclaims a canonical Deep collector lock only after its process is provabl
     clock: () => preparedAt, newJobId: () => 'job_dead_lock', newTurnId: () => 'turn_dead_lock',
     submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-dead-1', conversationUrl: 'https://chatgpt.com/c/deep-dead-1', tool: 'Deep Research', response: '' }) })
   });
-  await writeFile(join(outcome.jobPath, 'response', '.collect.lock'), '{"acquired_at":"2026-08-24T01:02:03.456Z","nonce":"00000000-0000-4000-8000-000000000000","pid":2147483647,"schema":"m006.deep-collector-lock.v1"}\n');
+  const lockPath = join(outcome.jobPath, 'response', '.collect.lock');
+  await writeFile(lockPath, '{"acquired_at":"2026-08-24T01:02:03.456Z","nonce":"00000000-0000-4000-8000-000000000000","pid":2147483647,"schema":"m006.deep-collector-lock.v1"}\n');
+  await link(lockPath, `${lockPath}.reclaim`);
   const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_dead_lock', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-dead-1', report: '# Dead lock recovery', sources: [] }) });
+  assert.equal(result.status, 'completed');
+}));
+
+test('reclaims a gate-only Deep lock left after its original pathname was removed', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_gate_only', newTurnId: () => 'turn_gate_only',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-gate-1', conversationUrl: 'https://chatgpt.com/c/deep-gate-1', tool: 'Deep Research', response: '' }) })
+  });
+  await writeFile(join(outcome.jobPath, 'response', '.collect.lock.reclaim'), '{"acquired_at":"2026-08-24T01:02:03.456Z","nonce":"22222222-2222-4222-8222-222222222222","pid":2147483647,"schema":"m006.deep-collector-lock.v1"}\n');
+  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_gate_only', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-gate-1', report: '# Gate recovery', sources: [] }) });
   assert.equal(result.status, 'completed');
 }));
 

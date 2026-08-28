@@ -223,43 +223,56 @@ function isOwnerLive(pid) {
   catch (error) { if (error?.code === 'ESRCH') return false; if (error?.code === 'EPERM') return true; throw error; }
 }
 
-async function unlinkLockIfOwner(path, owner, expected = null) {
-  const reclaimPath = `${path}.reclaim`;
-  const reclaimOwner = Object.freeze({ schema: 'm006.deep-collector-lock.v1', nonce: randomUUID(), pid: process.pid, acquired_at: new Date().toISOString() });
-  const stagingPath = `${reclaimPath}.${reclaimOwner.nonce}`;
-  await writeDurableJson(stagingPath, reclaimOwner, dirname(path));
-  try {
-    try { await link(stagingPath, reclaimPath); }
-    catch (error) { if (error?.code === 'EEXIST') return false; throw error; }
-  } finally { await unlink(stagingPath).catch(() => {}); }
-  try {
+function sameInode(left, right) { return left?.dev === right?.dev && left?.ino === right?.ino; }
+
+function sameCollectionLock(left, right) {
+  return sameInode(left?.entry, right?.entry) && (right?.owner ? left?.owner?.nonce === right.owner.nonce : left?.owner === null);
+}
+
+async function readCollectionLock(path) {
   const entry = await lstat(path).catch(() => null);
-  if (!entry) return false;
-  if (expected && (entry.dev !== expected.dev || entry.ino !== expected.ino)) return false;
-  const quarantinePath = `${path}.${randomUUID()}.reclaim`;
-  if (entry.size === 0 && owner === null) {
-    await rename(path, quarantinePath).catch(() => {});
-    const quarantined = await lstat(quarantinePath).catch(() => null);
-    if (!quarantined || quarantined.dev !== entry.dev || quarantined.ino !== entry.ino) return false;
-    await unlink(quarantinePath);
-    await syncDirectory(dirname(path));
-    return true;
+  if (!entry) return null;
+  if (!entry.isFile() || entry.isSymbolicLink()) fail('Deep collector lock is invalid', 'ERR_DIRECT_LOCK');
+  return Object.freeze({ entry: Object.freeze({ dev: entry.dev, ino: entry.ino }), owner: entry.size === 0 ? null : validateCollectionLock(parseCanonicalJsonBytes(await readResponseBytes(path))) });
+}
+
+async function finishLockRemoval(path, lock) {
+  const gatePath = `${path}.reclaim`;
+  let gate = await readCollectionLock(gatePath);
+  if (!gate) {
+    try { await link(path, gatePath); }
+    catch (error) { if (error?.code !== 'EEXIST') throw error; }
+    gate = await readCollectionLock(gatePath);
   }
-  const current = validateCollectionLock(parseCanonicalJsonBytes(await readResponseBytes(path)));
-  if (owner === null || current.nonce !== owner.nonce) return false;
-  await rename(path, quarantinePath);
-  const quarantined = await lstat(quarantinePath).catch(() => null);
-  if (!quarantined || quarantined.dev !== entry.dev || quarantined.ino !== entry.ino || validateCollectionLock(parseCanonicalJsonBytes(await readResponseBytes(quarantinePath))).nonce !== owner.nonce) fail('Deep collector lock changed during release', 'ERR_DIRECT_LOCK');
-  await unlink(quarantinePath);
+  const current = await readCollectionLock(path);
+  if (!sameCollectionLock(gate, lock) || !sameCollectionLock(current, lock)) return false;
+  try { await unlink(path); }
+  catch (error) { if (error?.code === 'ENOENT') return false; throw error; }
+  await syncDirectory(dirname(path));
+  const finalGate = await readCollectionLock(gatePath);
+  if (!sameCollectionLock(finalGate, lock)) return false;
+  try { await unlink(gatePath); }
+  catch (error) { if (error?.code === 'ENOENT') return false; throw error; }
   await syncDirectory(dirname(path));
   return true;
-  } finally { await unlink(reclaimPath).catch(() => {}); }
+}
+
+async function recoverReclaimGate(path) {
+  const gatePath = `${path}.reclaim`;
+  const gate = await readCollectionLock(gatePath);
+  if (!gate) return true;
+  if (gate.owner && isOwnerLive(gate.owner.pid)) return false;
+  const lock = await readCollectionLock(path);
+  if (sameCollectionLock(lock, gate)) return finishLockRemoval(path, gate);
+  await unlink(gatePath);
+  await syncDirectory(dirname(path));
+  return true;
 }
 
 async function acquireCollectionLock(responseRoot, now) {
   const path = join(responseRoot, '.collect.lock');
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    if (await lstat(`${path}.reclaim`).catch(() => null)) return Object.freeze({ path, owner: null, acquired: false });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (!(await recoverReclaimGate(path))) return Object.freeze({ path, owner: null, acquired: false });
     const owner = Object.freeze({ schema: 'm006.deep-collector-lock.v1', nonce: randomUUID(), pid: process.pid, acquired_at: now() });
     const stagingPath = join(responseRoot, `.collect-lock-${owner.nonce}.json`);
     await writeDurableJson(stagingPath, owner, responseRoot);
@@ -269,11 +282,9 @@ async function acquireCollectionLock(responseRoot, now) {
       return Object.freeze({ path, owner, entry: Object.freeze({ dev: entry.dev, ino: entry.ino }), acquired: true, stagingPath });
     } catch (error) {
       if (error?.code !== 'EEXIST') throw error;
-      const entry = await lstat(path).catch(() => null);
-      if (!entry) continue;
-      if (entry.size === 0) { await unlinkLockIfOwner(path, null, entry); continue; }
-      const existing = validateCollectionLock(parseCanonicalJsonBytes(await readResponseBytes(path)));
-      if (!isOwnerLive(existing.pid)) { await unlinkLockIfOwner(path, existing, entry); continue; }
+      const existing = await readCollectionLock(path);
+      if (!existing) continue;
+      if (!existing.owner || !isOwnerLive(existing.owner.pid)) { await finishLockRemoval(path, existing); continue; }
       return Object.freeze({ path, owner: null, acquired: false, stagingPath });
     } finally {
       await unlink(stagingPath).catch(() => {});
@@ -336,7 +347,7 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
       if (error?.code !== 'ERR_DIRECT_EXISTS') throw error;
       return (await readDeepResponse({ outputRoot, jobId })).result;
     }
-  } finally { if (lock.owner) await unlinkLockIfOwner(lock.path, lock.owner, lock.entry); }
+  } finally { if (lock.owner) await finishLockRemoval(lock.path, { entry: lock.entry, owner: lock.owner }); }
 }
 
 export async function collectDeepPreparedJob(options = {}) { return collectDeepPreparedJobInternal({ ...options, wait: false }); }
