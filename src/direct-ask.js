@@ -221,6 +221,21 @@ function completionEvent(state) {
   return event;
 }
 
+function completionEventBytes(state) { return Buffer.from(`${canonicalJson(completionEvent(state))}\n`); }
+
+async function validateExistingCompletionEvent(state) {
+  if (state.status.status !== 'completed' || !state.resultBytes || !state.reportBytes) return;
+  const root = join(state.responseRoot, 'events');
+  const directory = await lstat(root).catch(() => null);
+  if (!directory) return;
+  if (!directory.isDirectory() || directory.isSymbolicLink()) fail('Deep completion event directory is invalid', 'ERR_DIRECT_RECEIPT');
+  const eventPath = join(root, 'research.completed.v1.json');
+  const entry = await lstat(eventPath).catch(() => null);
+  if (!entry) return;
+  const existing = await readResponseBytes(eventPath);
+  if (!existing.equals(completionEventBytes(state))) fail('Deep completion event differs from the durable result', 'ERR_DIRECT_RECEIPT');
+}
+
 async function completionEventsRoot(responseRoot, receiptTestSeam) {
   const path = join(responseRoot, 'events');
   try { await mkdir(path, { mode: 0o700 }); }
@@ -237,7 +252,7 @@ async function finalizeDeepCompletionEvent(state, receiptTestSeam) {
   const root = await completionEventsRoot(state.responseRoot, receiptTestSeam);
   const eventPath = join(root, 'research.completed.v1.json');
   const stagingPath = join(root, `.research-completed-staging-${randomUUID()}.json`);
-  const payload = Buffer.from(`${canonicalJson(completionEvent(state))}\n`);
+  const payload = completionEventBytes(state);
   await writeDurableExclusive(stagingPath, payload, root);
   try {
     fault(receiptTestSeam, 'after-completion-event-write');
@@ -406,6 +421,7 @@ async function publishDeepReport(responseRoot, payload, testSeam) {
 
 export async function getDeepPreparedJobStatus({ outputRoot, jobId } = {}) {
   const state = await readDeepResponse({ outputRoot, jobId });
+  await validateExistingCompletionEvent(state);
   return Object.freeze(state.status);
 }
 

@@ -229,7 +229,10 @@ test('recovers event staging and final-link interruptions without another Deep r
     const options = { outputRoot, jobId, openCliPath: '/tmp/opencli', now: () => preparedAt, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId, report: '# Event recovery', sources: [] }) };
     await assert.rejects(collectDeepPreparedJob({ ...options, receiptTestSeam: { failAt } }), { code: 'ERR_INJECTED_FAULT' });
     const eventPath = join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json');
-    if (failAt === 'after-completion-event-write') await assert.rejects(readFile(eventPath), { code: 'ENOENT' });
+    if (failAt === 'after-completion-event-write') {
+      await assert.rejects(readFile(eventPath), { code: 'ENOENT' });
+      assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId })).status, 'completed');
+    }
     if (failAt === 'after-completion-event-publish') {
       await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-events-directory-sync' }, preflight: async () => assert.fail('event-directory repair must not preflight'), readStatus: async () => assert.fail('event-directory repair must not read') }), { code: 'ERR_INJECTED_FAULT' });
       await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-event-existing-sync' }, preflight: async () => assert.fail('existing-event repair must not preflight'), readStatus: async () => assert.fail('existing-event repair must not read') }), { code: 'ERR_INJECTED_FAULT' });
@@ -255,6 +258,7 @@ test('fails closed for malformed, symlinked, or different preexisting completion
     await assert.rejects(collectDeepPreparedJob({ ...options, receiptTestSeam: { failAt: 'after-completion-event-write' } }), { code: 'ERR_INJECTED_FAULT' });
     const eventPath = join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json');
     await mutate(eventPath);
+    await assert.rejects(getDeepPreparedJobStatus({ outputRoot, jobId }), { code: 'ERR_DIRECT_RECEIPT' });
     await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', preflight: async () => assert.fail('event validation must not preflight'), readStatus: async () => assert.fail('event validation must not read') }), { code: 'ERR_DIRECT_RECEIPT' });
   }
 }));
