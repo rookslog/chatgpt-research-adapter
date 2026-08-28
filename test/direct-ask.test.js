@@ -130,8 +130,8 @@ test('persists a Web answer only after the same conversation repeats its grown f
   assert.equal(await readFile(answerPath, 'utf8'), responses[2]);
 }));
 
-test('requires recovery without publishing when a Web answer changes through the bounded read limit', async () => withOutputRoot(async (outputRoot) => {
-  const responses = ['partial', 'longer partial', 'still longer partial'];
+test('requires recovery without publishing when duplicate Web reads grow on the final bounded read', async () => withOutputRoot(async (outputRoot) => {
+  const responses = ['partial', 'partial', 'grown after duplicate'];
   let askCalls = 0;
   let detailCalls = 0;
   const responseRoot = join(outputRoot, 'jobs', 'job_web_unstable', 'response');

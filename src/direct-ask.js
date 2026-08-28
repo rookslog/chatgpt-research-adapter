@@ -112,9 +112,8 @@ async function persistDirectResult(responseRoot, result, testSeam) {
 }
 
 async function readStableWebDetail(readDetail, detailOptions) {
-  const first = await readDetail(detailOptions);
+  await readDetail(detailOptions);
   const second = await readDetail(detailOptions);
-  if (second.response === first.response) return second;
   const third = await readDetail(detailOptions);
   if (third.response !== second.response) {
     fail('ChatGPT Web answer did not stabilize before the bounded read limit', 'ERR_OPENCLI_DETAIL_UNSTABLE');
