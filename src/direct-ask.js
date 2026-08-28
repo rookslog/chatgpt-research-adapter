@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { link, lstat, mkdir, open, rename, rm, unlink } from 'node:fs/promises';
-import { dirname, isAbsolute, join } from 'node:path';
+import { link, lstat, mkdir, open, readdir, rename, rm, unlink } from 'node:fs/promises';
+import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { canonicalJson } from './canonical-json.js';
@@ -214,8 +214,17 @@ async function readDeepResponse({ outputRoot, jobId }) {
   return Object.freeze({ bundle, responseRoot, intent, intentSha256, handoff, handoffSha256, running, status: running });
 }
 
-function validateCollectionLock(value) {
-  if (!sameKeys(value, ['schema', 'nonce', 'pid', 'acquired_at']) || value.schema !== 'm006.deep-collector-lock.v1' || typeof value.nonce !== 'string' || !/^[a-f0-9-]{36}$/.test(value.nonce) || !Number.isSafeInteger(value.pid) || value.pid < 1 || !isCanonicalTime(value.acquired_at)) fail('Deep collector lock is invalid', 'ERR_DIRECT_LOCK');
+const MAX_COLLECTOR_GENERATIONS = 1024;
+const COLLECTOR_OWNER_KEYS = Object.freeze(['schema', 'generation', 'nonce', 'pid', 'acquired_at']);
+const COLLECTOR_RELEASE_KEYS = Object.freeze(['schema', 'generation', 'nonce', 'pid', 'owner_record_sha256', 'released_at']);
+
+function validateCollectorOwner(value, generation) {
+  if (!sameKeys(value, COLLECTOR_OWNER_KEYS) || value.schema !== 'm006.deep-collector-owner.v1' || value.generation !== generation || typeof value.nonce !== 'string' || !/^[a-f0-9-]{36}$/.test(value.nonce) || !Number.isSafeInteger(value.pid) || value.pid < 1 || !isCanonicalTime(value.acquired_at)) fail('Deep collector owner is invalid', 'ERR_DIRECT_LOCK');
+  return value;
+}
+
+function validateCollectorRelease(value, owner, ownerSha256) {
+  if (!sameKeys(value, COLLECTOR_RELEASE_KEYS) || value.schema !== 'm006.deep-collector-release.v1' || value.generation !== owner.generation || value.nonce !== owner.nonce || value.pid !== owner.pid || value.owner_record_sha256 !== ownerSha256 || !isCanonicalTime(value.released_at)) fail('Deep collector release is invalid', 'ERR_DIRECT_LOCK');
   return value;
 }
 
@@ -224,75 +233,86 @@ function isOwnerLive(pid) {
   catch (error) { if (error?.code === 'ESRCH') return false; if (error?.code === 'EPERM') return true; throw error; }
 }
 
-function sameInode(left, right) { return left?.dev === right?.dev && left?.ino === right?.ino; }
-
-function sameCollectionLock(left, right) {
-  return sameInode(left?.entry, right?.entry) && (right?.owner ? left?.owner?.nonce === right.owner.nonce : left?.owner === null);
-}
-
-async function readCollectionLock(path) {
+async function collectorLockRoot(responseRoot) {
+  const path = join(responseRoot, 'collector-locks');
+  try { await mkdir(path, { mode: 0o700 }); await syncDirectory(responseRoot); }
+  catch (error) { if (error?.code !== 'EEXIST') throw error; }
   const entry = await lstat(path).catch(() => null);
-  if (!entry) return null;
-  if (!entry.isFile() || entry.isSymbolicLink()) fail('Deep collector lock is invalid', 'ERR_DIRECT_LOCK');
-  return Object.freeze({ entry: Object.freeze({ dev: entry.dev, ino: entry.ino }), owner: entry.size === 0 ? null : validateCollectionLock(parseCanonicalJsonBytes(await readResponseBytes(path))) });
+  if (!entry?.isDirectory() || entry.isSymbolicLink()) fail('Deep collector lock directory is invalid', 'ERR_DIRECT_LOCK');
+  return path;
 }
 
-async function finishLockRemoval(path, lock) {
-  const gatePath = `${path}.reclaim`;
-  let gate = await readCollectionLock(gatePath);
-  if (!gate) {
-    try { await link(path, gatePath); }
-    catch (error) { if (error?.code !== 'EEXIST') throw error; }
-    gate = await readCollectionLock(gatePath);
+function generationFile(root, generation, kind) { return join(root, `${generation}.${kind}.json`); }
+
+async function readCollectorRecord(path, generation, kind, owner = null, ownerSha256 = null) {
+  const bytes = await readResponseBytes(path);
+  const value = parseCanonicalJsonBytes(bytes);
+  return Object.freeze({ value: kind === 'owner' ? validateCollectorOwner(value, generation) : validateCollectorRelease(value, owner, ownerSha256), sha256: hash(bytes) });
+}
+
+async function readCollectorState(responseRoot) {
+  const root = await collectorLockRoot(responseRoot);
+  const entries = await readdir(root, { withFileTypes: true });
+  const generations = new Map();
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    const match = /^(0|[1-9]\d*)\.(owner|released)\.json$/.exec(entry.name);
+    if (!match || !entry.isFile() || entry.isSymbolicLink()) fail('Deep collector lock records are invalid', 'ERR_DIRECT_LOCK');
+    const generation = Number(match[1]);
+    if (!Number.isSafeInteger(generation) || generation < 1 || generation > MAX_COLLECTOR_GENERATIONS) fail('Deep collector generation is invalid', 'ERR_DIRECT_LOCK');
+    const record = generations.get(generation) ?? {};
+    if (record[match[2]]) fail('Deep collector lock records are invalid', 'ERR_DIRECT_LOCK');
+    record[match[2]] = generationFile(root, generation, match[2]);
+    generations.set(generation, record);
   }
-  const current = await readCollectionLock(path);
-  if (!sameCollectionLock(gate, lock) || !sameCollectionLock(current, lock)) return false;
-  try { await unlink(path); }
-  catch (error) { if (error?.code === 'ENOENT') return false; throw error; }
-  await syncDirectory(dirname(path));
-  const finalGate = await readCollectionLock(gatePath);
-  if (!sameCollectionLock(finalGate, lock)) return false;
-  try { await unlink(gatePath); }
-  catch (error) { if (error?.code === 'ENOENT') return false; throw error; }
-  await syncDirectory(dirname(path));
-  return true;
+  const highest = generations.size === 0 ? 0 : Math.max(...generations.keys());
+  for (let generation = 1; generation <= highest; generation += 1) {
+    const record = generations.get(generation);
+    if (!record?.owner) fail('Deep collector generations are not contiguous', 'ERR_DIRECT_LOCK');
+    record.owner = await readCollectorRecord(record.owner, generation, 'owner');
+    if (record.released) record.released = await readCollectorRecord(record.released, generation, 'released', record.owner.value, record.owner.sha256);
+  }
+  const current = highest === 0 || generations.get(highest).released ? null : Object.freeze({ generation: highest, owner: generations.get(highest).owner });
+  return Object.freeze({ root, highest, current });
 }
 
-async function recoverReclaimGate(path) {
-  const gatePath = `${path}.reclaim`;
-  const gate = await readCollectionLock(gatePath);
-  if (!gate) return true;
-  if (gate.owner && isOwnerLive(gate.owner.pid)) return false;
-  const lock = await readCollectionLock(path);
-  if (sameCollectionLock(lock, gate)) return finishLockRemoval(path, gate);
-  try { await unlink(gatePath); }
-  catch (error) { if (error?.code === 'ENOENT') return true; throw error; }
-  await syncDirectory(dirname(path));
-  return true;
+async function publishCollectorRecord(root, generation, kind, value, testSeam) {
+  const path = generationFile(root, generation, kind);
+  const stagingPath = join(root, `.${kind}-staging-${randomUUID()}.json`);
+  const sha256 = await writeDurableJson(stagingPath, value, root);
+  try {
+    fault(testSeam, `after-collector-${kind}-write`);
+    try { await link(stagingPath, path); }
+    catch (error) { if (error?.code === 'EEXIST') fail('Deep collector record already exists', 'ERR_DIRECT_EXISTS'); throw error; }
+    fault(testSeam, `after-collector-${kind}-publish`);
+    await syncDirectory(root);
+    return sha256;
+  } finally { await unlink(stagingPath).catch(() => {}); }
 }
 
-async function acquireCollectionLock(responseRoot, now) {
-  const path = join(responseRoot, '.collect.lock');
+async function acquireCollectionLock(responseRoot, now, testSeam) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (!(await recoverReclaimGate(path))) return Object.freeze({ path, owner: null, acquired: false });
-    const owner = Object.freeze({ schema: 'm006.deep-collector-lock.v1', nonce: randomUUID(), pid: process.pid, acquired_at: now() });
-    const stagingPath = join(responseRoot, `.collect-lock-${owner.nonce}.json`);
-    await writeDurableJson(stagingPath, owner, responseRoot);
+    const state = await readCollectorState(responseRoot);
+    if (state.current && isOwnerLive(state.current.owner.value.pid)) return Object.freeze({ acquired: false });
+    const generation = state.highest + 1;
+    if (generation > MAX_COLLECTOR_GENERATIONS) fail('Deep collector generation limit reached', 'ERR_DIRECT_LOCK');
+    const owner = Object.freeze({ schema: 'm006.deep-collector-owner.v1', generation, nonce: randomUUID(), pid: process.pid, acquired_at: now() });
     try {
-      await link(stagingPath, path);
-      const entry = await lstat(path);
-      return Object.freeze({ path, owner, entry: Object.freeze({ dev: entry.dev, ino: entry.ino }), acquired: true, stagingPath });
-    } catch (error) {
-      if (error?.code !== 'EEXIST') throw error;
-      const existing = await readCollectionLock(path);
-      if (!existing) continue;
-      if (!existing.owner || !isOwnerLive(existing.owner.pid)) { await finishLockRemoval(path, existing); continue; }
-      return Object.freeze({ path, owner: null, acquired: false, stagingPath });
-    } finally {
-      await unlink(stagingPath).catch(() => {});
-    }
+      const ownerSha256 = await publishCollectorRecord(state.root, generation, 'owner', owner, testSeam);
+      return Object.freeze({ acquired: true, root: state.root, generation, owner, ownerSha256 });
+    } catch (error) { if (error?.code !== 'ERR_DIRECT_EXISTS') throw error; }
   }
-  return Object.freeze({ path, owner: null, acquired: false });
+  return Object.freeze({ acquired: false });
+}
+
+async function releaseCollectionLock(lock, now, testSeam) {
+  const release = Object.freeze({ schema: 'm006.deep-collector-release.v1', generation: lock.generation, nonce: lock.owner.nonce, pid: lock.owner.pid, owner_record_sha256: lock.ownerSha256, released_at: now() });
+  try { await publishCollectorRecord(lock.root, lock.generation, 'released', release, testSeam); }
+  catch (error) {
+    if (error?.code !== 'ERR_DIRECT_EXISTS') throw error;
+    const existing = await readCollectorRecord(generationFile(lock.root, lock.generation, 'released'), lock.generation, 'released', lock.owner, lock.ownerSha256);
+    if (canonicalJson(existing.value) !== canonicalJson(release)) fail('Deep collector release changed', 'ERR_DIRECT_LOCK');
+  }
 }
 
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
@@ -301,11 +321,30 @@ async function waitForCollection(responseRoot, outputRoot, jobId) {
   for (let attempt = 0; attempt < 500; attempt += 1) {
     const state = await readDeepResponse({ outputRoot, jobId });
     if (state.status.status === 'completed') return state.result;
-    const lock = await lstat(join(responseRoot, '.collect.lock')).catch(() => null);
-    if (!lock) return null;
+    const lock = await readCollectorState(responseRoot);
+    if (!lock.current || !isOwnerLive(lock.current.owner.value.pid)) return null;
     await delay(10);
   }
   return null;
+}
+
+async function publishDeepReport(responseRoot, payload, testSeam) {
+  const reportPath = join(responseRoot, 'report.md');
+  const stagingPath = join(responseRoot, `.report-staging-${randomUUID()}.md`);
+  await writeDurableExclusive(stagingPath, payload, responseRoot);
+  try {
+    fault(testSeam, 'after-deep-report-write');
+    try { await link(stagingPath, reportPath); }
+    catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      const existing = await readResponseBytes(reportPath, 256 * 1024);
+      if (!existing.equals(payload)) fail('Deep report publication raced with a different payload', 'ERR_DIRECT_RECEIPT');
+      return existing;
+    }
+    fault(testSeam, 'after-deep-report-publish');
+    await syncDirectory(responseRoot);
+    return payload;
+  } finally { await unlink(stagingPath).catch(() => {}); }
 }
 
 export async function getDeepPreparedJobStatus({ outputRoot, jobId } = {}) {
@@ -316,7 +355,7 @@ export async function getDeepPreparedJobStatus({ outputRoot, jobId } = {}) {
 async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, wait, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, readDeep = runOpenCliDeepResearchResult, readStatus = runOpenCliDeepResearchStatus, receiptTestSeam } = {}) {
   let state = await readDeepResponse({ outputRoot, jobId });
   if (state.status.status !== 'running' && state.status.status !== 'accepted') return Object.freeze(state.status);
-  const lock = await acquireCollectionLock(state.responseRoot, now);
+  const lock = await acquireCollectionLock(state.responseRoot, now, receiptTestSeam);
   if (!lock.acquired) {
     const completed = await waitForCollection(state.responseRoot, outputRoot, jobId);
     return completed ?? Object.freeze((await readDeepResponse({ outputRoot, jobId })).status);
@@ -338,9 +377,7 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
     catch (error) { return Object.freeze({ ...state.status, collection_disposition: disposition(error) }); }
     const reportPayload = Buffer.from(observation.report);
     const reportPath = join(state.responseRoot, 'report.md');
-    try { await writeDurableExclusive(reportPath, reportPayload, state.responseRoot); }
-    catch (error) { if (error?.code !== 'EEXIST') throw error; }
-    const report = await readResponseBytes(reportPath, 256 * 1024);
+    const report = await publishDeepReport(state.responseRoot, reportPayload, receiptTestSeam);
     const reportSha256 = hash(report);
     if (reportSha256 !== hash(reportPayload) || report.length !== reportPayload.length) fail('Deep report publication raced with a different payload', 'ERR_DIRECT_RECEIPT');
     const result = { ...directResultBase({ bundle: state.bundle, jobId, mode: 'deep', intentSha256: state.intentSha256, handoffSha256: state.handoffSha256, conversationId: state.handoff.conversation_id, conversationUrl: state.handoff.conversation_url, tool: state.handoff.tool, now: now() }), status: 'completed', process_disposition: 'exit_0_validated', remote_effect: 'completed', retry_decision: 'not_applicable', report_path: reportPath, report_sha256: reportSha256, report_bytes: report.length, sources: observation.sources };
@@ -349,7 +386,7 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
       if (error?.code !== 'ERR_DIRECT_EXISTS') throw error;
       return (await readDeepResponse({ outputRoot, jobId })).result;
     }
-  } finally { if (lock.owner) await finishLockRemoval(lock.path, { entry: lock.entry, owner: lock.owner }); }
+  } finally { if (lock.acquired) await releaseCollectionLock(lock, now, receiptTestSeam); }
 }
 
 export async function collectDeepPreparedJob(options = {}) { return collectDeepPreparedJobInternal({ ...options, wait: false }); }

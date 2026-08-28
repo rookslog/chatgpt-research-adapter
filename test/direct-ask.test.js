@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { link, mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -8,6 +9,9 @@ import { collectDeepPreparedJob, directAsk, getDeepPreparedJobStatus, submitDire
 
 const templatesRoot = new URL('../templates/', import.meta.url).pathname;
 const preparedAt = '2026-08-24T01:02:03.456Z';
+const hash = (value) => createHash('sha256').update(value).digest('hex');
+const collectorOwner = (generation, pid, nonce) => `{"acquired_at":"${preparedAt}","generation":${generation},"nonce":"${nonce}","pid":${pid},"schema":"m006.deep-collector-owner.v1"}\n`;
+const collectorRelease = (generation, pid, nonce, owner) => `{"generation":${generation},"nonce":"${nonce}","owner_record_sha256":"${hash(owner)}","pid":${pid},"released_at":"${preparedAt}","schema":"m006.deep-collector-release.v1"}\n`;
 
 async function withOutputRoot(run) {
   const root = await mkdtemp(join(tmpdir(), 'direct-ask-'));
@@ -268,60 +272,78 @@ test('serializes concurrent Deep collectors onto one immutable completed result'
   assert.deepEqual(left, right);
   const bytes = await readFile(join(outputRoot, 'jobs', 'job_race', 'response', 'result.json'));
   assert.deepEqual(await readFile(join(outputRoot, 'jobs', 'job_race', 'response', 'result.json')), bytes);
+  assert.deepEqual(await collectDeepPreparedJob(options), left);
+  assert.equal(reads, 1);
 }));
 
-test('reclaims an empty legacy Deep collector lock after its owner is gone', async () => withOutputRoot(async (outputRoot) => {
+test('advances beyond a provably dead immutable collector owner without deleting it', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
     question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
     clock: () => preparedAt, newJobId: () => 'job_stale_lock', newTurnId: () => 'turn_stale_lock',
     submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-stale-1', conversationUrl: 'https://chatgpt.com/c/deep-stale-1', tool: 'Deep Research', response: '' }) })
   });
-  await writeFile(join(outcome.jobPath, 'response', '.collect.lock'), '');
+  const locks = join(outcome.jobPath, 'response', 'collector-locks');
+  await mkdir(locks);
+  await writeFile(join(locks, '1.owner.json'), collectorOwner(1, 2147483647, '00000000-0000-4000-8000-000000000000'));
   const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_stale_lock', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-stale-1', report: '# Stale lock recovery', sources: [] }) });
   assert.equal(result.status, 'completed');
+  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '2.owner.json', '2.released.json']);
 }));
 
-test('reclaims a canonical Deep collector lock only after its process is provably absent', async () => withOutputRoot(async (outputRoot) => {
+test('does not steal a live long-running collector owner', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
     question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
     clock: () => preparedAt, newJobId: () => 'job_dead_lock', newTurnId: () => 'turn_dead_lock',
     submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-dead-1', conversationUrl: 'https://chatgpt.com/c/deep-dead-1', tool: 'Deep Research', response: '' }) })
   });
-  const lockPath = join(outcome.jobPath, 'response', '.collect.lock');
-  await writeFile(lockPath, '{"acquired_at":"2026-08-24T01:02:03.456Z","nonce":"00000000-0000-4000-8000-000000000000","pid":2147483647,"schema":"m006.deep-collector-lock.v1"}\n');
-  await link(lockPath, `${lockPath}.reclaim`);
-  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_dead_lock', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-dead-1', report: '# Dead lock recovery', sources: [] }) });
-  assert.equal(result.status, 'completed');
+  const locks = join(outcome.jobPath, 'response', 'collector-locks');
+  await mkdir(locks);
+  await writeFile(join(locks, '1.owner.json'), collectorOwner(1, process.pid, '00000000-0000-4000-8000-000000000000'));
+  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_dead_lock', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => assert.fail('live collector must not be overlapped') });
+  assert.equal(result.status, 'running');
+  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json']);
 }));
 
-test('reclaims a gate-only Deep lock left after its original pathname was removed', async () => withOutputRoot(async (outputRoot) => {
+test('an ABA stale generation cannot affect a newer live collector', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
     question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
     clock: () => preparedAt, newJobId: () => 'job_gate_only', newTurnId: () => 'turn_gate_only',
     submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-gate-1', conversationUrl: 'https://chatgpt.com/c/deep-gate-1', tool: 'Deep Research', response: '' }) })
   });
-  await writeFile(join(outcome.jobPath, 'response', '.collect.lock.reclaim'), '{"acquired_at":"2026-08-24T01:02:03.456Z","nonce":"22222222-2222-4222-8222-222222222222","pid":2147483647,"schema":"m006.deep-collector-lock.v1"}\n');
-  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_gate_only', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-gate-1', report: '# Gate recovery', sources: [] }) });
-  assert.equal(result.status, 'completed');
+  const locks = join(outcome.jobPath, 'response', 'collector-locks');
+  await mkdir(locks);
+  const oldOwner = collectorOwner(1, 2147483647, '11111111-1111-4111-8111-111111111111');
+  await writeFile(join(locks, '1.owner.json'), oldOwner);
+  await writeFile(join(locks, '1.released.json'), collectorRelease(1, 2147483647, '11111111-1111-4111-8111-111111111111', oldOwner));
+  await writeFile(join(locks, '2.owner.json'), collectorOwner(2, process.pid, '22222222-2222-4222-8222-222222222222'));
+  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_gate_only', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => assert.fail('newer collector must remain exclusive') });
+  assert.equal(result.status, 'running');
+  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json', '2.owner.json']);
 }));
 
-test('does not unlink a replacement collector lock when releasing its own token', async () => withOutputRoot(async (outputRoot) => {
+test('keeps owner publication crash states immutable before and after the final link', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
-    question: 'protect replacement lock', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
-    clock: () => preparedAt, newJobId: () => 'job_lock_token', newTurnId: () => 'turn_lock_token',
-    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-token-1', conversationUrl: 'https://chatgpt.com/c/deep-token-1', tool: 'Deep Research', response: '' }) })
+    question: 'owner crash', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_owner_crash', newTurnId: () => 'turn_owner_crash',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-owner-1', conversationUrl: 'https://chatgpt.com/c/deep-owner-1', tool: 'Deep Research', response: '' }) })
   });
-  let release; const gate = new Promise((resolve) => { release = resolve; });
-  const collecting = collectDeepPreparedJob({ outputRoot, jobId: 'job_lock_token', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => { await gate; return { status: 'completed', conversationId: 'deep-token-1', report: '# Report', sources: [] }; } });
-  const lockPath = join(outcome.jobPath, 'response', '.collect.lock');
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    try { await readFile(lockPath); break; } catch { await new Promise((resolve) => setTimeout(resolve, 5)); }
-  }
-  const replacement = '{"acquired_at":"2026-08-24T01:02:03.456Z","nonce":"11111111-1111-4111-8111-111111111111","pid":2147483647,"schema":"m006.deep-collector-lock.v1"}\n';
-  await writeFile(lockPath, replacement);
-  release();
-  await collecting;
-  assert.equal(await readFile(lockPath, 'utf8'), replacement);
+  const base = { outputRoot, jobId: 'job_owner_crash', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-owner-1', report: '# Report', sources: [] }) };
+  await assert.rejects(collectDeepPreparedJob({ ...base, receiptTestSeam: { failAt: 'after-collector-owner-write' } }), { code: 'ERR_INJECTED_FAULT' });
+  const locks = join(outcome.jobPath, 'response', 'collector-locks');
+  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')), []);
+  await assert.rejects(collectDeepPreparedJob({ ...base, receiptTestSeam: { failAt: 'after-collector-owner-publish' } }), { code: 'ERR_INJECTED_FAULT' });
+  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')), ['1.owner.json']);
+}));
+
+test('retains a durable release record when release crashes after publication', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'release crash', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_release_crash', newTurnId: () => 'turn_release_crash',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-release-1', conversationUrl: 'https://chatgpt.com/c/deep-release-1', tool: 'Deep Research', response: '' }) })
+  });
+  await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId: 'job_release_crash', openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-collector-released-publish' }, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-release-1', report: '# Report', sources: [] }) }), { code: 'ERR_INJECTED_FAULT' });
+  assert.deepEqual((await readdir(join(outcome.jobPath, 'response', 'collector-locks'))).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json']);
+  assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_release_crash' })).status, 'completed');
 }));
 
 test('rolls back only its post-link result before publishing Standard recovery', async () => withOutputRoot(async (outputRoot) => {
@@ -352,6 +374,21 @@ test('rolls back only its post-link Deep result and leaves the handoff collectab
   });
   await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId: 'job_deep_result_rollback', openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-direct-result-publish' }, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'rollback-deep-1', report: '# Report', sources: [] }) }), { code: 'ERR_INJECTED_FAULT' });
   assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_deep_result_rollback' })).status, 'running');
+}));
+
+test('never exposes a report after a staging crash and recovers a byte-identical published report', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'report crash', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_report_crash', newTurnId: () => 'turn_report_crash',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'report-crash-1', conversationUrl: 'https://chatgpt.com/c/report-crash-1', tool: 'Deep Research', response: '' }) })
+  });
+  const options = { outputRoot, jobId: 'job_report_crash', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'report-crash-1', report: '# Durable report', sources: [] }) };
+  await assert.rejects(collectDeepPreparedJob({ ...options, receiptTestSeam: { failAt: 'after-deep-report-write' } }), { code: 'ERR_INJECTED_FAULT' });
+  await assert.rejects(readFile(join(outcome.jobPath, 'response', 'report.md')), { code: 'ENOENT' });
+  await assert.rejects(collectDeepPreparedJob({ ...options, receiptTestSeam: { failAt: 'after-deep-report-publish' } }), { code: 'ERR_INJECTED_FAULT' });
+  assert.equal(await readFile(join(outcome.jobPath, 'response', 'report.md'), 'utf8'), '# Durable report');
+  await assert.rejects(readFile(join(outcome.jobPath, 'response', 'result.json')), { code: 'ENOENT' });
+  assert.equal((await collectDeepPreparedJob(options)).status, 'completed');
 }));
 
 test('refuses a preexisting symlinked Deep report instead of following it', async () => withOutputRoot(async (outputRoot) => {
