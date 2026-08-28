@@ -49,13 +49,21 @@
 - Consumes: `withPatchedOpenCli()`, exact v1.8.7 `clis/chatgpt/utils.js` source anchors, and `runOpenCliDeepResearchResult()`.
 - Produces: `withDeepResearchCompatibleOpenCli()` and unchanged strict completed-row output to callers.
 
-- [ ] RED: build a disposable exact-shape v1.8.7 package whose conversation fetch returns a matching conversation ID without `mapping`, while a later existing fallback returns a completed report and sources. Assert the current adapter exits before fallback.
-- [ ] RED: add drift and mismatch fixtures proving an unknown extractor source or mismatched conversation remains a typed failure before child execution.
-- [ ] Implement an exact source transformer that changes only the matching-ID/no-`mapping` branch from an immediate throw to a non-candidate, leaving malformed/no-ID and mismatched-ID failures intact.
-- [ ] Execute only `deep-research-result` through the private compatibility copy; preserve persistent session routing, executable hash/size identity, exact argv, cleanup, and strict one-row completed contract.
-- [ ] GREEN: run the focused compatibility and transport tests.
-- [ ] Run a zero-submission read-only recovery probe against conversation `6a911bab-2eb4-83e9-81df-022439363d58`. If an existing fallback returns the completed report and source set, persist a sanitized qualification receipt. If it returns no usable report, treat that as a falsifier and capture only sanitized diagnostics before revising this task; do not add speculative recursive extraction.
-- [ ] Refresh the authority SHA-256 pin for `src/opencli-transport.js` and commit the coherent slice.
+- [x] RED: build a disposable exact-shape v1.8.7 package whose conversation fetch returns a matching conversation ID without `mapping`, while a later existing fallback returns a completed report and sources. Assert the current adapter exits before fallback.
+- [x] RED: add drift and mismatch fixtures proving an unknown extractor source or mismatched conversation remains a typed failure before child execution.
+- [x] Implement an exact source transformer that changes only the matching-ID/no-`mapping` branch from an immediate throw to a non-candidate, leaving malformed/no-ID and mismatched-ID failures intact.
+- [x] Execute only `deep-research-result` through the private compatibility copy; preserve persistent session routing, executable hash/size identity, exact argv, cleanup, and strict one-row completed contract.
+- [x] GREEN: run the focused compatibility and transport tests.
+- [x] Run a zero-submission read-only recovery probe against conversation `6a911bab-2eb4-83e9-81df-022439363d58`. If an existing fallback returns the completed report and source set, persist a sanitized qualification receipt. If it returns no usable report, treat that as a falsifier and capture only sanitized diagnostics before revising this task; do not add speculative recursive extraction.
+- [x] Refresh the authority SHA-256 pin for `src/opencli-transport.js` and commit the coherent slice.
+
+**Observed Task 1 disposition:** the reader now passes the mapping-less network
+payload and reaches the existing fallbacks, but the current live Deep iframe is
+cross-origin and absent from the Bridge frame tree. The exact-src target AX
+route also failed. Root AX contained the compiled prompt, not the report. Full
+report/source extraction therefore remains blocked on a separately approved,
+XHigh-reviewed private Browser Bridge diagnostic; it is not silently broadened
+into this OpenCLI reader slice.
 
 ### Task 2: Split Deep submission from resumable collection
 
