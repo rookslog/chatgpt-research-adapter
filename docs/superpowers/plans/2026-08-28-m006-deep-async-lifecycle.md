@@ -61,7 +61,7 @@
 payload and reaches the existing fallbacks, but the current live Deep iframe is
 cross-origin and absent from the Bridge frame tree. The exact-src target AX
 route also failed. Root AX contained the compiled prompt, not the report. Full
-report/source extraction therefore remains blocked on a separately approved,
+report/source extraction therefore remains blocked on a separately approval-gated,
 XHigh-reviewed private Browser Bridge diagnostic; it is not silently broadened
 into this OpenCLI reader slice.
 

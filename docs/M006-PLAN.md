@@ -3,7 +3,7 @@
 - Status: Deep asynchronous lifecycle and completion-event contracts implemented deterministically; live Deep extraction qualification remains open
 - Date: 2026-08-28
 - Closure target: a readable, dependable research adapter with the explicitly supported research modes and remaining rigor variants exercised
-- Remote: private `rookslog/chatgpt-research-adapter`; recovered baseline in `m006/baseline-recovery`
+- Remote: public `rookslog/chatgpt-research-adapter`; recovered baseline in `m006/baseline-recovery`
 - Commit and push authority: granted 2026-08-26 for baseline publication and the bounded ChatGPT/GitHub-connector implementation experiment
 
 ## Owner decision
@@ -35,7 +35,7 @@ Because correct hierarchy was part of the acceptance contract, root created #2�
 1. #4 Markdown/GFM preservation — smallest user-visible QoL fix for the working standard mode.
 2. #2 Web Search selector compatibility — restore the lighter current-information path.
 3. #15/#17 Deep lifecycle and completion event — implemented deterministically without a new provider submission.
-4. #16 Deep completed report/source extraction — remains blocked on the separately approved Bridge diagnostic.
-5. #3 Deep Research selector compatibility and #5 expanded-citation/audit-appendix live conformance — remain qualification work.
+4. #16 Deep completed report/source extraction — remains blocked on the separately approval-gated Bridge diagnostic.
+5. #3 Deep Research selector compatibility retains its live qualification criterion. #5 is closed after its bounded qualification, including preserved negative citation-coverage findings.
 
 Issue acceptance criteria are authoritative for their slices. The owner subsequently authorized publication of the recovered baseline and local/offline implementation commits and PRs for the ChatGPT/GitHub-connector experiment. Dependency changes, live provider turns, merge, publication, and deployment retain their applicable separate gates. Adaptive multi-wave orchestration is deferred to the next milestone; no new provider submission is part of this implementation phase.

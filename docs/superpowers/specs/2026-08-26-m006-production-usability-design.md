@@ -6,7 +6,7 @@ The original selector and live-qualification plan below remains historical plann
 
 Accepted Deep state is restartable. Immutable append-only collector generations serialize observation without stealing a live owner. Completion publication is report → terminal result → `response/events/research.completed.v1.json`. The event uses schema `m006.research-completion-event.v1`, type `research.completed.v1`, and fields `schema`, `type`, `job_id`, `turn_id`, `conversation_id`, `conversation_url`, `result_path`, `result_sha256`, `report_path`, `report_sha256`, `source_count`, and `completed_at`. Interrupted event publication is recoverable through later non-submitting collection; no callback, delivery mechanism, or new provider submission was added.
 
-This is deterministic implementation evidence, not a live Deep success claim. The current completed Deep iframe report/source extraction remains blocked on the separately approved Browser Bridge diagnostic, so #16 and live Deep usability remain open. Adaptive multi-wave orchestration is deferred to the next milestone.
+This is deterministic implementation evidence, not a live Deep success claim. The current completed Deep iframe report/source extraction remains blocked on the separately approval-gated Browser Bridge diagnostic, so #16 and live Deep usability remain open. Adaptive multi-wave orchestration is deferred to the next milestone.
 
 **Date:** 2026-08-26  
 **Status:** Approved historical design; the lifecycle amendment above records accepted deterministic implementation

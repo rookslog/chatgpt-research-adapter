@@ -164,7 +164,7 @@ submission/handoff returns `running`; process-free status and non-submitting
 collect/wait operations later observe the same conversation; collectors publish
 report, terminal result, and then a local completion event. This establishes no
 live selector or completed-report qualification. The current Deep report/source
-extraction remains blocked by the separately approved Browser Bridge diagnostic;
+extraction remains blocked by the separately approval-gated Browser Bridge diagnostic;
 no new provider submission occurred in this implementation phase.
 
 ## M001 execution checkpoint — 2026-08-24
