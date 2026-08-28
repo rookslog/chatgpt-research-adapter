@@ -111,6 +111,17 @@ immediately before `--version` spawn, and a preflight or second identity check
 that completes after the deadline is rejected. Deterministic REDs cover both
 the expired-before-spawn and late-completion cases.
 
+A later push CI run exposed one scheduler-dependent sibling after PR #21
+merged: when a wait deadline expired while another collector still appeared
+live, the follower returned the durable `running` receipt without a typed
+timeout disposition. A deterministic live-owner RED now fixes that scheduling
+choice, and every expired wait return behind an active or concurrently acquired
+collector adds `collection_disposition: ERR_OPENCLI_TIMEOUT` without stealing
+ownership or starting a reader. The related release/reacquire race is also
+covered: if a successor collector wins while the follower still has time, the
+follower continues tracking that owner under its original absolute deadline
+instead of returning `running` early.
+
 ## Verification contract
 
 The repair is acceptable only when the focused RED scenarios pass, the complete

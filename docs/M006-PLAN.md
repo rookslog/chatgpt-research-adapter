@@ -55,6 +55,12 @@ deadline through OpenCLI preflight identity work, including a fresh pre-spawn
 budget and rejection of late preflight completion. The exact head passed 232
 deterministic tests, the repository gates, independent review, connector review,
 and CI with every actionable thread resolved before merge. This correction
-cycle performed no provider submission.
+cycle performed no provider submission. A later duplicate push CI run exposed
+one scheduler-dependent sibling: an expired follower behind a still-live
+collector omitted its timeout disposition. The deterministic correction keeps
+the durable `running` state and adds `ERR_OPENCLI_TIMEOUT` without takeover or
+provider access. A sibling interleaving also keeps a nonexpired follower
+blocked when a successor collector wins the release/reacquire race, under the
+same original deadline.
 
 Issue acceptance criteria are authoritative for their slices. The owner subsequently authorized publication of the recovered baseline and local/offline implementation commits and PRs for the ChatGPT/GitHub-connector experiment. Dependency changes, live provider turns, merge, publication, and deployment retain their applicable separate gates. Adaptive multi-wave orchestration is deferred to the next milestone; no new provider submission is part of this implementation phase.
