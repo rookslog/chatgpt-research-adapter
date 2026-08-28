@@ -33,10 +33,10 @@
 - Consumes: `preflightOpenCli()` identity with `supplied_path` and `real_path`.
 - Produces: a platform-stable assertion that the spawned executable is the verified real path.
 
-- [ ] Preserve the existing failing test as RED and record its `/var` versus `/private/var` failure.
-- [ ] Change only the expected executable from the temporary alias `path` to `identity.real_path`.
-- [ ] Run `node --test test/opencli-transport.test.js` and require zero failures.
-- [ ] Commit only this test correction.
+- [x] Preserve the existing failing test as RED and record its `/var` versus `/private/var` failure.
+- [x] Change only the expected executable from the temporary alias `path` to `identity.real_path`.
+- [x] Run `node --test test/opencli-transport.test.js` and require zero failures.
+- [x] Commit only this test correction.
 
 ### Task 1: Let the pinned Deep reader reach existing fallback probes
 
