@@ -1,6 +1,6 @@
 # M006 — Production Usability
 
-- Status: post-merge lifecycle/event review repair in progress; live Deep extraction qualification remains open
+- Status: lifecycle/event review repair merged and #15/#17 closed; live Deep extraction qualification remains open in #16
 - Date: 2026-08-28
 - Closure target: a readable, dependable research adapter with the explicitly supported research modes and remaining rigor variants exercised
 - Remote: public `rookslog/chatgpt-research-adapter`; recovered baseline in `m006/baseline-recovery`
@@ -24,7 +24,7 @@
 
 Issues #2–#5 and #15–#17 are tracked beneath #1 in `M006 — Production usability`. The deterministic implementation at `07d7a0dcb2c49998d353a308c5b28adcd80c06f0` establishes #15's split lifecycle and #17's local completion-event contract; it does not establish #16 or live Deep usability.
 
-`[REVIEW CORRECTION — 2026-08-28]` PRs #18–#20 were merged before their asynchronous Codex Connector reviews completed. Ten post-merge comments were reconciled in [M006-POST-MERGE-REVIEW-REPAIR.md](M006-POST-MERGE-REVIEW-REPAIR.md). Nine mechanisms reproduced; the reported lexical `..` output-root alias did not because `node:path.join()` normalizes that form. Issues #15 and #17 are reopened until the repair is reviewed and merged. No new provider submission is part of the repair.
+`[REVIEW CORRECTION — 2026-08-28]` PRs #18–#20 were merged before their asynchronous Codex Connector reviews completed. Ten post-merge comments were reconciled in [M006-POST-MERGE-REVIEW-REPAIR.md](M006-POST-MERGE-REVIEW-REPAIR.md). Nine mechanisms reproduced; the reported lexical `..` output-root alias did not because `node:path.join()` normalizes that form. The complete repair merged through PR #21 as main `465f255fb91d6ca1b0756b5903a42dc0fa8afc29` after an exact-head connector review, and #15/#17 were closed again. No new provider submission was part of the repair.
 
 ## Connector capability observation
 
@@ -40,22 +40,31 @@ Because correct hierarchy was part of the acceptance contract, root created #2�
 4. #16 Deep completed report/source extraction — remains blocked on the separately approval-gated Bridge diagnostic.
 5. #3 Deep Research selector compatibility retains its live qualification criterion. #5 is closed after its bounded qualification, including preserved negative citation-coverage findings.
 
-The post-merge review repair remains in PR #21. Its first asynchronous exact-head
+The post-merge review repair merged through PR #21. Its first asynchronous exact-head
 review produced seven additional lifecycle/authority P2 findings; the follow-up
 cycle adds durable cross-process abandonment, deadline-inclusive termination
 grace, deterministic event-error injection, result-envelope headroom,
 caller-scoped OpenCLI pins, durable commit rollback, and a bounded journal
 checkpoint. The next exact-head review found two more bounded cases: invalid
 negative termination grace and stale-predecessor PID reuse after a durable
-successor. Their regressions and corrections remain part of PR #21's unmerged
-review loop. A subsequent exact-head review added five confirmed cases covering
+successor. A subsequent exact-head review added five confirmed cases covering
 compatibility-copy deadline refresh, checkpoint/legacy-scan publication races,
 and directory durability repair for existing event, commit-marker, and release
 records. A final independent working-tree sweep extended the same absolute
 deadline through OpenCLI preflight identity work, including a fresh pre-spawn
-budget and rejection of late preflight completion. This correction cycle
-performs no provider submission and must not
-merge until a new exact-head review has completed with every actionable thread
-resolved.
+budget and rejection of late preflight completion. The exact head passed 232
+deterministic tests, the automated authority/requirements/syntax/package/diff/
+license checks, independent review, connector review, and CI with every
+actionable thread resolved before merge. PR #21 did not satisfy the separate
+fewer-than-1,200 implementation/test changed-line policy; that process miss is
+recorded in the repair report. This correction cycle performed no provider
+submission. A later duplicate push CI run exposed
+one scheduler-dependent sibling: an expired follower behind a still-live
+collector omitted its timeout disposition. The deterministic correction keeps
+the durable `running` state and adds `ERR_OPENCLI_TIMEOUT` without takeover or
+provider access. A sibling interleaving also keeps a nonexpired follower
+blocked when a successor collector wins the release/reacquire race, under the
+same original deadline, including an acquisition discovered during completion
+finalization's second lock probe.
 
 Issue acceptance criteria are authoritative for their slices. The owner subsequently authorized publication of the recovered baseline and local/offline implementation commits and PRs for the ChatGPT/GitHub-connector experiment. Dependency changes, live provider turns, merge, publication, and deployment retain their applicable separate gates. Adaptive multi-wave orchestration is deferred to the next milestone; no new provider submission is part of this implementation phase.

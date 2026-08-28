@@ -161,12 +161,12 @@ completion or add a new provider submission.
 **Files:**
 - No production changes unless a review finding enters the bounded fix loop.
 
-- [ ] Run focused tests, full `npm test` with `TMPDIR=/private/tmp`, authority, requirements, syntax, `git diff --check`, and `npm pack --dry-run`.
-- [ ] Count implementation + test changes and enforce the PR limit.
-- [ ] Request an independent exact-head whole-branch review; fix every Critical/Important finding and re-review the fix delta.
-- [ ] Push the feature branch and open a review PR linked to #15–#17 without merging.
+- [x] Run focused tests, full `npm test`, authority, requirements, syntax, `git diff --check`, and `npm pack --dry-run`.
+- [ ] Count implementation + test changes and enforce the PR limit. Not satisfied for PR #21: its first-parent implementation/test diff was 1,373 changed lines, above the hard fewer-than-1,200 policy.
+- [x] Request independent and connector exact-head whole-branch reviews; fix every actionable finding and re-review the fix delta.
+- [x] Merge the reviewed repair through PR #21 and close #15/#17 with exact evidence.
 - [ ] Use the already-completed conversation for a zero-submission extraction qualification where possible.
-- [ ] If all deterministic criteria and existing-conversation qualification are satisfied, post evidence and close #15–#17 as their actual criteria permit. Keep #3 open if its exact end-to-end live criterion still requires a new provider turn.
+- [ ] Complete #16's existing-conversation extraction qualification. Keep #3 open if its exact end-to-end live criterion still requires a new provider turn.
 - [ ] Surface one precise approval gate for at most one new Deep provider submission only if it remains necessary to close #3/M006 after review.
 
 ## Dependency and conflict scan

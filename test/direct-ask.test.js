@@ -428,6 +428,61 @@ test('a wait-null follower rereads and finalizes a result published in that gap'
   assert.ok((await readFile(join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json'))).length > 0);
 }));
 
+test('a wait follower tracks a successor collector that wins the reread race', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'successor wait race', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_successor_wait_race', newTurnId: () => 'turn_successor_wait_race',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-successor-wait-race-1', conversationUrl: 'https://chatgpt.com/c/deep-successor-wait-race-1', tool: 'Deep Research', response: '' }) })
+  });
+  const locks = join(outcome.jobPath, 'response', 'collector-locks');
+  const owner = collectorOwner(1, process.pid, '44444444-4444-4444-8444-444444444444');
+  await mkdir(locks);
+  await writeFile(join(locks, '1.owner.json'), owner);
+  let resumeFollower; const followerPaused = new Promise((resolve) => { resumeFollower = resolve; });
+  let nullSeen; const waitNull = new Promise((resolve) => { nullSeen = resolve; });
+  let waiting; const waitStarted = new Promise((resolve) => { waiting = resolve; });
+  let followerSettled = false;
+  const follower = waitDeepPreparedJob({ outputRoot, jobId: 'job_successor_wait_race', openCliPath: '/tmp/opencli', transportOptions: { deepTimeoutSeconds: 2 }, receiptTestSeam: { collectionPollMilliseconds: 1, afterCollectionWaitStart: waiting, afterCollectionWaitNull: async () => { nullSeen(); await followerPaused; } }, preflight: async () => assert.fail('follower must not preflight'), readDeep: async () => assert.fail('follower must not read') }).finally(() => { followerSettled = true; });
+  await waitStarted;
+  await writeFile(join(locks, '1.released.json'), collectorRelease(1, process.pid, '44444444-4444-4444-8444-444444444444', owner));
+  await waitNull;
+  let releaseSuccessor; const successorBarrier = new Promise((resolve) => { releaseSuccessor = resolve; });
+  let successorStarted; const successorReady = new Promise((resolve) => { successorStarted = resolve; });
+  const successor = collectDeepPreparedJob({ outputRoot, jobId: 'job_successor_wait_race', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => { successorStarted(); await successorBarrier; return { status: 'completed', conversationId: 'deep-successor-wait-race-1', report: '# Successor', sources: [] }; } });
+  await successorReady;
+  resumeFollower();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(followerSettled, false);
+  releaseSuccessor();
+  const [successorResult, followerResult] = await Promise.all([successor, follower]);
+  assert.equal(successorResult.status, 'completed');
+  assert.deepEqual(followerResult, successorResult);
+}));
+
+test('a wait follower tracks an owner acquired during completion finalization', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'completion finalization race', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_completion_finalization_race', newTurnId: () => 'turn_completion_finalization_race',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-completion-finalization-race-1', conversationUrl: 'https://chatgpt.com/c/deep-completion-finalization-race-1', tool: 'Deep Research', response: '' }) })
+  });
+  const completed = await collectDeepPreparedJob({ outputRoot, jobId: 'job_completion_finalization_race', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-completion-finalization-race-1', report: '# Completion finalization', sources: [] }) });
+  assert.equal(completed.status, 'completed');
+  let resumeFollower; const followerPaused = new Promise((resolve) => { resumeFollower = resolve; });
+  let finalizing; const finalizationStarted = new Promise((resolve) => { finalizing = resolve; });
+  let paused = false;
+  let followerSettled = false;
+  const follower = waitDeepPreparedJob({ outputRoot, jobId: 'job_completion_finalization_race', openCliPath: '/tmp/opencli', transportOptions: { deepTimeoutSeconds: 2 }, receiptTestSeam: { collectionPollMilliseconds: 1, beforeCompletedStateOrStatus: async () => { if (!paused) { paused = true; finalizing(); await followerPaused; } } }, preflight: async () => assert.fail('follower must not preflight'), readDeep: async () => assert.fail('follower must not read') }).finally(() => { followerSettled = true; });
+  await finalizationStarted;
+  const locks = join(outcome.jobPath, 'response', 'collector-locks');
+  const owner = collectorOwner(2, process.pid, '55555555-5555-4555-8555-555555555555');
+  await writeFile(join(locks, '2.owner.json'), owner);
+  resumeFollower();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(followerSettled, false);
+  await writeFile(join(locks, '2.released.json'), collectorRelease(2, process.pid, '55555555-5555-4555-8555-555555555555', owner));
+  assert.deepEqual(await follower, completed);
+}));
+
 test('advances beyond a provably dead immutable collector owner without deleting it', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
     question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
@@ -629,6 +684,25 @@ test('a concurrent wait follows the active collector beyond a short polling wind
   const [leaderResult, followerResult] = await Promise.all([leader, follower]);
   assert.equal(leaderResult.status, 'completed');
   assert.deepEqual(followerResult, leaderResult);
+}));
+
+test('a wait deadline behind a live collector returns a typed timeout', async () => withOutputRoot(async (outputRoot) => {
+  await directAsk({
+    question: 'live collector timeout', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_live_collector_timeout', newTurnId: () => 'turn_live_collector_timeout',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-live-collector-timeout-1', conversationUrl: 'https://chatgpt.com/c/deep-live-collector-timeout-1', tool: 'Deep Research', response: '' }) })
+  });
+  let releaseLeader; const leaderBarrier = new Promise((resolve) => { releaseLeader = resolve; });
+  let leaderStarted; const leaderReady = new Promise((resolve) => { leaderStarted = resolve; });
+  const base = { outputRoot, jobId: 'job_live_collector_timeout', openCliPath: '/tmp/opencli' };
+  const leader = collectDeepPreparedJob({ ...base, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => { leaderStarted(); await leaderBarrier; return { status: 'not_ready', conversationId: 'deep-live-collector-timeout-1' }; } });
+  await leaderReady;
+  const follower = await waitDeepPreparedJob({ ...base, transportOptions: { deepTimeoutSeconds: 1 }, receiptTestSeam: { collectionPollMilliseconds: 1 }, preflight: async () => assert.fail('follower must not preflight'), readDeep: async () => assert.fail('follower must not read') });
+  releaseLeader();
+  const leaderResult = await leader;
+  assert.equal(leaderResult.status, 'running');
+  assert.equal(follower.status, 'running');
+  assert.equal(follower.collection_disposition, 'ERR_OPENCLI_TIMEOUT');
 }));
 
 test('an abandoned-owner takeover preserves the original wait deadline', async () => withOutputRoot(async (outputRoot) => {

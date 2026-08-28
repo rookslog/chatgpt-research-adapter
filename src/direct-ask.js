@@ -653,11 +653,6 @@ async function hasUnreleasedCollector(responseRoot, receiptTestSeam) {
   return Boolean(lock.current);
 }
 
-async function hasLiveCollector(responseRoot, receiptTestSeam) {
-  const lock = await collectorStateIfPresent(responseRoot, receiptTestSeam);
-  return Boolean(lock.current && isCollectorOwnerLive(lock.current));
-}
-
 async function publishDeepReport(responseRoot, payload, testSeam) {
   const reportPath = join(responseRoot, 'report.md');
   const stagingPath = join(responseRoot, `.report-staging-${randomUUID()}.md`);
@@ -685,11 +680,21 @@ export async function getDeepPreparedJobStatus({ outputRoot, jobId, receiptTestS
 }
 
 async function completedStateOrStatus(state, receiptTestSeam) {
+  await receiptTestSeam?.beforeCompletedStateOrStatus?.();
   if (state.status.status === 'completed' && await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) return Object.freeze(state.running ?? state.handoff);
   return state.status.status === 'completed'
     ? Object.freeze(await finalizeDeepCompletionEvent(state, receiptTestSeam))
     : Object.freeze(state.status);
 }
+
+function runningCollectionOutcome(state, wait, deadline) {
+  const outcome = state.running ?? state.handoff ?? state.status;
+  return wait && Date.now() >= deadline
+    ? Object.freeze({ ...outcome, collection_disposition: 'ERR_OPENCLI_TIMEOUT' })
+    : Object.freeze(outcome);
+}
+
+function isRunningCollectionOutcome(value) { return value?.status === 'running' || value?.status === 'accepted'; }
 
 async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, wait, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, readDeep = runOpenCliDeepResearchResult, readStatus = runOpenCliDeepResearchStatus, receiptTestSeam } = {}) {
   const { deepTimeoutSeconds, runtimeOptions } = directTransportOptions(transportOptions);
@@ -701,23 +706,30 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
     return Object.freeze(state.status);
   }
   if (state.status.status !== 'running' && state.status.status !== 'accepted') {
-    if (state.status.status !== 'completed' || !await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) return completedStateOrStatus(state, receiptTestSeam);
-    if (await hasLiveCollector(state.responseRoot, receiptTestSeam)) {
-      await waitForCollection(state.responseRoot, outputRoot, jobId, { wait, deadline: waitDeadline, receiptTestSeam });
-      state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
-      if (!await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) return completedStateOrStatus(state, receiptTestSeam);
-      if (await hasLiveCollector(state.responseRoot, receiptTestSeam)) return Object.freeze(state.running ?? state.handoff);
+    if (state.status.status !== 'completed') return completedStateOrStatus(state, receiptTestSeam);
+    if (!await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) {
+      const completed = await completedStateOrStatus(state, receiptTestSeam);
+      if (!isRunningCollectionOutcome(completed)) return completed;
+      if (!wait || Date.now() >= waitDeadline) return runningCollectionOutcome(state, wait, waitDeadline);
     }
   }
-  let lock = await acquireCollectionLock(state.responseRoot, now, receiptTestSeam);
-  if (!lock.acquired) {
+  let lock;
+  while (true) {
+    if (wait && Date.now() >= waitDeadline) return runningCollectionOutcome(state, wait, waitDeadline);
+    lock = await acquireCollectionLock(state.responseRoot, now, receiptTestSeam);
+    if (lock.acquired) break;
     await waitForCollection(state.responseRoot, outputRoot, jobId, { wait, deadline: waitDeadline, receiptTestSeam });
     state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
     const collector = await collectorStateIfPresent(state.responseRoot, receiptTestSeam);
-    if (!collector.current) return completedStateOrStatus(state, receiptTestSeam);
-    if (isCollectorOwnerLive(collector.current)) return Object.freeze(state.running ?? state.handoff ?? state.status);
-    lock = await acquireCollectionLock(state.responseRoot, now, receiptTestSeam);
-    if (!lock.acquired) return Object.freeze(state.running ?? state.handoff ?? state.status);
+    if (!collector.current) {
+      if (state.status.status !== 'running' && state.status.status !== 'accepted') {
+        const completed = await completedStateOrStatus(state, receiptTestSeam);
+        if (!isRunningCollectionOutcome(completed)) return completed;
+      }
+      if (!wait) return runningCollectionOutcome(state, wait, waitDeadline);
+      continue;
+    }
+    if (isCollectorOwnerLive(collector.current) && (!wait || Date.now() >= waitDeadline)) return runningCollectionOutcome(state, wait, waitDeadline);
   }
   let completedState = null;
   let outcome;
