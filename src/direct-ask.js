@@ -264,7 +264,8 @@ async function recoverReclaimGate(path) {
   if (gate.owner && isOwnerLive(gate.owner.pid)) return false;
   const lock = await readCollectionLock(path);
   if (sameCollectionLock(lock, gate)) return finishLockRemoval(path, gate);
-  await unlink(gatePath);
+  try { await unlink(gatePath); }
+  catch (error) { if (error?.code === 'ENOENT') return true; throw error; }
   await syncDirectory(dirname(path));
   return true;
 }
