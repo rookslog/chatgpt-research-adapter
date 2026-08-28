@@ -5,8 +5,9 @@
 The accepted lifecycle was subsequently corrected after post-merge review.
 Current repair evidence and the one non-reproduced lexical-alias claim are in
 [`docs/M006-POST-MERGE-REVIEW-REPAIR.md`](../../M006-POST-MERGE-REVIEW-REPAIR.md).
-Issues #15 and #17 remain reopened until that correction is reviewed and
-merged.
+The correction merged through PR #21 as main
+`465f255fb91d6ca1b0756b5903a42dc0fa8afc29`; issues #15 and #17 are closed.
+Issue #16 and live Deep extraction remain open.
 
 The original selector and live-qualification plan below remains historical planning. Its Deep-specific implementation projection is superseded by the accepted deterministic lifecycle at `07d7a0dcb2c49998d353a308c5b28adcd80c06f0`: Deep `ask` alone writes intent, performs one pinned OpenCLI v1.8.7 submission, validates and persists its handoff, writes `running`, and returns without a result read. `status` starts no provider process or filesystem publication, although it may `fsync` existing terminal-record directories to repair uncertain durability; `collect` is nonwaiting (`deep-research-result --wait false`); `wait` is bounded waiting (`--wait true`); neither collector accepts a prompt/mode or can submit.
 
