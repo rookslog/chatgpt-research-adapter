@@ -36,6 +36,38 @@ async function withMarkdownFixtureOpenCli(run, { converterDrift = false } = {}) 
   try { return await run({ root, path, expected, capture }); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
+async function withDeepResultFixtureOpenCli(run) {
+  const root = await mkdtemp(join(tmpdir(), 'm006-deep-result-transport-'));
+  const packageRoot = join(root, 'install', 'node_modules', '@jackwener', 'opencli');
+  const sourcePath = join(packageRoot, 'clis', 'chatgpt', 'utils.js');
+  const path = join(packageRoot, 'dist', 'src', 'main.js');
+  const capture = join(root, 'deep-argv.json');
+  const deepRow = { conversationId: 'deep-1', status: 'completed', report: '# Report\n\nFindings.', sources: [{ title: 'Source', url: 'https://example.com' }], progress: {}, asyncTaskConversationId: '', widgetSessionId: '', asyncStatus: '', venusMessageType: '', venusStatus: '', waitingForUserUntil: '', planTitle: '', planId: '', url: 'https://chatgpt.com/c/deep-1', method: 'conversation', diagnostics: {} };
+  await mkdir(join(packageRoot, 'dist', 'src'), { recursive: true });
+  await mkdir(join(packageRoot, 'clis', 'chatgpt'), { recursive: true });
+  await writeFile(join(packageRoot, 'package.json'), `${JSON.stringify({ name: '@jackwener/opencli', version: '1.8.7', type: 'module' })}\n`);
+  await writeFile(sourcePath, `class CommandExecutionError extends Error {}
+
+export function extractDeepResearchFromConversationPayload(payload, { expectedConversationId = '' } = {}) {
+    const payloadConversationId = String(payload.conversation_id || payload.conversationId || payload.id || '').trim();
+    if (expectedConversationId && payloadConversationId && payloadConversationId !== expectedConversationId) {
+        throw new Error('conversation mismatch');
+    }
+    const mapping = payload?.mapping && typeof payload.mapping === 'object' ? payload.mapping : {};
+    if (!payload.mapping || typeof payload.mapping !== 'object' || Array.isArray(payload.mapping)) {
+        throw new CommandExecutionError('Malformed ChatGPT conversation payload for Deep Research extraction: missing mapping.');
+    }
+    return null;
+}
+`);
+  await writeFile(path, `#!/usr/bin/env node
+import { writeFileSync } from 'node:fs';
+if (process.argv[2] === '--version') console.log('1.8.7');
+else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.argv.slice(2))); console.log(${JSON.stringify(JSON.stringify([deepRow]))}); }
+`, { mode: 0o700 });
+  try { return await run({ path, capture, deepRow }); } finally { await rm(root, { recursive: true, force: true }); }
+}
+
 const validRow = { conversationId: 'abc-123_DEF', conversationUrl: 'https://chatgpt.com/c/abc-123_DEF', tool: '', response: 'CHATGPT_RESEARCH_LIVE_SMOKE_OK' };
 
 test('preflights one absolute executable as exact OpenCLI v1.8.7 identity', async () => withFake("if (process.argv[2] === '--version') console.log('1.8.7'); else process.exit(9);", async ({ path }) => {
@@ -134,14 +166,7 @@ test('fails closed when the pinned OpenCLI Markdown converter source drifts', as
   await assert.rejects(runOpenCliDetail({ executablePath: path, identity, conversationId: 'markdown-drift', timeoutSeconds: 600 }), { code: 'ERR_OPENCLI_MARKDOWN_COMPAT' });
 }, { converterDrift: true }));
 
-test('collects one completed Deep Research report by conversation id', async () => withFake('', async ({ root, path }) => {
-  const capture = join(root, 'deep-argv.json');
-  const deepRow = { conversationId: 'deep-1', status: 'completed', report: '# Report\n\nFindings.', sources: [{ title: 'Source', url: 'https://example.com' }], progress: {}, asyncTaskConversationId: '', widgetSessionId: '', asyncStatus: '', venusMessageType: '', venusStatus: '', waitingForUserUntil: '', planTitle: '', planId: '', url: 'https://chatgpt.com/c/deep-1', method: 'conversation', diagnostics: {} };
-  await writeFile(path, `#!/usr/bin/env node
-import { writeFileSync } from 'node:fs';
-if (process.argv[2] === '--version') console.log('1.8.7');
-else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.argv.slice(2))); console.log(${JSON.stringify(JSON.stringify([deepRow]))}); }
-`, { mode: 0o700 });
+test('collects one completed Deep Research report by conversation id', async () => withDeepResultFixtureOpenCli(async ({ path, capture, deepRow }) => {
   const identity = await preflightOpenCli({ executablePath: path });
   const result = await runOpenCliDeepResearchResult({ executablePath: path, identity, conversationId: 'deep-1', timeoutSeconds: 1200 });
   assert.equal(result.report, deepRow.report);
