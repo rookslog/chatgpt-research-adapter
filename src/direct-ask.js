@@ -221,18 +221,20 @@ function completionEvent(state) {
   return event;
 }
 
-async function completionEventsRoot(responseRoot) {
+async function completionEventsRoot(responseRoot, receiptTestSeam) {
   const path = join(responseRoot, 'events');
-  try { await mkdir(path, { mode: 0o700 }); await syncDirectory(responseRoot); }
+  try { await mkdir(path, { mode: 0o700 }); }
   catch (error) { if (error?.code !== 'EEXIST') throw error; }
   const entry = await lstat(path).catch(() => null);
   if (!entry?.isDirectory() || entry.isSymbolicLink()) fail('Deep completion event directory is invalid', 'ERR_DIRECT_RECEIPT');
+  await syncDirectory(responseRoot);
+  fault(receiptTestSeam, 'after-completion-events-directory-sync');
   return path;
 }
 
 async function finalizeDeepCompletionEvent(state, receiptTestSeam) {
   if (state.status.status !== 'completed' || !state.resultBytes || !state.reportBytes) return state.result;
-  const root = await completionEventsRoot(state.responseRoot);
+  const root = await completionEventsRoot(state.responseRoot, receiptTestSeam);
   const eventPath = join(root, 'research.completed.v1.json');
   const stagingPath = join(root, `.research-completed-staging-${randomUUID()}.json`);
   const payload = Buffer.from(`${canonicalJson(completionEvent(state))}\n`);
@@ -244,6 +246,8 @@ async function finalizeDeepCompletionEvent(state, receiptTestSeam) {
       if (error?.code !== 'EEXIST') throw error;
       const existing = await readResponseBytes(eventPath);
       if (!existing.equals(payload)) fail('Deep completion event differs from the durable result', 'ERR_DIRECT_RECEIPT');
+      await syncDirectory(root);
+      fault(receiptTestSeam, 'after-completion-event-existing-sync');
       return state.result;
     }
     fault(receiptTestSeam, 'after-completion-event-publish');

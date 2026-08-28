@@ -230,6 +230,10 @@ test('recovers event staging and final-link interruptions without another Deep r
     await assert.rejects(collectDeepPreparedJob({ ...options, receiptTestSeam: { failAt } }), { code: 'ERR_INJECTED_FAULT' });
     const eventPath = join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json');
     if (failAt === 'after-completion-event-write') await assert.rejects(readFile(eventPath), { code: 'ENOENT' });
+    if (failAt === 'after-completion-event-publish') {
+      await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-events-directory-sync' }, preflight: async () => assert.fail('event-directory repair must not preflight'), readStatus: async () => assert.fail('event-directory repair must not read') }), { code: 'ERR_INJECTED_FAULT' });
+      await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-event-existing-sync' }, preflight: async () => assert.fail('existing-event repair must not preflight'), readStatus: async () => assert.fail('existing-event repair must not read') }), { code: 'ERR_INJECTED_FAULT' });
+    }
     await assert.doesNotReject(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', preflight: async () => assert.fail('completed-event recovery must not preflight'), readStatus: async () => assert.fail('completed-event recovery must not read') }));
     assert.ok((await readFile(eventPath)).length > 0);
   }
