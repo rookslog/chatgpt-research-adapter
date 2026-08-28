@@ -2,6 +2,12 @@
 
 ## Lifecycle amendment — 2026-08-28
 
+The accepted lifecycle was subsequently corrected after post-merge review.
+Current repair evidence and the one non-reproduced lexical-alias claim are in
+[`docs/M006-POST-MERGE-REVIEW-REPAIR.md`](../../M006-POST-MERGE-REVIEW-REPAIR.md).
+Issues #15 and #17 remain reopened until that correction is reviewed and
+merged.
+
 The original selector and live-qualification plan below remains historical planning. Its Deep-specific implementation projection is superseded by the accepted deterministic lifecycle at `07d7a0dcb2c49998d353a308c5b28adcd80c06f0`: Deep `ask` alone writes intent, performs one pinned OpenCLI v1.8.7 submission, validates and persists its handoff, writes `running`, and returns without a result read. `status` is process-free/read-only; `collect` is nonwaiting (`deep-research-result --wait false`); `wait` is bounded waiting (`--wait true`); neither collector accepts a prompt/mode or can submit.
 
 Accepted Deep state is restartable. Immutable append-only collector generations serialize observation without stealing a live owner. Completion publication is report → terminal result → `response/events/research.completed.v1.json`. The event uses schema `m006.research-completion-event.v1`, type `research.completed.v1`, and fields `schema`, `type`, `job_id`, `turn_id`, `conversation_id`, `conversation_url`, `result_path`, `result_sha256`, `report_path`, `report_sha256`, `source_count`, and `completed_at`. Interrupted event publication is recoverable through later non-submitting collection; no callback, delivery mechanism, or new provider submission was added.

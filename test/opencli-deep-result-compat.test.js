@@ -12,6 +12,7 @@ function pickFirstObject(...values) { return values.find((value) => value && typ
 function extractDeepResearchFromWidgetState(value) { return value?.fixture === 'completed' ? { status: 'completed', report: '# Captured network completion', sources: [], reportLength: 28 } : null; }
 function deepResearchCandidateScore() { return 1; }
 function parseJsonMaybe(value) { try { return JSON.parse(String(value)); } catch { return null; } }
+async function fetchChatGPTConversationPayload(page) { return page.fetchConversation(); }
 
 function extractDeepResearchFromConversationPayload(payload, { expectedConversationId = '' } = {}) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -101,10 +102,15 @@ function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId
 }
 
 export async function getChatGPTDeepResearchResult(page, { conversationId = '' } = {}) {
-    const network = extractDeepResearchFromNetworkEntries(await page.networkEntries(), { expectedConversationId: conversationId });
+    const relevantEntries = await page.networkEntries();
+    const network = extractDeepResearchFromNetworkEntries(relevantEntries, { expectedConversationId: conversationId });
     if (network?.status === 'completed') return network;
-    const conversation = await page.fetchConversation();
-    const extracted = extractDeepResearchFromConversationPayload(conversation.payload, { expectedConversationId: conversationId });
+    const currentConversationId = conversationId;
+    const fetchConversationId = conversationId || currentConversationId;
+    const conversation = await fetchChatGPTConversationPayload(page, fetchConversationId);
+    const extracted = extractDeepResearchFromConversationPayload(conversation?.payload, {
+                    expectedConversationId: fetchConversationId,
+                });
     if (extracted) return extracted;
     return page.existingFallback();
 }
@@ -120,6 +126,10 @@ function driftedDeepResearchSource(drift) {
   if (drift === 'malformed-payload-guard') return source.replace("if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {", 'if (false) {');
   if (drift === 'network-target-anchor') return source.replace('if (expectedConversationId && entryConversationId !== expectedConversationId) continue;', 'if (false) continue;');
   if (drift === 'network-url-parser-call-site') return source.replace('const entryConversationId = conversationIdFromBackendConversationUrl(url);', "const entryConversationId = 'deep-current-1';");
+  if (drift === 'network-conversation-id-call-site') return source.replace('extractDeepResearchFromNetworkEntries(relevantEntries, { expectedConversationId: conversationId })', 'extractDeepResearchFromNetworkEntries(relevantEntries, {})');
+  if (drift === 'fetch-conversation-id-call-site') return source.replace('const fetchConversationId = conversationId || currentConversationId;', 'const fetchConversationId = currentConversationId;');
+  if (drift === 'fetch-conversation-payload-call-site') return source.replace('fetchChatGPTConversationPayload(page, fetchConversationId)', 'fetchChatGPTConversationPayload(page, currentConversationId)');
+  if (drift === 'payload-conversation-id-call-site') return source.replace('expectedConversationId: fetchConversationId,', '');
   throw new Error(`unknown source drift: ${drift}`);
 }
 
@@ -208,6 +218,10 @@ for (const [drift, name] of [
   ['malformed-payload-guard', 'disables the malformed-payload guard'],
   ['network-target-anchor', 'changes the network target anchor'],
   ['network-url-parser-call-site', 'changes the network URL-parser call site'],
+  ['network-conversation-id-call-site', 'omits the expected conversation ID at the network caller'],
+  ['fetch-conversation-id-call-site', 'drops the requested conversation ID from payload-fetch identity'],
+  ['fetch-conversation-payload-call-site', 'fetches the payload with a different conversation ID'],
+  ['payload-conversation-id-call-site', 'omits the expected conversation ID at the payload caller'],
 ]) {
   test(`deep reader fails closed before child execution when the pinned extractor ${name}`, async () => withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
     const identity = await preflightOpenCli({ executablePath });

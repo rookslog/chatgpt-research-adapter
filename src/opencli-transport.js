@@ -222,6 +222,12 @@ const OPENCLI_DEEP_RESULT_PATCHED_NETWORK_EXTRACTOR = String.raw`function extrac
     candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
     return candidates[0] || null;
 }`.replace('@SLASH@', '/');
+const OPENCLI_DEEP_RESULT_NETWORK_CALL_SITE = 'extractDeepResearchFromNetworkEntries(relevantEntries, { expectedConversationId: conversationId })';
+const OPENCLI_DEEP_RESULT_FETCH_ID = 'const fetchConversationId = conversationId || currentConversationId;';
+const OPENCLI_DEEP_RESULT_FETCH_CALL = 'fetchChatGPTConversationPayload(page, fetchConversationId)';
+const OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE = String.raw`extractDeepResearchFromConversationPayload(conversation?.payload, {
+                    expectedConversationId: fetchConversationId,
+                })`;
 
 const OPENCLI_TOOL_OPTIONS = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', '搜索', 'Web Search', 'Search'] },\n};";
 const OPENCLI_TOOL_OPTIONS_PATCHED = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', 'Web Search'] },\n};";
@@ -510,6 +516,9 @@ function patchOpenCliMarkdownSource(source) {
 }
 
 function patchOpenCliDeepResearchResultSource(source) {
+  for (const callSite of [OPENCLI_DEEP_RESULT_NETWORK_CALL_SITE, OPENCLI_DEEP_RESULT_FETCH_ID, OPENCLI_DEEP_RESULT_FETCH_CALL, OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE]) {
+    if (source.split(callSite).length !== 2) throw fail('OpenCLI Deep Research identity call sites do not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+  }
   const expected = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_EXTRACTOR);
   const replacement = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_PATCHED_EXTRACTOR);
   const parts = source.split(expected);

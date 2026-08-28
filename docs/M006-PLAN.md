@@ -1,6 +1,6 @@
 # M006 — Production Usability
 
-- Status: Deep asynchronous lifecycle and completion-event contracts implemented deterministically; live Deep extraction qualification remains open
+- Status: post-merge lifecycle/event review repair in progress; live Deep extraction qualification remains open
 - Date: 2026-08-28
 - Closure target: a readable, dependable research adapter with the explicitly supported research modes and remaining rigor variants exercised
 - Remote: public `rookslog/chatgpt-research-adapter`; recovered baseline in `m006/baseline-recovery`
@@ -23,6 +23,8 @@
   - [#17 — Deep Research completion event](https://github.com/rookslog/chatgpt-research-adapter/issues/17)
 
 Issues #2–#5 and #15–#17 are tracked beneath #1 in `M006 — Production usability`. The deterministic implementation at `07d7a0dcb2c49998d353a308c5b28adcd80c06f0` establishes #15's split lifecycle and #17's local completion-event contract; it does not establish #16 or live Deep usability.
+
+`[REVIEW CORRECTION — 2026-08-28]` PRs #18–#20 were merged before their asynchronous Codex Connector reviews completed. Ten post-merge comments were reconciled in [M006-POST-MERGE-REVIEW-REPAIR.md](M006-POST-MERGE-REVIEW-REPAIR.md). Nine mechanisms reproduced; the reported lexical `..` output-root alias did not because `node:path.join()` normalizes that form. Issues #15 and #17 are reopened until the repair is reviewed and merged. No new provider submission is part of the repair.
 
 ## Connector capability observation
 

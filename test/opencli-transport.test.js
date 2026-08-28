@@ -129,6 +129,20 @@ function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId
     candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
     return candidates[0] || null;
 }
+
+async function fetchChatGPTConversationPayload(page) { return page.fetchConversation(); }
+
+async function getChatGPTDeepResearchResult(page, { conversationId = '' } = {}) {
+    const relevantEntries = await page.networkEntries();
+    const network = extractDeepResearchFromNetworkEntries(relevantEntries, { expectedConversationId: conversationId });
+    if (network?.status === 'completed') return network;
+    const currentConversationId = conversationId;
+    const fetchConversationId = conversationId || currentConversationId;
+    const conversation = await fetchChatGPTConversationPayload(page, fetchConversationId);
+    return extractDeepResearchFromConversationPayload(conversation?.payload, {
+                    expectedConversationId: fetchConversationId,
+                });
+}
 `);
   await writeFile(path, `#!/usr/bin/env node
 import { writeFileSync } from 'node:fs';
