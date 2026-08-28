@@ -40,6 +40,9 @@ export async function selectChatGPTTool(page, tool) {
     }
 
     const menuButton = { found: true, x: 1, y: 1 };
+    if (!menuButton.found) {
+        throw new CommandExecutionError('Could not find the ChatGPT tools menu button in the composer.');
+    }
     await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
     await page.wait(0.5);
 
@@ -122,7 +125,7 @@ if (process.argv[2] === '--version') {
   const fixed = source.includes("'web-search': { label: 'Web Search', labels: ['网页搜索', 'Web Search'] }")
     && source.includes("const rootSelector = '[role=\\\"group\\\"], [role=\\\"menu\\\"]")
     && source.includes('const exactLabels = labels.map')
-    && source.includes('chatgpt Web Search selected chip');
+    && source.includes('chatgpt selected tool chip');
   const selected = fixed
     ? fixture.options.find((option) => ['网页搜索', 'Web Search'].some((label) => normalized(option.primary) === normalized(label)))
     : fixture.options.find((option) => broadLabels.some((label) => normalized(option.text).includes(normalized(label))));
