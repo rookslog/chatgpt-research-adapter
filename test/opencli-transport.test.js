@@ -101,7 +101,7 @@ else {
   await runOpenCliAsk({ executablePath: path, identity, prompt: 'research this', mode: 'standard', timeoutSeconds: 600 });
   const calls = (await readFile(capture, 'utf8')).trim().split('\n').map(JSON.parse);
   const base = ['chatgpt', 'ask', 'research this', '--new', 'true', '--site-session', 'persistent', '--timeout', '600', '--format', 'json', '--wait', 'false'];
-  assert.deepEqual(calls, [{ args: base, executable: path }]);
+  assert.deepEqual(calls, [{ args: base, executable: identity.real_path }]);
 }));
 
 test('accepts blank handoff rows for read-after-submit collection', () => {
