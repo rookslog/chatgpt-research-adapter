@@ -53,9 +53,12 @@ and directory durability repair for existing event, commit-marker, and release
 records. A final independent working-tree sweep extended the same absolute
 deadline through OpenCLI preflight identity work, including a fresh pre-spawn
 budget and rejection of late preflight completion. The exact head passed 232
-deterministic tests, the repository gates, independent review, connector review,
-and CI with every actionable thread resolved before merge. This correction
-cycle performed no provider submission. A later duplicate push CI run exposed
+deterministic tests, the automated authority/requirements/syntax/package/diff/
+license checks, independent review, connector review, and CI with every
+actionable thread resolved before merge. PR #21 did not satisfy the separate
+fewer-than-1,200 implementation/test changed-line policy; that process miss is
+recorded in the repair report. This correction cycle performed no provider
+submission. A later duplicate push CI run exposed
 one scheduler-dependent sibling: an expired follower behind a still-live
 collector omitted its timeout disposition. The deterministic correction keeps
 the durable `running` state and adds `ERR_OPENCLI_TIMEOUT` without takeover or

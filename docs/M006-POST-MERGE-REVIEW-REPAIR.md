@@ -122,6 +122,12 @@ covered: if a successor collector wins while the follower still has time, the
 follower continues tracking that owner under its original absolute deadline
 instead of returning `running` early.
 
+`[PROCESS FINDING — 2026-08-28]` PR #21's first-parent implementation/test diff
+contained 1,373 changed lines (1,264 additions and 109 deletions), exceeding the
+design's hard fewer-than-1,200-line review limit. It should have been split
+before review. The PR was already merged when this was identified; this record
+does not recast the automated checks as satisfying that separate policy.
+
 ## Verification contract
 
 The repair is acceptable only when the focused RED scenarios pass, the complete

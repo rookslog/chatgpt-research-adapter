@@ -162,7 +162,7 @@ completion or add a new provider submission.
 - No production changes unless a review finding enters the bounded fix loop.
 
 - [x] Run focused tests, full `npm test`, authority, requirements, syntax, `git diff --check`, and `npm pack --dry-run`.
-- [ ] Count implementation + test changes and enforce the PR limit.
+- [ ] Count implementation + test changes and enforce the PR limit. Not satisfied for PR #21: its first-parent implementation/test diff was 1,373 changed lines, above the hard fewer-than-1,200 policy.
 - [x] Request independent and connector exact-head whole-branch reviews; fix every actionable finding and re-review the fix delta.
 - [x] Merge the reviewed repair through PR #21 and close #15/#17 with exact evidence.
 - [ ] Use the already-completed conversation for a zero-submission extraction qualification where possible.
