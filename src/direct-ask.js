@@ -280,13 +280,18 @@ async function publishCollectorRecord(root, generation, kind, value, testSeam) {
   const path = generationFile(root, generation, kind);
   const stagingPath = join(root, `.${kind}-staging-${randomUUID()}.json`);
   const sha256 = await writeDurableJson(stagingPath, value, root);
+  let published = false;
   try {
     fault(testSeam, `after-collector-${kind}-write`);
     try { await link(stagingPath, path); }
     catch (error) { if (error?.code === 'EEXIST') fail('Deep collector record already exists', 'ERR_DIRECT_EXISTS'); throw error; }
+    published = true;
     fault(testSeam, `after-collector-${kind}-publish`);
     await syncDirectory(root);
     return sha256;
+  } catch (error) {
+    if (published) error.collectorRecord = Object.freeze({ root, generation, kind, sha256 });
+    throw error;
   } finally { await unlink(stagingPath).catch(() => {}); }
 }
 
@@ -300,7 +305,17 @@ async function acquireCollectionLock(responseRoot, now, testSeam) {
     try {
       const ownerSha256 = await publishCollectorRecord(state.root, generation, 'owner', owner, testSeam);
       return Object.freeze({ acquired: true, root: state.root, generation, owner, ownerSha256 });
-    } catch (error) { if (error?.code !== 'ERR_DIRECT_EXISTS') throw error; }
+    } catch (error) {
+      if (error?.code === 'ERR_DIRECT_EXISTS') continue;
+      const published = error?.collectorRecord;
+      if (published?.kind === 'owner' && published.root === state.root && published.generation === generation) {
+        try {
+          const durable = await readCollectorRecord(generationFile(state.root, generation, 'owner'), generation, 'owner');
+          if (durable.sha256 === published.sha256 && canonicalJson(durable.value) === canonicalJson(owner)) await releaseCollectionLock(Object.freeze({ acquired: true, root: state.root, generation, owner: durable.value, ownerSha256: durable.sha256 }), now, testSeam);
+        } catch (cleanupError) { if (['ERR_DIRECT_LOCK', 'ERR_DIRECT_RECEIPT'].includes(cleanupError?.code)) throw cleanupError; }
+      }
+      throw error;
+    }
   }
   return Object.freeze({ acquired: false });
 }

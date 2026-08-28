@@ -332,7 +332,9 @@ test('keeps owner publication crash states immutable before and after the final 
   const locks = join(outcome.jobPath, 'response', 'collector-locks');
   assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')), []);
   await assert.rejects(collectDeepPreparedJob({ ...base, receiptTestSeam: { failAt: 'after-collector-owner-publish' } }), { code: 'ERR_INJECTED_FAULT' });
-  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')), ['1.owner.json']);
+  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json']);
+  assert.equal((await collectDeepPreparedJob(base)).status, 'completed');
+  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json', '2.owner.json', '2.released.json']);
 }));
 
 test('retains a durable release record when release crashes after publication', async () => withOutputRoot(async (outputRoot) => {
