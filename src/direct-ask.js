@@ -680,6 +680,7 @@ export async function getDeepPreparedJobStatus({ outputRoot, jobId, receiptTestS
 }
 
 async function completedStateOrStatus(state, receiptTestSeam) {
+  await receiptTestSeam?.beforeCompletedStateOrStatus?.();
   if (state.status.status === 'completed' && await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) return Object.freeze(state.running ?? state.handoff);
   return state.status.status === 'completed'
     ? Object.freeze(await finalizeDeepCompletionEvent(state, receiptTestSeam))
@@ -693,6 +694,8 @@ function runningCollectionOutcome(state, wait, deadline) {
     : Object.freeze(outcome);
 }
 
+function isRunningCollectionOutcome(value) { return value?.status === 'running' || value?.status === 'accepted'; }
+
 async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, wait, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, readDeep = runOpenCliDeepResearchResult, readStatus = runOpenCliDeepResearchStatus, receiptTestSeam } = {}) {
   const { deepTimeoutSeconds, runtimeOptions } = directTransportOptions(transportOptions);
   const waitDeadline = wait ? Date.now() + (deepTimeoutSeconds * 1000) : null;
@@ -703,7 +706,12 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
     return Object.freeze(state.status);
   }
   if (state.status.status !== 'running' && state.status.status !== 'accepted') {
-    if (state.status.status !== 'completed' || !await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) return completedStateOrStatus(state, receiptTestSeam);
+    if (state.status.status !== 'completed') return completedStateOrStatus(state, receiptTestSeam);
+    if (!await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) {
+      const completed = await completedStateOrStatus(state, receiptTestSeam);
+      if (!isRunningCollectionOutcome(completed)) return completed;
+      if (!wait || Date.now() >= waitDeadline) return runningCollectionOutcome(state, wait, waitDeadline);
+    }
   }
   let lock;
   while (true) {
@@ -714,7 +722,10 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
     state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
     const collector = await collectorStateIfPresent(state.responseRoot, receiptTestSeam);
     if (!collector.current) {
-      if (state.status.status !== 'running' && state.status.status !== 'accepted') return completedStateOrStatus(state, receiptTestSeam);
+      if (state.status.status !== 'running' && state.status.status !== 'accepted') {
+        const completed = await completedStateOrStatus(state, receiptTestSeam);
+        if (!isRunningCollectionOutcome(completed)) return completed;
+      }
       if (!wait) return runningCollectionOutcome(state, wait, waitDeadline);
       continue;
     }

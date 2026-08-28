@@ -64,6 +64,7 @@ collector omitted its timeout disposition. The deterministic correction keeps
 the durable `running` state and adds `ERR_OPENCLI_TIMEOUT` without takeover or
 provider access. A sibling interleaving also keeps a nonexpired follower
 blocked when a successor collector wins the release/reacquire race, under the
-same original deadline.
+same original deadline, including an acquisition discovered during completion
+finalization's second lock probe.
 
 Issue acceptance criteria are authoritative for their slices. The owner subsequently authorized publication of the recovered baseline and local/offline implementation commits and PRs for the ChatGPT/GitHub-connector experiment. Dependency changes, live provider turns, merge, publication, and deployment retain their applicable separate gates. Adaptive multi-wave orchestration is deferred to the next milestone; no new provider submission is part of this implementation phase.

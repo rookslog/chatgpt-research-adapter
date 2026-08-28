@@ -120,7 +120,9 @@ collector adds `collection_disposition: ERR_OPENCLI_TIMEOUT` without stealing
 ownership or starting a reader. The related release/reacquire race is also
 covered: if a successor collector wins while the follower still has time, the
 follower continues tracking that owner under its original absolute deadline
-instead of returning `running` early.
+instead of returning `running` early. Completion finalization follows the same
+rule if its second lock probe discovers an owner acquired after the preceding
+no-owner observation.
 
 `[PROCESS FINDING — 2026-08-28]` PR #21's first-parent implementation/test diff
 contained 1,373 changed lines (1,264 additions and 109 deletions), exceeding the

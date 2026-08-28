@@ -459,6 +459,30 @@ test('a wait follower tracks a successor collector that wins the reread race', a
   assert.deepEqual(followerResult, successorResult);
 }));
 
+test('a wait follower tracks an owner acquired during completion finalization', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'completion finalization race', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_completion_finalization_race', newTurnId: () => 'turn_completion_finalization_race',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-completion-finalization-race-1', conversationUrl: 'https://chatgpt.com/c/deep-completion-finalization-race-1', tool: 'Deep Research', response: '' }) })
+  });
+  const completed = await collectDeepPreparedJob({ outputRoot, jobId: 'job_completion_finalization_race', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-completion-finalization-race-1', report: '# Completion finalization', sources: [] }) });
+  assert.equal(completed.status, 'completed');
+  let resumeFollower; const followerPaused = new Promise((resolve) => { resumeFollower = resolve; });
+  let finalizing; const finalizationStarted = new Promise((resolve) => { finalizing = resolve; });
+  let paused = false;
+  let followerSettled = false;
+  const follower = waitDeepPreparedJob({ outputRoot, jobId: 'job_completion_finalization_race', openCliPath: '/tmp/opencli', transportOptions: { deepTimeoutSeconds: 2 }, receiptTestSeam: { collectionPollMilliseconds: 1, beforeCompletedStateOrStatus: async () => { if (!paused) { paused = true; finalizing(); await followerPaused; } } }, preflight: async () => assert.fail('follower must not preflight'), readDeep: async () => assert.fail('follower must not read') }).finally(() => { followerSettled = true; });
+  await finalizationStarted;
+  const locks = join(outcome.jobPath, 'response', 'collector-locks');
+  const owner = collectorOwner(2, process.pid, '55555555-5555-4555-8555-555555555555');
+  await writeFile(join(locks, '2.owner.json'), owner);
+  resumeFollower();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(followerSettled, false);
+  await writeFile(join(locks, '2.released.json'), collectorRelease(2, process.pid, '55555555-5555-4555-8555-555555555555', owner));
+  assert.deepEqual(await follower, completed);
+}));
+
 test('advances beyond a provably dead immutable collector owner without deleting it', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
     question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
