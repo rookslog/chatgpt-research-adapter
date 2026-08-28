@@ -33,7 +33,24 @@ export async function selectChatGPTTool(page, tool) {
         return { Status: 'Already selected', Tool: target.label };
     }
 
-    const menuButton = { found: true, x: 1, y: 1 };
+    const menuButton = requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+        const isVisible = (el) => {
+            if (!(el instanceof HTMLElement)) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
+        const button = document.querySelector('button[data-testid="composer-plus-btn"]');
+        if (!(button instanceof HTMLElement) || !isVisible(button)) return { found: false };
+        button.scrollIntoView({ block: 'center', inline: 'center' });
+        const rect = button.getBoundingClientRect();
+        return {
+            found: true,
+            x: Math.round(rect.left + rect.width / 2),
+            y: Math.round(rect.top + rect.height / 2),
+        };
+    })()\`)), 'chatgpt tools menu button');
     if (!menuButton.found) {
         throw new CommandExecutionError('Could not find the ChatGPT tools menu button in the composer.');
     }
@@ -118,7 +135,7 @@ const isWeb = process.argv.includes('--web-search');
 const isDeep = process.argv.includes('--deep-research');
 const targetKey = isWeb ? 'web-search' : (isDeep ? 'deep-research' : null);
 const targetLabel = targetKey === 'web-search' ? 'Web Search' : 'Deep Research';
-const state = { menuOpen: false, menuChecks: 0, menuOpenedAtCheck: 0, selectedTool: null, selectedChecks: 0, selectedAtCheck: 0, recoveryOptionChecks: 0, nativeMenuClicks: 0, nativeOptionClicks: 0, domMenuClicks: 0, domOptionClicks: 0, layoutShifted: false, recoveryMenuResolveChecks: 0, staleRecoveryMenuClicks: 0 };
+const state = { menuOpen: false, menuChecks: 0, menuOpenedAtCheck: 0, selectedTool: null, selectedChecks: 0, selectedAtCheck: 0, recoveryOptionChecks: 0, nativeMenuClicks: 0, nativeOptionClicks: 0, domMenuClicks: 0, domOptionClicks: 0, layoutShifted: false, recoveryMenuResolveChecks: 0, staleRecoveryMenuClicks: 0, staleMenuFallbackTargets: 0 };
 const openMenu = () => { state.menuOpen = true; state.menuOpenedAtCheck = state.menuChecks; };
 const selectTool = () => { state.selectedTool = targetKey; state.selectedAtCheck = state.selectedChecks; };
 const page = {
@@ -126,11 +143,15 @@ const page = {
   async nativeClick(x) {
     if (x === 1 || x === 3) {
       state.nativeMenuClicks += 1;
-      if (scenario.recoveryMenuMoves && state.layoutShifted && x === 1) {
+      if ((scenario.recoveryMenuMoves || scenario.initialMenuMoves) && state.layoutShifted && x === 1) {
         state.staleRecoveryMenuClicks += 1;
         return;
       }
-      if (scenario.menuNativeWorks || (scenario.recoveryMenuMoves && state.layoutShifted && x === 3)) openMenu();
+      if (scenario.initialMenuMoves) state.layoutShifted = true;
+      const nativeOpenAllowed = state.nativeMenuClicks === 1
+        ? scenario.menuNativeWorks
+        : (scenario.recoveryMenuNativeWorks ?? (scenario.menuNativeWorks && !scenario.recoveryReopenLateNativeOpen));
+      if (nativeOpenAllowed || ((scenario.recoveryMenuMoves || scenario.initialMenuMoves) && state.layoutShifted && x === 3)) openMenu();
       return;
     }
     state.nativeOptionClicks += 1;
@@ -143,12 +164,25 @@ const page = {
   async wait() {},
   async evaluate(code) {
     const text = String(code);
+    if (text.includes('document.querySelector') && text.includes('composer-plus-btn') && !text.includes('querySelectorAll')) {
+      if (scenario.hiddenPlusFirst) return { found: false };
+      return { found: true, x: 1, y: 1 };
+    }
     if (text.includes('const buttons =') && text.includes('composer-plus-btn') && text.includes('querySelectorAll')) {
       state.recoveryMenuResolveChecks += 1;
+      if (scenario.initialMenuRefreshUnavailable && state.layoutShifted) return { found: false };
       return { found: true, x: state.layoutShifted ? 3 : 1, y: 1 };
     }
     if (text.includes('.click()') && text.includes('composer-plus-btn')) {
-      if (scenario.recoveryMenuMoves && state.layoutShifted && text.includes('elementFromPoint(1, 1)')) return false;
+      if ((scenario.recoveryMenuMoves || scenario.initialMenuMoves) && state.layoutShifted && text.includes('elementFromPoint(1, 1)')) {
+        state.staleMenuFallbackTargets += 1;
+        return false;
+      }
+      if (scenario.initialMenuLateNativeOpen && !state.menuOpen) openMenu();
+      if (scenario.recoveryReopenLateNativeOpen && !state.menuOpen) openMenu();
+      const rechecksMenuOpen = (text.includes('const menuOpen =') || text.includes('const optionFound ='))
+        && (text.includes('if (menuOpen)') || text.includes('if (optionFound)'));
+      if (state.menuOpen && rechecksMenuOpen) return true;
       state.domMenuClicks += 1;
       if (state.menuOpen) state.menuOpen = false;
       else openMenu();
@@ -217,6 +251,17 @@ async function runScenario(mode, scenario) {
     const result = await runOpenCliAsk({ executablePath, identity, prompt: 'activation test', mode, timeoutSeconds: 600 });
     const capture = JSON.parse(await readFile(capturePath, 'utf8'));
     return { result, capture };
+  });
+}
+
+async function runFailingScenario(mode, scenario) {
+  return withActivationOpenCli(scenario, async ({ executablePath, capturePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    await assert.rejects(
+      runOpenCliAsk({ executablePath, identity, prompt: 'activation test', mode, timeoutSeconds: 600 }),
+      (error) => error?.code === 'ERR_OPENCLI_EXIT'
+    );
+    return JSON.parse(await readFile(capturePath, 'utf8'));
   });
 }
 
@@ -350,4 +395,43 @@ test('late successful selection is polled even when the fallback row vanishes', 
   assert.equal(result.tool, 'Web Search');
   assert.equal(capture.state.nativeOptionClicks, 1);
   assert.equal(capture.state.domOptionClicks, 0);
+});
+
+test('initial menu fallback refreshes the plus target when the button moves during polling', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: false, optionNativeWorks: true, initialMenuMoves: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeMenuClicks, 1);
+  assert.equal(capture.state.domMenuClicks, 1);
+  assert.equal(capture.state.staleMenuFallbackTargets, 0);
+});
+
+test('initial menu fallback refuses stale coordinates when fresh target resolution fails', async () => {
+  const capture = await runFailingScenario('web', { menuNativeWorks: false, optionNativeWorks: true, initialMenuMoves: true, initialMenuRefreshUnavailable: true });
+  assert.equal(capture.ok, false);
+  assert.equal(capture.error, 'ChatGPT tools menu did not open.');
+  assert.equal(capture.state.domMenuClicks, 0);
+  assert.equal(capture.state.staleMenuFallbackTargets, 0);
+});
+
+test('initial menu DOM fallback atomically rechecks menu open state before clicking', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: false, optionNativeWorks: true, initialMenuLateNativeOpen: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeMenuClicks, 1);
+  assert.equal(capture.state.domMenuClicks, 0);
+  assert.equal(capture.state.domOptionClicks, 0);
+});
+
+test('recovery reopen DOM fallback atomically rechecks menu open state before clicking', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: false, optionNativeDismissesMenu: true, recoveryReopenLateNativeOpen: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeOptionClicks, 1);
+  assert.equal(capture.state.domMenuClicks, 0);
+  assert.equal(capture.state.domOptionClicks, 1);
+});
+
+test('initial menu activation resolves visible plus button when preceded by hidden stale duplicate', async () => {
+  const { result, capture } = await runScenario('web', { menuNativeWorks: true, optionNativeWorks: true, hiddenPlusFirst: true });
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(capture.state.nativeMenuClicks, 1);
+  assert.equal(capture.state.domMenuClicks, 0);
 });

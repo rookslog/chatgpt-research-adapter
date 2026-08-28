@@ -66,7 +66,33 @@ const OPENCLI_TOOL_MENU_ACTIVATION = String.raw`    if (!menuButton.found) {
     }
     await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
     await page.wait(0.5);`;
-const OPENCLI_TOOL_MENU_ACTIVATION_PATCHED = String.raw`    if (!menuButton.found) {
+const OPENCLI_TOOL_MENU_ACTIVATION_PATCHED = String.raw`    const resolveCurrentMenuButton = async (anchor = menuButton) => requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+        const isVisible = (el) => {
+            if (!(el instanceof HTMLElement)) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
+        const selector = 'button[data-testid="composer-plus-btn"]';
+        if (Number.isFinite(\${Number(anchor?.x)}) && Number.isFinite(\${Number(anchor?.y)})) {
+            const hit = document.elementFromPoint(\${Number(anchor?.x)}, \${Number(anchor?.y)});
+            const current = hit instanceof Element ? hit.closest(selector) : null;
+            if (current instanceof HTMLElement && isVisible(current) && !current.closest('nav, aside')) {
+                const rect = current.getBoundingClientRect();
+                return { found: true, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+            }
+        }
+        const buttons = Array.from(document.querySelectorAll(selector))
+            .filter((node) => node instanceof HTMLElement && isVisible(node) && !node.closest('nav, aside'));
+        if (buttons.length !== 1) return { found: false };
+        const button = buttons[0];
+        button.scrollIntoView({ block: 'center', inline: 'center' });
+        const rect = button.getBoundingClientRect();
+        return { found: true, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+    })()\`)), 'chatgpt tools menu button resolution');
+    let activeMenuButton = menuButton?.found ? menuButton : await resolveCurrentMenuButton();
+    if (!activeMenuButton?.found) {
         throw new CommandExecutionError('Could not find the ChatGPT tools menu button in the composer.');
     }
     const menuIsOpen = async () => requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
@@ -79,7 +105,7 @@ const OPENCLI_TOOL_MENU_ACTIVATION_PATCHED = String.raw`    if (!menuButton.foun
         };
         const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
         const labels = \${JSON.stringify(target.labels)}.map(normalize);
-        const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
+        const hit = document.elementFromPoint(\${Number(activeMenuButton.x)}, \${Number(activeMenuButton.y)});
         const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
         if (button instanceof HTMLElement && isVisible(button) && !button.closest('nav, aside') && button.getAttribute('aria-expanded') === 'true') return true;
         const optionSelector = '[role="menuitemradio"], [role="menuitem"], [role="option"], button, div[tabindex="0"]';
@@ -100,10 +126,32 @@ const OPENCLI_TOOL_MENU_ACTIVATION_PATCHED = String.raw`    if (!menuButton.foun
         }
         return false;
     };
-    await page.nativeClick(Number(menuButton.x), Number(menuButton.y));
+    await page.nativeClick(Number(activeMenuButton.x), Number(activeMenuButton.y));
     if (!(await waitForMenuOpen())) {
+        const fallbackMenuButton = await resolveCurrentMenuButton(activeMenuButton);
+        if (!fallbackMenuButton?.found) throw new CommandExecutionError('ChatGPT tools menu did not open.');
         const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
-            const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
+            const isVisible = (el) => {
+                if (!(el instanceof HTMLElement)) return false;
+                const style = window.getComputedStyle(el);
+                if (style.display === 'none' || style.visibility === 'hidden') return false;
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            };
+            const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+            const labels = \${JSON.stringify(target.labels)}.map(normalize);
+            const optionSelector = '[role="menuitemradio"], [role="menuitem"], [role="option"], button, div[tabindex="0"]';
+            const rootSelector = '[role="group"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*="menu"], [data-testid*="popover"]';
+            const menuOpen = Array.from(document.querySelectorAll(rootSelector)).some((root) =>
+                root instanceof HTMLElement && isVisible(root) && !root.closest('nav, aside')
+                && Array.from(root.querySelectorAll(optionSelector)).some((node) => {
+                    if (!(node instanceof HTMLElement) || !isVisible(node)) return false;
+                    const primaryNodes = [node, ...node.querySelectorAll('span, div, p')];
+                    return primaryNodes.some((part) => labels.includes(normalize(part.textContent)));
+                })
+            );
+            if (menuOpen) return true;
+            const hit = document.elementFromPoint(\${Number(fallbackMenuButton.x)}, \${Number(fallbackMenuButton.y)});
             const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
             if (!(button instanceof HTMLElement)) return false;
             button.click();
@@ -194,29 +242,6 @@ const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    const selectedStat
         }
         return { found: false };
     };
-    const resolveCurrentMenuButton = async () => requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
-        const isVisible = (el) => {
-            if (!(el instanceof HTMLElement)) return false;
-            const style = window.getComputedStyle(el);
-            if (style.display === 'none' || style.visibility === 'hidden') return false;
-            const rect = el.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0;
-        };
-        const selector = 'button[data-testid="composer-plus-btn"]';
-        const hit = document.elementFromPoint(\${Number(menuButton.x)}, \${Number(menuButton.y)});
-        const current = hit instanceof Element ? hit.closest(selector) : null;
-        if (current instanceof HTMLElement && isVisible(current) && !current.closest('nav, aside')) {
-            const rect = current.getBoundingClientRect();
-            return { found: true, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
-        }
-        const buttons = Array.from(document.querySelectorAll(selector))
-            .filter((node) => node instanceof HTMLElement && isVisible(node) && !node.closest('nav, aside'));
-        if (buttons.length !== 1) return { found: false };
-        const button = buttons[0];
-        button.scrollIntoView({ block: 'center', inline: 'center' });
-        const rect = button.getBoundingClientRect();
-        return { found: true, x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
-    })()\`)), 'chatgpt tools menu reopen target');
     const reopenForExactOption = async () => {
         let resolved = await waitForExactOption();
         if (resolved.found) return resolved;
@@ -228,6 +253,30 @@ const OPENCLI_TOOL_OPTION_ACTIVATION_PATCHED = String.raw`    const selectedStat
         const domMenuButton = await resolveCurrentMenuButton();
         if (!domMenuButton.found) return { found: false };
         const domClicked = requireBooleanEvaluateResult(unwrapEvaluateResult(await page.evaluate(\`(() => {
+            const isVisible = (el) => {
+                if (!(el instanceof HTMLElement)) return false;
+                const style = window.getComputedStyle(el);
+                if (style.display === 'none' || style.visibility === 'hidden') return false;
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            };
+            const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+            const labels = \${JSON.stringify(target.labels)}.map(normalize);
+            const optionSelector = '[role="menuitemradio"], [role="menuitem"], [role="option"], button, div[tabindex="0"]';
+            const rootSelector = '[role="group"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-testid*="menu"], [data-testid*="popover"]';
+            const visibleRoots = Array.from(document.querySelectorAll(rootSelector))
+                .filter((node) => node instanceof HTMLElement && isVisible(node) && !node.closest('nav, aside'));
+            const searchRoots = visibleRoots.length ? visibleRoots : [document];
+            const options = Array.from(new Set(searchRoots.flatMap((root) => {
+                const matchesRoot = root instanceof HTMLElement && root.matches(optionSelector) ? [root] : [];
+                return matchesRoot.concat(Array.from(root.querySelectorAll(optionSelector)));
+            })));
+            const optionFound = options.some((node) => {
+                if (!(node instanceof HTMLElement) || !isVisible(node) || node.closest('nav, aside')) return false;
+                const primaryNodes = [node, ...node.querySelectorAll('span, div, p')];
+                return primaryNodes.some((part) => labels.includes(normalize(part.textContent)));
+            });
+            if (optionFound) return true;
             const hit = document.elementFromPoint(\${Number(domMenuButton.x)}, \${Number(domMenuButton.y)});
             const button = hit instanceof Element ? hit.closest('button[data-testid="composer-plus-btn"]') : null;
             if (!(button instanceof HTMLElement)) return false;
