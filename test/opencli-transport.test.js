@@ -36,6 +36,108 @@ async function withMarkdownFixtureOpenCli(run, { converterDrift = false } = {}) 
   try { return await run({ root, path, expected, capture }); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
+async function withDeepResultFixtureOpenCli(run) {
+  const root = await mkdtemp(join(tmpdir(), 'm006-deep-result-transport-'));
+  const packageRoot = join(root, 'install', 'node_modules', '@jackwener', 'opencli');
+  const sourcePath = join(packageRoot, 'clis', 'chatgpt', 'utils.js');
+  const path = join(packageRoot, 'dist', 'src', 'main.js');
+  const capture = join(root, 'deep-argv.json');
+  const deepRow = { conversationId: 'deep-1', status: 'completed', report: '# Report\n\nFindings.', sources: [{ title: 'Source', url: 'https://example.com' }], progress: {}, asyncTaskConversationId: '', widgetSessionId: '', asyncStatus: '', venusMessageType: '', venusStatus: '', waitingForUserUntil: '', planTitle: '', planId: '', url: 'https://chatgpt.com/c/deep-1', method: 'conversation', diagnostics: {} };
+  await mkdir(join(packageRoot, 'dist', 'src'), { recursive: true });
+  await mkdir(join(packageRoot, 'clis', 'chatgpt'), { recursive: true });
+  await writeFile(join(packageRoot, 'package.json'), `${JSON.stringify({ name: '@jackwener/opencli', version: '1.8.7', type: 'module' })}\n`);
+  await writeFile(sourcePath, `class CommandExecutionError extends Error {}
+
+function extractDeepResearchFromConversationPayload(payload, { expectedConversationId = '' } = {}) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new CommandExecutionError('Malformed ChatGPT conversation payload for Deep Research extraction.');
+    }
+    const payloadConversationId = String(payload.conversation_id || payload.conversationId || payload.id || '').trim();
+    if (expectedConversationId && payloadConversationId && payloadConversationId !== expectedConversationId) {
+        throw new CommandExecutionError(
+            \`ChatGPT conversation payload id mismatch: expected \${expectedConversationId}, got \${payloadConversationId}.\`,
+        );
+    }
+    const mapping = payload?.mapping && typeof payload.mapping === 'object' ? payload.mapping : {};
+    if (!payload.mapping || typeof payload.mapping !== 'object' || Array.isArray(payload.mapping)) {
+        throw new CommandExecutionError('Malformed ChatGPT conversation payload for Deep Research extraction: missing mapping.');
+    }
+    const candidates = [];
+    for (const [messageId, node] of Object.entries(mapping)) {
+        const message = node?.message || {};
+        const metadata = message?.metadata || {};
+        const sdk = metadata?.chatgpt_sdk || {};
+        const responseMetadata = pickFirstObject(
+            sdk?.response_metadata,
+            sdk?.responseMetadata,
+            metadata?.response_metadata,
+            metadata?.responseMetadata,
+        );
+        let sawWidgetState = false;
+        for (const widgetState of [
+            sdk?.widget_state,
+            sdk?.widgetState,
+            metadata?.widget_state,
+            metadata?.widgetState,
+        ]) {
+            if (widgetState === undefined || widgetState === null) continue;
+            sawWidgetState = true;
+            const extracted = extractDeepResearchFromWidgetState(widgetState, 'conversation-widget-state', responseMetadata);
+            if (extracted) {
+                candidates.push({
+                    ...extracted,
+                    conversationMessageId: messageId,
+                });
+            }
+        }
+        if (!sawWidgetState && Object.keys(responseMetadata).length) {
+            const extracted = extractDeepResearchFromWidgetState(null, 'conversation-widget-state', responseMetadata);
+            if (extracted) {
+                candidates.push({
+                    ...extracted,
+                    conversationMessageId: messageId,
+                });
+            }
+        }
+    }
+    candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
+    return candidates[0] || null;
+}
+
+function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId = '' } = {}) {
+    const candidates = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+        const url = String(entry?.url || '');
+        if (!/\\/backend-api\\/conversation\\//.test(url)) continue;
+        const entryConversationId = conversationIdFromBackendConversationUrl(url);
+        if (expectedConversationId && entryConversationId !== expectedConversationId) continue;
+        const body = parseJsonMaybe(entry?.responsePreview) || parseJsonMaybe(entry?.body) || null;
+        if (!body) {
+            throw new CommandExecutionError(\`Malformed ChatGPT conversation network payload for \${entryConversationId || 'unknown conversation'}.\`);
+        }
+        const extracted = extractDeepResearchFromConversationPayload(body, { expectedConversationId });
+        if (extracted) {
+            candidates.push({
+                ...extracted,
+                method: extracted.status === 'completed'
+                    ? 'network-conversation-widget-state'
+                    : 'network-conversation-widget-progress',
+                networkUrl: url,
+            });
+        }
+    }
+    candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
+    return candidates[0] || null;
+}
+`);
+  await writeFile(path, `#!/usr/bin/env node
+import { writeFileSync } from 'node:fs';
+if (process.argv[2] === '--version') console.log('1.8.7');
+else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.argv.slice(2))); console.log(${JSON.stringify(JSON.stringify([deepRow]))}); }
+`, { mode: 0o700 });
+  try { return await run({ path, capture, deepRow }); } finally { await rm(root, { recursive: true, force: true }); }
+}
+
 const validRow = { conversationId: 'abc-123_DEF', conversationUrl: 'https://chatgpt.com/c/abc-123_DEF', tool: '', response: 'CHATGPT_RESEARCH_LIVE_SMOKE_OK' };
 
 test('preflights one absolute executable as exact OpenCLI v1.8.7 identity', async () => withFake("if (process.argv[2] === '--version') console.log('1.8.7'); else process.exit(9);", async ({ path }) => {
@@ -101,7 +203,7 @@ else {
   await runOpenCliAsk({ executablePath: path, identity, prompt: 'research this', mode: 'standard', timeoutSeconds: 600 });
   const calls = (await readFile(capture, 'utf8')).trim().split('\n').map(JSON.parse);
   const base = ['chatgpt', 'ask', 'research this', '--new', 'true', '--site-session', 'persistent', '--timeout', '600', '--format', 'json', '--wait', 'false'];
-  assert.deepEqual(calls, [{ args: base, executable: path }]);
+  assert.deepEqual(calls, [{ args: base, executable: identity.real_path }]);
 }));
 
 test('accepts blank handoff rows for read-after-submit collection', () => {
@@ -134,14 +236,7 @@ test('fails closed when the pinned OpenCLI Markdown converter source drifts', as
   await assert.rejects(runOpenCliDetail({ executablePath: path, identity, conversationId: 'markdown-drift', timeoutSeconds: 600 }), { code: 'ERR_OPENCLI_MARKDOWN_COMPAT' });
 }, { converterDrift: true }));
 
-test('collects one completed Deep Research report by conversation id', async () => withFake('', async ({ root, path }) => {
-  const capture = join(root, 'deep-argv.json');
-  const deepRow = { conversationId: 'deep-1', status: 'completed', report: '# Report\n\nFindings.', sources: [{ title: 'Source', url: 'https://example.com' }], progress: {}, asyncTaskConversationId: '', widgetSessionId: '', asyncStatus: '', venusMessageType: '', venusStatus: '', waitingForUserUntil: '', planTitle: '', planId: '', url: 'https://chatgpt.com/c/deep-1', method: 'conversation', diagnostics: {} };
-  await writeFile(path, `#!/usr/bin/env node
-import { writeFileSync } from 'node:fs';
-if (process.argv[2] === '--version') console.log('1.8.7');
-else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.argv.slice(2))); console.log(${JSON.stringify(JSON.stringify([deepRow]))}); }
-`, { mode: 0o700 });
+test('collects one completed Deep Research report by conversation id', async () => withDeepResultFixtureOpenCli(async ({ path, capture, deepRow }) => {
   const identity = await preflightOpenCli({ executablePath: path });
   const result = await runOpenCliDeepResearchResult({ executablePath: path, identity, conversationId: 'deep-1', timeoutSeconds: 1200 });
   assert.equal(result.report, deepRow.report);
