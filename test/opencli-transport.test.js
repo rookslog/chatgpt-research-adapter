@@ -6,6 +6,8 @@ import test from 'node:test';
 
 import { OPENCLI_COMMAND_CONTRACT_SHA256, parseOpenCliAnswer, preflightOpenCli, runOpenCliAsk, runOpenCliDeepResearchResult, runOpenCliDeepResearchStatus, runOpenCliDetail, runOpenCliStandard } from '../src/opencli-transport.js';
 
+const pinnedDeepCallerSource = await readFile(new URL('./fixtures/opencli-v1.8.7-deep-caller.js.txt', import.meta.url), 'utf8');
+
 async function withFake(body, run) {
   const root = await mkdtemp(join(tmpdir(), 'm003-opencli-'));
   const path = join(root, 'fake-opencli');
@@ -132,17 +134,8 @@ function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId
 
 async function fetchChatGPTConversationPayload(page) { return page.fetchConversation(); }
 
-async function getChatGPTDeepResearchResult(page, { conversationId = '' } = {}) {
-    const relevantEntries = await page.networkEntries();
-    const network = extractDeepResearchFromNetworkEntries(relevantEntries, { expectedConversationId: conversationId });
-    if (network?.status === 'completed') return network;
-    const currentConversationId = conversationId;
-    const fetchConversationId = conversationId || currentConversationId;
-    const conversation = await fetchChatGPTConversationPayload(page, fetchConversationId);
-    return extractDeepResearchFromConversationPayload(conversation?.payload, {
-                    expectedConversationId: fetchConversationId,
-                });
-}
+${pinnedDeepCallerSource}
+export async function waitForChatGPTDeepResearchResult() {}
 `);
   await writeFile(path, `#!/usr/bin/env node
 import { writeFileSync } from 'node:fs';
@@ -161,6 +154,12 @@ test('preflights one absolute executable as exact OpenCLI v1.8.7 identity', asyn
   assert.match(identity.sha256, /^[0-9a-f]{64}$/);
   assert.ok(identity.size > 0);
   assert.match(OPENCLI_COMMAND_CONTRACT_SHA256, /^[0-9a-f]{64}$/);
+}));
+
+test('includes explicit termination grace in a bounded preflight runtime', async () => withFake("process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);", async ({ path }) => {
+  const startedAt = Date.now();
+  await assert.rejects(preflightOpenCli({ executablePath: path, timeoutMs: 40, killGraceMs: 40 }), { code: 'ERR_OPENCLI_TIMEOUT' });
+  assert.ok(Date.now() - startedAt < 500);
 }));
 
 test('rejects relative, non-executable, wrong-version, nonzero, and changed executable identities', async () => {

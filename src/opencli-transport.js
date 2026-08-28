@@ -228,6 +228,9 @@ const OPENCLI_DEEP_RESULT_FETCH_CALL = 'fetchChatGPTConversationPayload(page, fe
 const OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE = String.raw`extractDeepResearchFromConversationPayload(conversation?.payload, {
                     expectedConversationId: fetchConversationId,
                 })`;
+const OPENCLI_DEEP_RESULT_CALLER_START = "export async function getChatGPTDeepResearchResult(page, { conversationId = '', useBridgeProbes = false } = {}) {";
+const OPENCLI_DEEP_RESULT_CALLER_END = '\n\nexport async function waitForChatGPTDeepResearchResult(';
+const OPENCLI_DEEP_RESULT_CALLER_SHA256 = '897c5e7ac3a64a8a54bf1731c908fc339f635ef61b1f891d6fb43258bfaf7cc9';
 
 const OPENCLI_TOOL_OPTIONS = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', '搜索', 'Web Search', 'Search'] },\n};";
 const OPENCLI_TOOL_OPTIONS_PATCHED = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', 'Web Search'] },\n};";
@@ -516,8 +519,14 @@ function patchOpenCliMarkdownSource(source) {
 }
 
 function patchOpenCliDeepResearchResultSource(source) {
+  const callerParts = source.split(OPENCLI_DEEP_RESULT_CALLER_START);
+  if (callerParts.length !== 2) throw fail('OpenCLI Deep Research caller does not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+  const callerEnd = callerParts[1].indexOf(OPENCLI_DEEP_RESULT_CALLER_END);
+  if (callerEnd === -1 || callerParts[1].indexOf(OPENCLI_DEEP_RESULT_CALLER_END, callerEnd + 1) !== -1) throw fail('OpenCLI Deep Research caller boundary does not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+  const callerSource = `${OPENCLI_DEEP_RESULT_CALLER_START}${callerParts[1].slice(0, callerEnd + 1)}`;
+  if (digest(Buffer.from(callerSource)) !== OPENCLI_DEEP_RESULT_CALLER_SHA256) throw fail('OpenCLI Deep Research caller bytes do not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
   for (const callSite of [OPENCLI_DEEP_RESULT_NETWORK_CALL_SITE, OPENCLI_DEEP_RESULT_FETCH_ID, OPENCLI_DEEP_RESULT_FETCH_CALL, OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE]) {
-    if (source.split(callSite).length !== 2) throw fail('OpenCLI Deep Research identity call sites do not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+    if (callerSource.split(callSite).length !== 2) throw fail('OpenCLI Deep Research identity call sites do not match the pinned caller', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
   }
   const expected = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_EXTRACTOR);
   const replacement = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_PATCHED_EXTRACTOR);
@@ -688,9 +697,9 @@ function runProcess(executablePath, args, { spawnImpl = spawn, timeoutMs, output
   });
 }
 
-export async function preflightOpenCli({ executablePath, spawnImpl, environment, timeoutMs = 5000 } = {}) {
+export async function preflightOpenCli({ executablePath, spawnImpl, environment, timeoutMs = 5000, killGraceMs = 2000 } = {}) {
   const before = await executableIdentity(executablePath);
-  const result = await runProcess(before.real_path, ['--version'], { spawnImpl, timeoutMs, outputLimit: VERSION_LIMIT, environment });
+  const result = await runProcess(before.real_path, ['--version'], { spawnImpl, timeoutMs, outputLimit: VERSION_LIMIT, environment, killGraceMs });
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI version preflight failed', 'ERR_OPENCLI_PREFLIGHT');
   let version;
   try { version = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(result.stdout).trim(); } catch { throw fail('OpenCLI version output is invalid', 'ERR_OPENCLI_VERSION'); }

@@ -6,6 +6,8 @@ import test from 'node:test';
 
 import { preflightOpenCli, runOpenCliDeepResearchResult } from '../src/opencli-transport.js';
 
+const pinnedCallerSource = await readFile(new URL('./fixtures/opencli-v1.8.7-deep-caller.js.txt', import.meta.url), 'utf8');
+
 function pinnedDeepResearchSource() {
   return `class CommandExecutionError extends Error {}
 function pickFirstObject(...values) { return values.find((value) => value && typeof value === 'object' && !Array.isArray(value)) || {}; }
@@ -101,19 +103,10 @@ function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId
     return candidates[0] || null;
 }
 
-export async function getChatGPTDeepResearchResult(page, { conversationId = '' } = {}) {
-    const relevantEntries = await page.networkEntries();
-    const network = extractDeepResearchFromNetworkEntries(relevantEntries, { expectedConversationId: conversationId });
-    if (network?.status === 'completed') return network;
-    const currentConversationId = conversationId;
-    const fetchConversationId = conversationId || currentConversationId;
-    const conversation = await fetchChatGPTConversationPayload(page, fetchConversationId);
-    const extracted = extractDeepResearchFromConversationPayload(conversation?.payload, {
-                    expectedConversationId: fetchConversationId,
-                });
-    if (extracted) return extracted;
-    return page.existingFallback();
-}
+${pinnedCallerSource}
+export async function waitForChatGPTDeepResearchResult() {}
+
+export { extractDeepResearchFromConversationPayload, extractDeepResearchFromNetworkEntries };
 `;
 }
 
@@ -129,6 +122,13 @@ function driftedDeepResearchSource(drift) {
   if (drift === 'network-conversation-id-call-site') return source.replace('extractDeepResearchFromNetworkEntries(relevantEntries, { expectedConversationId: conversationId })', 'extractDeepResearchFromNetworkEntries(relevantEntries, {})');
   if (drift === 'fetch-conversation-id-call-site') return source.replace('const fetchConversationId = conversationId || currentConversationId;', 'const fetchConversationId = currentConversationId;');
   if (drift === 'fetch-conversation-payload-call-site') return source.replace('fetchChatGPTConversationPayload(page, fetchConversationId)', 'fetchChatGPTConversationPayload(page, currentConversationId)');
+  if (drift === 'fetch-call-moved-outside-caller') return source
+    .replace('fetchChatGPTConversationPayload(page, fetchConversationId)', 'fetchChatGPTConversationPayload(page, currentConversationId)')
+    .replace('\nexport async function waitForChatGPTDeepResearchResult() {}', '\nfunction deadIdentityPin(page, fetchConversationId) { return fetchChatGPTConversationPayload(page, fetchConversationId); }\n\nexport async function waitForChatGPTDeepResearchResult() {}');
+  if (drift === 'fetch-call-left-in-comment') return source
+    .replace('const conversation = await fetchChatGPTConversationPayload(page, fetchConversationId);', '// fetchChatGPTConversationPayload(page, fetchConversationId)\n    const conversation = await fetchChatGPTConversationPayload(page, currentConversationId);');
+  if (drift === 'fetch-call-left-in-dead-block') return source
+    .replace('const conversation = await fetchChatGPTConversationPayload(page, fetchConversationId);', 'if (false) { fetchChatGPTConversationPayload(page, fetchConversationId); }\n    const conversation = await fetchChatGPTConversationPayload(page, currentConversationId);');
   if (drift === 'payload-conversation-id-call-site') return source.replace('expectedConversationId: fetchConversationId,', '');
   throw new Error(`unknown source drift: ${drift}`);
 }
@@ -155,7 +155,7 @@ async function withDeepResultOpenCli(run, { payload = { conversation_id: 'deep-c
   await writeFile(sourcePath, source);
   await writeFile(executablePath, `#!/usr/bin/env node
 import { writeFileSync } from 'node:fs';
-import { getChatGPTDeepResearchResult } from '../../clis/chatgpt/utils.js';
+import { extractDeepResearchFromConversationPayload, extractDeepResearchFromNetworkEntries } from '../../clis/chatgpt/utils.js';
 const capturePath = ${JSON.stringify(capturePath)};
 const payload = ${JSON.stringify(payload)};
 const networkEntries = ${JSON.stringify(networkEntries)};
@@ -176,7 +176,10 @@ if (process.argv[2] === '--version') {
   console.log('1.8.7');
 } else {
   try {
-    const result = await getChatGPTDeepResearchResult(page, { conversationId: process.argv[4] });
+    const conversationId = process.argv[4];
+    const network = extractDeepResearchFromNetworkEntries(networkEntries, { expectedConversationId: conversationId });
+    const extracted = network?.status === 'completed' ? network : extractDeepResearchFromConversationPayload(payload, { expectedConversationId: conversationId });
+    const result = extracted || await page.existingFallback();
     writeFileSync(capturePath, JSON.stringify({ args: process.argv.slice(2), executable: process.argv[1], fallbackCalls, environment: { HOME: process.env.HOME, OPENCLI_CONFIG_DIR: process.env.OPENCLI_CONFIG_DIR } }));
     console.log(JSON.stringify([{ conversationId: process.argv[4], ...result }]));
   } catch (error) {
@@ -221,6 +224,9 @@ for (const [drift, name] of [
   ['network-conversation-id-call-site', 'omits the expected conversation ID at the network caller'],
   ['fetch-conversation-id-call-site', 'drops the requested conversation ID from payload-fetch identity'],
   ['fetch-conversation-payload-call-site', 'fetches the payload with a different conversation ID'],
+  ['fetch-call-moved-outside-caller', 'moves the expected payload fetch into a dead helper'],
+  ['fetch-call-left-in-comment', 'leaves the expected payload fetch only in a comment'],
+  ['fetch-call-left-in-dead-block', 'leaves the expected payload fetch only in an unreachable caller block'],
   ['payload-conversation-id-call-site', 'omits the expected conversation ID at the payload caller'],
 ]) {
   test(`deep reader fails closed before child execution when the pinned extractor ${name}`, async () => withDeepResultOpenCli(async ({ executablePath, capturePath }) => {

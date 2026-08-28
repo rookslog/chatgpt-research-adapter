@@ -1,0 +1,314 @@
+export async function getChatGPTDeepResearchResult(page, { conversationId = '', useBridgeProbes = false } = {}) {
+    const iframeState = requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate(`(() => {
+        const isVisible = (el) => {
+            if (!(el instanceof HTMLElement)) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
+        const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim();
+        const iframes = Array.from(document.querySelectorAll('iframe')).map((frame, index) => {
+            const rect = frame.getBoundingClientRect();
+            const title = frame.getAttribute('title') || '';
+            const src = frame.getAttribute('src') || frame.src || '';
+            const deepResearch = /deep-research|connector_openai_deep_research/i.test(title + ' ' + src);
+            let accessible = false;
+            let text = '';
+            let html = '';
+            let accessError = '';
+            try {
+                const doc = frame.contentDocument || frame.contentWindow?.document;
+                accessible = !!doc;
+                text = normalize(doc?.body?.innerText || doc?.body?.textContent || '');
+                html = String(doc?.body?.innerHTML || '');
+            } catch (error) {
+                accessError = String(error?.name || error);
+            }
+            return {
+                index,
+                title,
+                src,
+                visible: isVisible(frame),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+                deepResearch,
+                accessible,
+                accessError,
+                text,
+                html,
+            };
+        });
+        const matched = iframes.find((frame) => frame.deepResearch) || null;
+        return {
+            url: window.location.href,
+            title: document.title,
+            iframes,
+            deepResearchIframe: matched,
+        };
+    })()`)), 'chatgpt deep research iframe state');
+
+    const generating = await isGenerating(page).catch(() => false);
+    const iframe = iframeState.deepResearchIframe;
+    const currentConversationId = conversationIdFromUrl(iframeState.url);
+    if (conversationId) {
+        if (!currentConversationId) {
+            throw new CommandExecutionError(
+                `ChatGPT deep-research-result did not stay on requested conversation ${conversationId}.`,
+            );
+        }
+        if (currentConversationId !== conversationId) {
+            throw new CommandExecutionError(
+                `ChatGPT deep-research-result conversation mismatch: expected ${conversationId}, current page is ${currentConversationId}.`,
+            );
+        }
+    }
+    let progressCandidate = null;
+    const diagnostics = {
+        iframeCount: Array.isArray(iframeState.iframes) ? iframeState.iframes.length : 0,
+        iframe: iframe ? {
+            index: iframe.index,
+            title: iframe.title,
+            src: iframe.src,
+            visible: iframe.visible,
+            width: iframe.width,
+            height: iframe.height,
+            accessible: iframe.accessible,
+            accessError: iframe.accessError || '',
+        } : null,
+        methodsTried: ['main-document-iframe'],
+        methodsSkipped: useBridgeProbes ? [] : ['browser-frames', 'cdp-accessibility', 'network-capture'],
+    };
+
+    if (useBridgeProbes && typeof page.readNetworkCapture === 'function') {
+        diagnostics.methodsTried.push('network-conversation-widget-state');
+        try {
+            const entries = await withTimeout(page.readNetworkCapture(), 5000, 'network capture read');
+            const relevantEntries = (Array.isArray(entries) ? entries : [])
+                .filter((entry) => /\/backend-api\/conversation\/|deep|research|oaiusercontent|ecosystem|widget/i.test(String(entry?.url || '')));
+            diagnostics.networkEntries = relevantEntries
+                .slice(-20)
+                .map((entry) => ({
+                    url: entry.url,
+                    status: entry.responseStatus ?? entry.status ?? 0,
+                    contentType: entry.responseContentType ?? '',
+                    preview: String(entry.responsePreview || '').slice(0, 500),
+                    bodySize: Number(entry.responseBodyFullSize || 0) || undefined,
+                    bodyTruncated: entry.responseBodyTruncated === true || undefined,
+                }));
+            const extracted = extractDeepResearchFromNetworkEntries(relevantEntries, { expectedConversationId: conversationId });
+            if (extracted) {
+                diagnostics.networkConversation = {
+                    foundReport: extracted.status === 'completed',
+                    foundProgress: extracted.status !== 'completed',
+                    status: extracted.status,
+                    reportLength: extracted.reportLength || extracted.report.length,
+                    sourceCount: Array.isArray(extracted.sources) ? extracted.sources.length : 0,
+                    venusStatus: extracted.venusStatus || '',
+                    asyncTaskConversationId: extracted.asyncTaskConversationId || '',
+                };
+                if (extracted.status === 'completed') {
+                    return {
+                        status: 'completed',
+                        report: extracted.report,
+                        html: '',
+                        url: iframeState.url,
+                        method: extracted.method,
+                        sources: extracted.sources || [],
+                        diagnostics,
+                    };
+                }
+                progressCandidate = extracted;
+            }
+        } catch (error) {
+            if (error instanceof CommandExecutionError) throw error;
+            diagnostics.networkConversationError = String(error?.message || error);
+        }
+    }
+
+    const fetchConversationId = conversationId || currentConversationId;
+    if (fetchConversationId) {
+        diagnostics.methodsTried.push('conversation-widget-state');
+        try {
+            const conversation = await fetchChatGPTConversationPayload(page, fetchConversationId);
+            if (conversation?.error) {
+                diagnostics.conversationError = conversation.error;
+            } else {
+                const extracted = extractDeepResearchFromConversationPayload(conversation?.payload, {
+                    expectedConversationId: fetchConversationId,
+                });
+                diagnostics.conversation = {
+                    status: conversation?.status || 0,
+                    contentType: conversation?.contentType || '',
+                    transport: conversation?.transport || '',
+                    foundReport: extracted?.status === 'completed',
+                    foundProgress: !!extracted && extracted.status !== 'completed',
+                    deepResearchStatus: extracted?.status || '',
+                    reportLength: extracted?.reportLength || 0,
+                    widgetStatus: extracted?.widgetStatus || '',
+                    venusStatus: extracted?.venusStatus || '',
+                    asyncTaskConversationId: extracted?.asyncTaskConversationId || '',
+                    sourceCount: Array.isArray(extracted?.sources) ? extracted.sources.length : 0,
+                };
+                if (extracted?.status === 'completed') {
+                    return {
+                        status: 'completed',
+                        report: extracted.report,
+                        html: '',
+                        url: iframeState.url,
+                        method: extracted.method,
+                        sources: extracted.sources || [],
+                        diagnostics,
+                    };
+                }
+                if (extracted) progressCandidate = extracted;
+            }
+        } catch (error) {
+            if (error instanceof CommandExecutionError) throw error;
+            diagnostics.conversationError = String(error?.message || error);
+        }
+    }
+
+    if (progressCandidate) {
+        return {
+            ...progressCandidate,
+            url: iframeState.url,
+            diagnostics,
+        };
+    }
+
+    if (iframe?.text && looksLikeDeepResearchReport(iframe.text)) {
+        return {
+            status: 'completed',
+            report: normalizeDeepResearchText(iframe.text),
+            html: iframe.html || '',
+            url: iframeState.url,
+            method: 'same-origin-iframe-dom',
+            sources: [],
+            diagnostics,
+        };
+    }
+
+    if (!iframe) {
+        return {
+            status: generating ? 'running' : 'not_found',
+            report: '',
+            html: '',
+            url: iframeState.url,
+            method: 'main-document-dom',
+            sources: [],
+            diagnostics,
+        };
+    }
+
+    if (useBridgeProbes && typeof page.frames === 'function' && typeof page.evaluateInFrame === 'function') {
+        try {
+            const frames = await withTimeout(page.frames(), 3000, 'browser frames');
+            diagnostics.frames = Array.isArray(frames) ? frames : [];
+            for (let index = 0; index < diagnostics.frames.length; index += 1) {
+                const frameInfo = diagnostics.frames[index];
+                const frameText = unwrapEvaluateResult(await withTimeout(
+                    page.evaluateInFrame('document.body?.innerText || document.body?.textContent || ""', index),
+                    3000,
+                    'frame eval',
+                ));
+                const text = normalizeDeepResearchText(frameText);
+                if ((/deep-research|connector_openai_deep_research/i.test(String(frameInfo?.url || '')) || looksLikeDeepResearchReport(text))
+                    && looksLikeDeepResearchReport(text)) {
+                    return {
+                        status: 'completed',
+                        report: text,
+                        html: '',
+                        url: iframeState.url,
+                        method: 'browser-frame-dom',
+                        sources: [],
+                        diagnostics,
+                    };
+                }
+            }
+        } catch (error) {
+            diagnostics.frameError = String(error?.message || error);
+        }
+    }
+
+    if (useBridgeProbes && typeof page.cdp === 'function') {
+        try {
+            const frameTree = await withTimeout(page.cdp('Page.getFrameTree', {}), 5000, 'Page.getFrameTree');
+            diagnostics.frameTree = frameTree;
+            const stack = [frameTree?.frameTree].filter(Boolean);
+            const frames = [];
+            while (stack.length) {
+                const node = stack.shift();
+                const frame = node?.frame;
+                const url = String(frame?.url || frame?.unreachableUrl || '');
+                if (frame?.id && /deep-research|connector_openai_deep_research|oaiusercontent/i.test(url)) {
+                    frames.push({ frameId: frame.id, url });
+                }
+                for (const child of node?.childFrames || []) stack.push(child);
+            }
+            diagnostics.cdpFrames = frames;
+            for (const frame of frames) {
+                const tree = await withTimeout(page.cdp('Accessibility.getFullAXTree', {
+                    frameId: frame.frameId,
+                    sessionId: 'target',
+                    targetUrl: frame.url,
+                }), 5000, 'Accessibility.getFullAXTree').catch(() => null);
+                const text = collectAxText(tree);
+                if (looksLikeDeepResearchReport(text)) {
+                    return {
+                        status: 'completed',
+                        report: text,
+                        html: '',
+                        url: iframeState.url,
+                        method: 'cdp-accessibility-frame',
+                        sources: [],
+                        diagnostics,
+                    };
+                }
+            }
+        } catch (error) {
+            diagnostics.cdpError = String(error?.message || error);
+        }
+    }
+
+    if (useBridgeProbes && typeof page.readNetworkCapture === 'function' && !diagnostics.networkEntries) {
+        try {
+            const entries = await withTimeout(page.readNetworkCapture(), 3000, 'network capture read');
+            diagnostics.networkEntries = (Array.isArray(entries) ? entries : [])
+                .filter((entry) => /deep|research|oaiusercontent|ecosystem|widget/i.test(String(entry?.url || '')))
+                .slice(-20)
+                .map((entry) => ({
+                    url: entry.url,
+                    status: entry.responseStatus ?? entry.status ?? 0,
+                    contentType: entry.responseContentType ?? '',
+                    preview: String(entry.responsePreview || '').slice(0, 500),
+                }));
+            const candidate = diagnostics.networkEntries
+                .map((entry) => entry.preview)
+                .find((preview) => looksLikeDeepResearchReport(preview));
+            if (candidate) {
+                return {
+                    status: 'completed',
+                    report: normalizeDeepResearchText(candidate),
+                    html: '',
+                    url: iframeState.url,
+                    method: 'network-capture',
+                    sources: [],
+                    diagnostics,
+                };
+            }
+        } catch (error) {
+            diagnostics.networkError = String(error?.message || error);
+        }
+    }
+
+    return {
+        status: generating ? 'running' : 'unavailable',
+        report: '',
+        html: '',
+        url: iframeState.url,
+        method: 'cross-origin-iframe-detected',
+        sources: [],
+        diagnostics,
+    };
+}

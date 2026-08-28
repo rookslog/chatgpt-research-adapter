@@ -40,4 +40,13 @@ Because correct hierarchy was part of the acceptance contract, root created #2â€
 4. #16 Deep completed report/source extraction â€” remains blocked on the separately approval-gated Bridge diagnostic.
 5. #3 Deep Research selector compatibility retains its live qualification criterion. #5 is closed after its bounded qualification, including preserved negative citation-coverage findings.
 
+The post-merge review repair remains in PR #21. Its first asynchronous exact-head
+review produced seven additional lifecycle/authority P2 findings; the follow-up
+cycle adds durable cross-process abandonment, deadline-inclusive termination
+grace, deterministic event-error injection, result-envelope headroom,
+caller-scoped OpenCLI pins, durable commit rollback, and a bounded journal
+checkpoint. This correction cycle performs no provider submission and must not
+merge until a new exact-head review has completed with every actionable thread
+resolved.
+
 Issue acceptance criteria are authoritative for their slices. The owner subsequently authorized publication of the recovered baseline and local/offline implementation commits and PRs for the ChatGPT/GitHub-connector experiment. Dependency changes, live provider turns, merge, publication, and deployment retain their applicable separate gates. Adaptive multi-wave orchestration is deferred to the next milestone; no new provider submission is part of this implementation phase.

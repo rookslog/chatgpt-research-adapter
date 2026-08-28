@@ -48,6 +48,33 @@ access. Shared direct transport validation preserves the OpenCLI 1–7200
 safe-integer timeout contract before any preflight, so deadline accounting does
 not coerce invalid inputs.
 
+The asynchronous review of PR #21 at `83242bee5a8d9185335f13d33c4d9277b80288c7`
+then identified seven additional P2 instances. Each was confirmed against that
+exact source and received a discriminating regression:
+
+| PR #21 finding | Correction in the follow-up cycle |
+| --- | --- |
+| Process-local release abandonment | Publish an immutable, owner-hash-bound `N.abandoned.json` record before relying on the in-process fallback; a separate Node process proves takeover and no-provider-read completion repair. |
+| Child termination grace outside the wait deadline | Divide each remaining absolute wait budget between child execution and bounded termination grace. |
+| Permission-based event error test | Inject the exact event `lstat` failure deterministically, so root and non-root runners exercise the same branch. |
+| No wrapper metadata headroom | Keep the OpenCLI transport envelope at 256 KiB and allow 64 KiB of wrapper-owned terminal-result metadata above it. |
+| Caller pins satisfiable outside executable code | Extract the exact OpenCLI v1.8.7 `getChatGPTDeepResearchResult` implementation and require its complete raw SHA-256, so comments, helpers, and unreachable in-caller copies cannot satisfy the authority check. |
+| Non-durable commit-marker rollback | Treat the published result-plus-marker pair as the commit point. A later staging cleanup failure cannot trigger rollback; a post-link marker-directory sync failure is surfaced as uncertain durability while preserving the pair in the live namespace. |
+| Unbounded journal rescan | Publish an atomically replaced, owner-hash-bound `collector-head.json` on successful owner acquisition. Current jobs validate the checkpoint and only its terminal/successor tail; pre-checkpoint journals receive one full compatibility scan before the next owner creates the checkpoint. |
+
+The checkpoint is an index, not a replacement for the immutable owner,
+release, and abandonment records. Only owner acquisition advances it; release
+and successor acquisition therefore cannot race to regress the checkpoint.
+If a successor owner was linked after its predecessor was already provably dead
+but the successor publisher crashed before replacing the checkpoint, readers
+validate and advance across that one-generation tail rather than retrying the
+occupied generation forever. A successor behind a currently live predecessor
+is rejected.
+If a release failure also prevents the abandonment receipt from being written,
+the process-local fallback remains fail-closed and another process must wait for
+the owner PID to become provably dead. No storage protocol can durably advertise
+abandonment when the storage itself cannot accept the record.
+
 ## Verification contract
 
 The repair is acceptable only when the focused RED scenarios pass, the complete

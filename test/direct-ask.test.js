@@ -1,17 +1,21 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { promisify } from 'node:util';
 
 import { collectDeepPreparedJob, directAsk, getDeepPreparedJobStatus, submitDirectPreparedJob, waitDeepPreparedJob } from '../src/direct-ask.js';
 
 const templatesRoot = new URL('../templates/', import.meta.url).pathname;
 const preparedAt = '2026-08-24T01:02:03.456Z';
 const hash = (value) => createHash('sha256').update(value).digest('hex');
+const execFileAsync = promisify(execFile);
 const collectorOwner = (generation, pid, nonce) => `{"acquired_at":"${preparedAt}","generation":${generation},"nonce":"${nonce}","pid":${pid},"schema":"m006.deep-collector-owner.v1"}\n`;
 const collectorRelease = (generation, pid, nonce, owner) => `{"generation":${generation},"nonce":"${nonce}","owner_record_sha256":"${hash(owner)}","pid":${pid},"released_at":"${preparedAt}","schema":"m006.deep-collector-release.v1"}\n`;
+const collectorHead = (generation, owner) => `{"generation":${generation},"owner_record_sha256":"${hash(owner)}","schema":"m006.deep-collector-head.v1","state":"owner","terminal_record_sha256":null}\n`;
 
 async function withOutputRoot(run) {
   const root = await mkdtemp(join(tmpdir(), 'direct-ask-'));
@@ -300,6 +304,21 @@ test('persists a Deep terminal result across the transport accepted output range
   assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_oversized_result' })).sources[0].length, 130 * 1024);
 }));
 
+test('accepts transport-valid Deep output whose wrapper metadata exceeds the transport envelope', async () => withOutputRoot(async (outputRoot) => {
+  await directAsk({
+    question: 'metadata headroom', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_metadata_headroom', newTurnId: () => 'turn_metadata_headroom',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-metadata-headroom-1', conversationUrl: 'https://chatgpt.com/c/deep-metadata-headroom-1', tool: 'Deep Research', response: '' }) })
+  });
+  const source = 'x'.repeat(261500);
+  const transportEnvelope = Buffer.byteLength(JSON.stringify([{ conversationId: 'deep-metadata-headroom-1', status: 'completed', report: '# Report', sources: [source] }]));
+  assert.ok(transportEnvelope < 256 * 1024);
+  const completed = await collectDeepPreparedJob({ outputRoot, jobId: 'job_metadata_headroom', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-metadata-headroom-1', report: '# Report', sources: [source] }) });
+  assert.equal(completed.status, 'completed');
+  assert.equal(completed.sources[0].length, source.length);
+  assert.ok((await readFile(join(outputRoot, 'jobs', 'job_metadata_headroom', 'response', 'result.json'))).length > 256 * 1024);
+}));
+
 test('reads a completed Deep job through an equivalent lexical output-root alias', async () => withOutputRoot(async (outputRoot) => {
   await mkdir(join(outputRoot, 'alias'));
   await directAsk({
@@ -420,7 +439,7 @@ test('advances beyond a provably dead immutable collector owner without deleting
   await writeFile(join(locks, '1.owner.json'), collectorOwner(1, 2147483647, '00000000-0000-4000-8000-000000000000'));
   const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_stale_lock', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-stale-1', report: '# Stale lock recovery', sources: [] }) });
   assert.equal(result.status, 'completed');
-  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '2.owner.json', '2.released.json']);
+  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '2.owner.json', '2.released.json', 'collector-head.json']);
 }));
 
 test('does not steal a live long-running collector owner', async () => withOutputRoot(async (outputRoot) => {
@@ -454,6 +473,27 @@ test('an ABA stale generation cannot affect a newer live collector', async () =>
   assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json', '2.owner.json']);
 }));
 
+test('advances past an owner linked after a stale checkpoint when both recorded owners are dead', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'checkpoint crash recovery', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_checkpoint_crash', newTurnId: () => 'turn_checkpoint_crash',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-checkpoint-crash-1', conversationUrl: 'https://chatgpt.com/c/deep-checkpoint-crash-1', tool: 'Deep Research', response: '' }) })
+  });
+  const locks = join(outcome.jobPath, 'response', 'collector-locks');
+  await mkdir(locks);
+  const firstOwner = collectorOwner(1, 2147483647, '11111111-1111-4111-8111-111111111111');
+  const secondOwner = collectorOwner(2, 2147483646, '22222222-2222-4222-8222-222222222222');
+  await writeFile(join(locks, '1.owner.json'), firstOwner);
+  await writeFile(join(locks, '2.owner.json'), secondOwner);
+  await writeFile(join(locks, 'collector-head.json'), collectorHead(1, firstOwner));
+  let reads = 0;
+  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_checkpoint_crash', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => { reads += 1; return { status: 'not_ready', conversationId: 'deep-checkpoint-crash-1' }; } });
+  assert.equal(result.status, 'running');
+  assert.equal(reads, 1);
+  assert.ok((await readdir(locks)).includes('3.released.json'));
+  assert.equal(JSON.parse(await readFile(join(locks, 'collector-head.json'), 'utf8')).generation, 3);
+}));
+
 test('keeps owner publication crash states immutable before and after the final link', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
     question: 'owner crash', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
@@ -467,7 +507,7 @@ test('keeps owner publication crash states immutable before and after the final 
   await assert.rejects(collectDeepPreparedJob({ ...base, receiptTestSeam: { failAt: 'after-collector-owner-publish' } }), { code: 'ERR_INJECTED_FAULT' });
   assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json']);
   assert.equal((await collectDeepPreparedJob(base)).status, 'completed');
-  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json', '2.owner.json', '2.released.json']);
+  assert.deepEqual((await readdir(locks)).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json', '2.owner.json', '2.released.json', 'collector-head.json']);
 }));
 
 test('retains a durable release record when release crashes after publication', async () => withOutputRoot(async (outputRoot) => {
@@ -477,7 +517,7 @@ test('retains a durable release record when release crashes after publication', 
     submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-release-1', conversationUrl: 'https://chatgpt.com/c/deep-release-1', tool: 'Deep Research', response: '' }) })
   });
   await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId: 'job_release_crash', openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-collector-released-publish' }, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-release-1', report: '# Report', sources: [] }) }), { code: 'ERR_INJECTED_FAULT' });
-  assert.deepEqual((await readdir(join(outcome.jobPath, 'response', 'collector-locks'))).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json']);
+  assert.deepEqual((await readdir(join(outcome.jobPath, 'response', 'collector-locks'))).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json', 'collector-head.json']);
   assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_release_crash' })).status, 'completed');
 }));
 
@@ -495,6 +535,26 @@ test('retries collection in the same process after release publication fails bef
   assert.equal(reads, 1);
 }));
 
+test('makes failed release abandonment recoverable by a separate process', async () => withOutputRoot(async (outputRoot) => {
+  await directAsk({
+    question: 'cross-process release recovery', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_cross_process_release', newTurnId: () => 'turn_cross_process_release',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-cross-process-release-1', conversationUrl: 'https://chatgpt.com/c/deep-cross-process-release-1', tool: 'Deep Research', response: '' }) })
+  });
+  await assert.rejects(collectDeepPreparedJob({
+    outputRoot, jobId: 'job_cross_process_release', openCliPath: '/tmp/opencli', now: () => preparedAt,
+    receiptTestSeam: { failAt: 'after-collector-released-write' },
+    preflight: async () => ({ version: '1.8.7' }),
+    readStatus: async () => ({ status: 'completed', conversationId: 'deep-cross-process-release-1', report: '# Cross-process recovery', sources: [] })
+  }), { code: 'ERR_INJECTED_FAULT' });
+  const moduleUrl = new URL('../src/direct-ask.js', import.meta.url).href;
+  const script = `import { collectDeepPreparedJob } from ${JSON.stringify(moduleUrl)};
+const result = await collectDeepPreparedJob({ outputRoot: ${JSON.stringify(outputRoot)}, jobId: 'job_cross_process_release', openCliPath: '/tmp/opencli', preflight: async () => { throw new Error('must not preflight'); }, readStatus: async () => { throw new Error('must not read provider state'); } });
+process.stdout.write(JSON.stringify(result));`;
+  const { stdout } = await execFileAsync(process.execPath, ['--input-type=module', '--eval', script]);
+  assert.equal(JSON.parse(stdout).status, 'completed');
+}));
+
 test('repairs an unreleased completed owner before exposing completion or emitting its event', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
     question: 'completed release repair', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
@@ -508,7 +568,7 @@ test('repairs an unreleased completed owner before exposing completion or emitti
   const repaired = await collectDeepPreparedJob({ ...base, preflight: async () => assert.fail('durable completed result must not preflight'), readStatus: async () => assert.fail('durable completed result must not read provider state') });
   assert.equal(repaired.status, 'completed');
   assert.ok((await readFile(join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json'))).length > 0);
-  assert.deepEqual((await readdir(join(outcome.jobPath, 'response', 'collector-locks'))).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '2.owner.json', '2.released.json']);
+  assert.deepEqual((await readdir(join(outcome.jobPath, 'response', 'collector-locks'))).filter((name) => !name.startsWith('.')).sort(), ['1.abandoned.json', '1.owner.json', '2.owner.json', '2.released.json', 'collector-head.json']);
 }));
 
 test('a concurrent wait follows the active collector beyond a short polling window', async () => withOutputRoot(async (outputRoot) => {
@@ -553,6 +613,25 @@ test('an abandoned-owner takeover preserves the original wait deadline', async (
   assert.ok(Date.now() - startedAt < 1400);
 }));
 
+test('includes configured child termination grace inside the absolute wait deadline', async () => withOutputRoot(async (outputRoot) => {
+  await directAsk({
+    question: 'termination deadline', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_termination_deadline', newTurnId: () => 'turn_termination_deadline',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-termination-deadline-1', conversationUrl: 'https://chatgpt.com/c/deep-termination-deadline-1', tool: 'Deep Research', response: '' }) })
+  });
+  const observed = [];
+  await waitDeepPreparedJob({
+    outputRoot, jobId: 'job_termination_deadline', openCliPath: '/tmp/opencli', transportOptions: { deepTimeoutSeconds: 1, killGraceMs: 5000 },
+    preflight: async (options) => { observed.push(options); return { version: '1.8.7' }; },
+    readDeep: async (options) => { observed.push(options); return { status: 'not_ready', conversationId: 'deep-termination-deadline-1' }; }
+  });
+  assert.equal(observed.length, 2);
+  for (const options of observed) {
+    assert.ok(options.killGraceMs >= 0);
+    assert.ok(options.timeoutMs + options.killGraceMs <= 1000);
+  }
+}));
+
 test('rejects invalid direct timeout values consistently before collection preflight', async () => withOutputRoot(async (outputRoot) => {
   await directAsk({
     question: 'timeout validation', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
@@ -582,9 +661,14 @@ test('collector lifecycle does not terminate at generation 1025', async () => wi
     writes.push(writeFile(join(locks, `${generation}.released.json`), collectorRelease(generation, process.pid, nonce, owner)));
   }
   await Promise.all(writes);
-  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_generation_rollover', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'not_ready', conversationId: 'deep-generation-1' }) });
-  assert.equal(result.status, 'running');
+  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_generation_rollover', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-generation-1', report: '# Generation checkpoint', sources: [] }) });
+  assert.equal(result.status, 'completed');
   assert.ok((await readdir(locks)).includes('1025.released.json'));
+  assert.ok((await readFile(join(locks, 'collector-head.json'))).length > 0);
+  let recordReads = 0;
+  await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_generation_rollover', receiptTestSeam: { afterCollectorRecordRead: () => { recordReads += 1; } } });
+  assert.ok(recordReads >= 1);
+  assert.ok(recordReads <= 3, `checkpointed status read ${recordReads} collector records`);
 }));
 
 test('does not expose or emit an event for a result whose publisher has not released', async () => withOutputRoot(async (outputRoot) => {
@@ -673,10 +757,45 @@ test('propagates non-ENOENT completion-event lookup errors', async () => withOut
     submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-event-lookup-1', conversationUrl: 'https://chatgpt.com/c/deep-event-lookup-1', tool: 'Deep Research', response: '' }) })
   });
   await collectDeepPreparedJob({ outputRoot, jobId: 'job_event_lookup', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-event-lookup-1', report: '# Event lookup', sources: [] }) });
-  const eventsRoot = join(outcome.jobPath, 'response', 'events');
-  await chmod(eventsRoot, 0o000);
-  try { await assert.rejects(getDeepPreparedJobStatus({ outputRoot, jobId: 'job_event_lookup' }), { code: 'ERR_DIRECT_RECEIPT' }); }
-  finally { await chmod(eventsRoot, 0o700); }
+  const error = Object.assign(new Error('injected event lookup failure'), { code: 'EIO' });
+  await assert.rejects(getDeepPreparedJobStatus({ outputRoot, jobId: 'job_event_lookup', receiptTestSeam: { completionEventLstat: async () => { throw error; } } }), { code: 'ERR_DIRECT_RECEIPT' });
+}));
+
+test('treats post-commit staging cleanup failure as committed success', async () => withOutputRoot(async (outputRoot) => {
+  const stagingError = Object.assign(new Error('injected staging unlink failure'), { code: 'EIO' });
+  const outcome = await directAsk({
+    question: 'commit rollback durability', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_commit_rollback', newTurnId: () => 'turn_commit_rollback',
+    submit: (options) => submitDirectPreparedJob({
+      ...options,
+      receiptTestSeam: { unlinkDirectResultStaging: async () => { throw stagingError; } },
+      preflight: async () => ({ version: '1.8.7' }),
+      ask: async () => ({ conversationId: 'commit-rollback-1', conversationUrl: 'https://chatgpt.com/c/commit-rollback-1', tool: '', response: '' }),
+      readDetail: async () => ({ response: 'committed answer' })
+    })
+  });
+  assert.equal(outcome.result.status, 'completed');
+  const responseRoot = join(outputRoot, 'jobs', 'job_commit_rollback', 'response');
+  assert.ok((await readFile(join(responseRoot, 'result.json'))).length > 0);
+  assert.ok((await readFile(join(responseRoot, 'result.committed.json'))).length > 0);
+}));
+
+test('preserves the result-marker pair when commit directory durability is uncertain', async () => withOutputRoot(async (outputRoot) => {
+  await assert.rejects(directAsk({
+    question: 'commit sync uncertainty', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_commit_sync_uncertain', newTurnId: () => 'turn_commit_sync_uncertain',
+    submit: (options) => submitDirectPreparedJob({
+      ...options,
+      receiptTestSeam: { failAt: 'after-direct-result-commit-publish' },
+      preflight: async () => ({ version: '1.8.7' }),
+      ask: async () => ({ conversationId: 'commit-sync-uncertain-1', conversationUrl: 'https://chatgpt.com/c/commit-sync-uncertain-1', tool: '', response: '' }),
+      readDetail: async () => ({ response: 'uncertain but paired answer' })
+    })
+  }), { code: 'ERR_INJECTED_FAULT' });
+  const responseRoot = join(outputRoot, 'jobs', 'job_commit_sync_uncertain', 'response');
+  const result = JSON.parse(await readFile(join(responseRoot, 'result.json'), 'utf8'));
+  assert.equal(result.status, 'completed');
+  assert.ok((await readFile(join(responseRoot, 'result.committed.json'))).length > 0);
 }));
 
 test('validates an existing completion event without staging replacement bytes', async () => withOutputRoot(async (outputRoot) => {
