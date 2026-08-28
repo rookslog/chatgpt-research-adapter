@@ -373,6 +373,26 @@ test('a collector that waited for a terminal result finalizes its missing event 
   assert.ok((await readFile(join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json'))).length > 0);
 }));
 
+test('a wait-null follower rereads and finalizes a result published in that gap', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'wait-null event', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_wait_null', newTurnId: () => 'turn_wait_null',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-wait-null-1', conversationUrl: 'https://chatgpt.com/c/deep-wait-null-1', tool: 'Deep Research', response: '' }) })
+  });
+  const locks = join(outcome.jobPath, 'response', 'collector-locks'); const owner = collectorOwner(1, process.pid, '33333333-3333-4333-8333-333333333333');
+  await mkdir(locks); await writeFile(join(locks, '1.owner.json'), owner);
+  let resumeFollower; const followerPaused = new Promise((resolve) => { resumeFollower = resolve; }); let nullSeen; const waitNull = new Promise((resolve) => { nullSeen = resolve; }); let waiting; const waitStarted = new Promise((resolve) => { waiting = resolve; });
+  const follower = collectDeepPreparedJob({ outputRoot, jobId: 'job_wait_null', openCliPath: '/tmp/opencli', receiptTestSeam: { afterCollectionWaitStart: waiting, afterCollectionWaitNull: async () => { nullSeen(); await followerPaused; } }, preflight: async () => assert.fail('wait-null follower must not preflight'), readStatus: async () => assert.fail('wait-null follower must not read') });
+  await waitStarted;
+  await writeFile(join(locks, '1.released.json'), collectorRelease(1, process.pid, '33333333-3333-4333-8333-333333333333', owner));
+  await waitNull;
+  const publisher = collectDeepPreparedJob({ outputRoot, jobId: 'job_wait_null', openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-event-write' }, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-wait-null-1', report: '# Wait null', sources: [] }) });
+  await assert.rejects(publisher, { code: 'ERR_INJECTED_FAULT' });
+  resumeFollower();
+  assert.equal((await follower).status, 'completed');
+  assert.ok((await readFile(join(outcome.jobPath, 'response', 'events', 'research.completed.v1.json'))).length > 0);
+}));
+
 test('advances beyond a provably dead immutable collector owner without deleting it', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
     question: 'Research this', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,

@@ -389,12 +389,16 @@ async function releaseCollectionLock(lock, now, testSeam) {
 
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
 
-async function waitForCollection(responseRoot, outputRoot, jobId) {
+async function waitForCollection(responseRoot, outputRoot, jobId, receiptTestSeam) {
+  await receiptTestSeam?.afterCollectionWaitStart?.();
   for (let attempt = 0; attempt < 500; attempt += 1) {
     const state = await readDeepResponse({ outputRoot, jobId });
     if (state.status.status === 'completed') return state.result;
     const lock = await readCollectorState(responseRoot);
-    if (!lock.current || !isOwnerLive(lock.current.owner.value.pid)) return null;
+    if (!lock.current || !isOwnerLive(lock.current.owner.value.pid)) {
+      await receiptTestSeam?.afterCollectionWaitNull?.();
+      return null;
+    }
     await delay(10);
   }
   return null;
@@ -425,22 +429,24 @@ export async function getDeepPreparedJobStatus({ outputRoot, jobId } = {}) {
   return Object.freeze(state.status);
 }
 
+async function completedStateOrStatus(state, receiptTestSeam) {
+  return state.status.status === 'completed'
+    ? Object.freeze(await finalizeDeepCompletionEvent(state, receiptTestSeam))
+    : Object.freeze(state.status);
+}
+
 async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, wait, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, readDeep = runOpenCliDeepResearchResult, readStatus = runOpenCliDeepResearchStatus, receiptTestSeam } = {}) {
   let state = await readDeepResponse({ outputRoot, jobId });
-  if (state.status.status === 'completed') return Object.freeze(await finalizeDeepCompletionEvent(state, receiptTestSeam));
-  if (state.status.status !== 'running' && state.status.status !== 'accepted') return Object.freeze(state.status);
+  if (state.status.status !== 'running' && state.status.status !== 'accepted') return completedStateOrStatus(state, receiptTestSeam);
   const lock = await acquireCollectionLock(state.responseRoot, now, receiptTestSeam);
   if (!lock.acquired) {
-    const completed = await waitForCollection(state.responseRoot, outputRoot, jobId);
-    if (completed) {
-      state = await readDeepResponse({ outputRoot, jobId });
-      return Object.freeze(await finalizeDeepCompletionEvent(state, receiptTestSeam));
-    }
-    return Object.freeze((await readDeepResponse({ outputRoot, jobId })).status);
+    await waitForCollection(state.responseRoot, outputRoot, jobId, receiptTestSeam);
+    state = await readDeepResponse({ outputRoot, jobId });
+    return completedStateOrStatus(state, receiptTestSeam);
   }
   try {
     state = await readDeepResponse({ outputRoot, jobId });
-    if (state.status.status !== 'running' && state.status.status !== 'accepted') return Object.freeze(state.status);
+    if (state.status.status !== 'running' && state.status.status !== 'accepted') return completedStateOrStatus(state, receiptTestSeam);
     const { deepTimeoutSeconds, runtimeOptions } = directTransportOptions(transportOptions);
     let observation;
     try {
