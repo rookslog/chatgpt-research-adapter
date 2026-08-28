@@ -78,7 +78,7 @@ into this OpenCLI reader slice.
 
 **Interfaces:**
 - Produces:
-  - `submitDeepPreparedJob({ outputRoot, jobId, jobPath, openCliPath, ... })`
+  - `submitDirectPreparedJob({ mode: 'deep', outputRoot, jobId, jobPath, openCliPath, ... })`
   - `getDeepPreparedJobStatus({ outputRoot, jobId })`
   - `collectDeepPreparedJob({ outputRoot, jobId, openCliPath, ... })`
   - `waitDeepPreparedJob({ outputRoot, jobId, openCliPath, ... })`
@@ -88,14 +88,26 @@ into this OpenCLI reader slice.
   - `collect --output-root <absolute> --job-id <id> --opencli <absolute>`
   - `wait --output-root <absolute> --job-id <id> --opencli <absolute>`
 
-- [ ] RED: Deep `ask` writes intent and accepted handoff, returns `accepted/running`, invokes exactly one ask, and never invokes a result reader.
-- [ ] RED: status derives the highest valid durable state without an OpenCLI argument or child process.
-- [ ] RED: collect invokes only `deep-research-result --wait false`; wait invokes only `--wait true`; neither grammar accepts a prompt or mode.
-- [ ] RED: collector timeout/error after accepted handoff stays collectable and cannot create `ambiguous_effect` or resubmit.
-- [ ] RED: duplicate/concurrent submit fails before process spawn; repeated/concurrent collectors return the existing valid terminal result and cannot overwrite artifacts.
-- [ ] Implement immutable `running.json` plus report/result idempotent publication. Keep `result.json` terminal and immutable; an intent without handoff remains attention-required and never auto-resubmits.
-- [ ] Preserve the existing standard/Web branch byte-for-byte except for mode dispatch selection.
-- [ ] GREEN: run focused CLI, direct-ask, and transport tests; refresh source pins; commit.
+- [x] RED: Deep `ask` writes intent and accepted handoff, returns `accepted/running`, invokes exactly one ask, and never invokes a result reader.
+- [x] RED: status derives the highest valid durable state without an OpenCLI argument or child process.
+- [x] RED: collect invokes only `deep-research-result --wait false`; wait invokes only `--wait true`; neither grammar accepts a prompt or mode.
+- [x] RED: collector timeout/error after accepted handoff stays collectable and cannot create `ambiguous_effect` or resubmit.
+- [x] RED: duplicate/concurrent submit fails before process spawn; repeated/concurrent collectors return the existing valid terminal result and cannot overwrite artifacts.
+- [x] Implement immutable `running.json` plus report/result idempotent publication. Keep `result.json` terminal and immutable; an intent without handoff remains attention-required and never auto-resubmits.
+- [x] Preserve the existing standard/Web branch byte-for-byte except for mode dispatch selection.
+- [x] GREEN: run focused CLI, direct-ask, and transport tests; refresh source pins; commit.
+
+**Observed Task 2 disposition:** accepted at exact implementation head
+`b7babe61c78d0dc686039d19b554c77d54e79222` after independent Sol High
+review. Collector serialization uses immutable, append-only generation owner and
+release records rather than pathname lock deletion. The release binds the exact
+owner record hash; a dead owner may be superseded, while a live owner is never
+age-stolen. `report.md` is staged and hard-linked before the immutable terminal
+result. `process.pid` and `process.kill(pid, 0)` are the only added local process
+capabilities. Commit `172f34cef062ae2d109647739cbe6627882ff03f`
+adds the final simultaneous duplicate-submit closure without a production
+change: exactly one provider seam is reached, the other call is a typed
+duplicate, and the original receipt bytes remain immutable.
 
 ### Task 3: Publish one host-neutral completion event
 
