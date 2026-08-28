@@ -63,6 +63,10 @@ test('authority check catches forbidden imports, loaders, computed fetch, packag
   await writeFile(transportPath, `${originalTransport}\nexec('unexpected');\n`);
   assert.ok((await checkAuthority(copy)).violations.some((violation) => violation.code === 'PROCESS_BOUNDARY_FORBIDDEN'));
   await writeFile(transportPath, originalTransport);
+  const directPath = join(copy, 'src', 'direct-ask.js'); const originalDirect = await readFile(directPath, 'utf8');
+  await writeFile(directPath, `${originalDirect}\nprocess.exitCode = 1;\n`);
+  assert.ok((await checkAuthority(copy)).violations.some((violation) => violation.code === 'PROCESS_ACCESS_FORBIDDEN'));
+  await writeFile(directPath, originalDirect);
   const packageJson = join(copy, 'package.json'); const originalPackage = JSON.parse(await readFile(packageJson, 'utf8'));
   await writeFile(packageJson, JSON.stringify({ ...originalPackage, scripts: { ...originalPackage.scripts, postinstall: 'x' } }));
   assert.ok((await checkAuthority(copy)).violations.some((violation) => violation.code === 'PACKAGE_SCRIPTS'));
