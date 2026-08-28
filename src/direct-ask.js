@@ -132,7 +132,7 @@ function directResultCommit(payload) {
   return Object.freeze({ schema: 'm006.direct-result-commit.v1', result_sha256: hash(payload) });
 }
 
-async function validateDirectResultCommit(responseRoot, payload) {
+async function validateDirectResultCommit(responseRoot, payload, receiptTestSeam) {
   const path = join(responseRoot, 'result.committed.json');
   const entry = await lstat(path).catch((error) => {
     if (error?.code === 'ENOENT') return null;
@@ -141,11 +141,13 @@ async function validateDirectResultCommit(responseRoot, payload) {
   if (!entry) return false;
   const value = parseCanonicalJsonBytes(await readResponseBytes(path));
   if (!sameKeys(value, DIRECT_RESULT_COMMIT_KEYS) || value.schema !== 'm006.direct-result-commit.v1' || value.result_sha256 !== hash(payload)) fail('direct result commit is invalid', 'ERR_DIRECT_RECEIPT');
+  await syncDirectory(responseRoot);
+  fault(receiptTestSeam, 'after-direct-result-commit-existing-sync');
   return true;
 }
 
 async function publishDirectResultCommit(responseRoot, payload, testSeam) {
-  if (await validateDirectResultCommit(responseRoot, payload)) return false;
+  if (await validateDirectResultCommit(responseRoot, payload, testSeam)) return false;
   const finalPath = join(responseRoot, 'result.committed.json');
   const stagingPath = join(responseRoot, `.result-commit-staging-${randomUUID()}.json`);
   const commitPayload = Buffer.from(`${canonicalJson(directResultCommit(payload))}\n`);
@@ -155,7 +157,7 @@ async function publishDirectResultCommit(responseRoot, payload, testSeam) {
     try { await link(stagingPath, finalPath); }
     catch (error) {
       if (error?.code !== 'EEXIST') throw error;
-      if (!await validateDirectResultCommit(responseRoot, payload)) fail('direct result commit is invalid', 'ERR_DIRECT_RECEIPT');
+      if (!await validateDirectResultCommit(responseRoot, payload, testSeam)) fail('direct result commit is invalid', 'ERR_DIRECT_RECEIPT');
       return false;
     }
     published = true;
@@ -233,7 +235,7 @@ async function commitExistingDirectResult(responseRoot, result) {
   await publishDirectResultCommit(responseRoot, existing);
 }
 
-async function readDeepResponse({ outputRoot, jobId }) {
+async function readDeepResponse({ outputRoot, jobId, receiptTestSeam }) {
   const bundle = await loadPreparedBundle({ outputRoot, jobId, allowedModes: ['deep'] });
   const responseRoot = join(bundle.job_root, 'response');
   const responseEntry = await lstat(responseRoot).catch(() => null);
@@ -253,7 +255,7 @@ async function readDeepResponse({ outputRoot, jobId }) {
     if (resultEntry) {
       const resultBytes = await readResponseBytes(resultPath, TERMINAL_RESULT_FILE_LIMIT);
       const result = validateDeepAmbiguousResult(parseCanonicalJsonBytes(resultBytes), bundle, intentSha256, jobId);
-      if (!await validateDirectResultCommit(responseRoot, resultBytes)) return Object.freeze({ bundle, responseRoot, intent, intentSha256, result, resultBytes, uncommittedAmbiguousResult: true, status: Object.freeze({ status: 'attention_required', job_id: jobId, mode: 'deep', intent_sha256: intentSha256, retry_decision: 'prohibited' }) });
+      if (!await validateDirectResultCommit(responseRoot, resultBytes, receiptTestSeam)) return Object.freeze({ bundle, responseRoot, intent, intentSha256, result, resultBytes, uncommittedAmbiguousResult: true, status: Object.freeze({ status: 'attention_required', job_id: jobId, mode: 'deep', intent_sha256: intentSha256, retry_decision: 'prohibited' }) });
       return Object.freeze({ bundle, responseRoot, intent, intentSha256, result, status: result });
     }
     return Object.freeze({ bundle, responseRoot, intent, intentSha256, status: Object.freeze({ status: 'attention_required', job_id: jobId, mode: 'deep', intent_sha256: intentSha256, retry_decision: 'prohibited' }) });
@@ -273,7 +275,7 @@ async function readDeepResponse({ outputRoot, jobId }) {
     const result = validateDeepCompletedResult(parseCanonicalJsonBytes(resultBytes), { bundle, responseRoot, intentSha256, handoffSha256, handoff }, jobId);
     const report = await readResponseBytes(result.report_path, 256 * 1024).catch(() => fail('Deep completed report is unavailable', 'ERR_DIRECT_RECEIPT'));
     if (hash(report) !== result.report_sha256 || report.length !== result.report_bytes || report.toString('utf8').trim().length === 0) fail('Deep completed report is invalid', 'ERR_DIRECT_RECEIPT');
-    if (await validateDirectResultCommit(responseRoot, resultBytes)) {
+    if (await validateDirectResultCommit(responseRoot, resultBytes, receiptTestSeam)) {
       return Object.freeze({ bundle, responseRoot, intent, intentSha256, handoff, handoffSha256, running, result, resultBytes, reportBytes: report, status: result });
     }
     return Object.freeze({ bundle, responseRoot, intent, intentSha256, handoff, handoffSha256, running, result, resultBytes, reportBytes: report, uncommittedResult: true, status: Object.freeze(running ?? handoff) });
@@ -307,6 +309,8 @@ async function validateExistingCompletionEvent(state, receiptTestSeam) {
   if (!entry) return false;
   const existing = await readResponseBytes(eventPath);
   if (!existing.equals(completionEventBytes(state))) fail('Deep completion event differs from the durable result', 'ERR_DIRECT_RECEIPT');
+  await syncDirectory(root);
+  fault(receiptTestSeam, 'after-completion-event-existing-sync');
   return true;
 }
 
@@ -413,6 +417,11 @@ async function readCollectorRecord(path, generation, kind, owner = null, ownerSh
   return Object.freeze({ value: validated, sha256: hash(bytes) });
 }
 
+async function syncCollectorTerminalDirectory(root, kind, testSeam) {
+  await syncDirectory(root);
+  fault(testSeam, `after-collector-${kind}-existing-sync`);
+}
+
 async function collectorRecordExists(path) {
   const entry = await lstat(path).catch((error) => {
     if (error?.code === 'ENOENT') return null;
@@ -433,6 +442,7 @@ async function readCheckpointedCollectorState(root, testSeam) {
   let state = 'owner';
   let terminal = null;
   if (head.state !== 'owner') {
+    await syncCollectorTerminalDirectory(root, head.state, testSeam);
     terminal = await readCollectorRecord(generationFile(root, generation, head.state), generation, head.state, owner.value, owner.sha256, testSeam);
     if (terminal.sha256 !== head.terminal_record_sha256) fail('Deep collector checkpoint terminal record differs', 'ERR_DIRECT_LOCK');
     state = head.state;
@@ -443,8 +453,8 @@ async function readCheckpointedCollectorState(root, testSeam) {
       const abandonedPath = generationFile(root, generation, 'abandoned');
       const [releasedExists, abandonedExists] = await Promise.all([collectorRecordExists(releasedPath), collectorRecordExists(abandonedPath)]);
       if (releasedExists && abandonedExists) fail('Deep collector owner has conflicting terminal records', 'ERR_DIRECT_LOCK');
-      if (releasedExists) { terminal = await readCollectorRecord(releasedPath, generation, 'released', owner.value, owner.sha256, testSeam); state = 'released'; continue; }
-      if (abandonedExists) { terminal = await readCollectorRecord(abandonedPath, generation, 'abandoned', owner.value, owner.sha256, testSeam); state = 'abandoned'; continue; }
+      if (releasedExists) { await syncCollectorTerminalDirectory(root, 'released', testSeam); terminal = await readCollectorRecord(releasedPath, generation, 'released', owner.value, owner.sha256, testSeam); state = 'released'; continue; }
+      if (abandonedExists) { await syncCollectorTerminalDirectory(root, 'abandoned', testSeam); terminal = await readCollectorRecord(abandonedPath, generation, 'abandoned', owner.value, owner.sha256, testSeam); state = 'abandoned'; continue; }
       const nextGeneration = generation + 1;
       if (!Number.isSafeInteger(nextGeneration)) fail('Deep collector generation limit reached', 'ERR_DIRECT_LOCK');
       const nextOwnerPath = generationFile(root, nextGeneration, 'owner');
@@ -475,7 +485,15 @@ async function readCollectorState(responseRoot, { create = true, receiptTestSeam
   if (!root) return Object.freeze({ root: null, highest: 0, current: null });
   const checkpointed = await readCheckpointedCollectorState(root, receiptTestSeam);
   if (checkpointed) return checkpointed;
+  await receiptTestSeam?.afterCollectorCheckpointMiss?.({ root });
   const entries = await readdir(root, { withFileTypes: true });
+  const racedHead = entries.find((entry) => entry.name === 'collector-head.json');
+  if (racedHead) {
+    if (!racedHead.isFile() || racedHead.isSymbolicLink()) fail('Deep collector checkpoint is invalid', 'ERR_DIRECT_LOCK');
+    const racedCheckpoint = await readCheckpointedCollectorState(root, receiptTestSeam);
+    if (!racedCheckpoint) fail('Deep collector checkpoint disappeared', 'ERR_DIRECT_LOCK');
+    return racedCheckpoint;
+  }
   const generations = new Map();
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
@@ -489,6 +507,11 @@ async function readCollectorState(responseRoot, { create = true, receiptTestSeam
     generations.set(generation, record);
   }
   const orderedGenerations = [...generations.keys()].sort((left, right) => left - right);
+  if ([...generations.values()].some((record) => record.released || record.abandoned)) {
+    await syncDirectory(root);
+    if ([...generations.values()].some((record) => record.released)) fault(receiptTestSeam, 'after-collector-released-existing-sync');
+    if ([...generations.values()].some((record) => record.abandoned)) fault(receiptTestSeam, 'after-collector-abandoned-existing-sync');
+  }
   for (let index = 0; index < orderedGenerations.length; index += 1) {
     const generation = orderedGenerations[index];
     if (generation !== index + 1) fail('Deep collector generations are not contiguous', 'ERR_DIRECT_LOCK');
@@ -572,7 +595,10 @@ async function releaseCollectionLock(lock, now, testSeam) {
       let durableRelease = null;
       const releasePath = generationFile(lock.root, lock.generation, 'released');
       try {
-        if (await collectorRecordExists(releasePath)) durableRelease = await readCollectorRecord(releasePath, lock.generation, 'released', lock.owner, lock.ownerSha256, testSeam);
+        if (await collectorRecordExists(releasePath)) {
+          durableRelease = await readCollectorRecord(releasePath, lock.generation, 'released', lock.owner, lock.ownerSha256, testSeam);
+          await syncCollectorTerminalDirectory(lock.root, 'released', testSeam);
+        }
       } catch (inspectionError) {
         abandonedCollectorNonces.add(lock.owner.nonce);
         throw inspectionError;
@@ -586,6 +612,7 @@ async function releaseCollectionLock(lock, now, testSeam) {
     }
     const existing = await readCollectorRecord(generationFile(lock.root, lock.generation, 'released'), lock.generation, 'released', lock.owner, lock.ownerSha256, testSeam);
     if (canonicalJson(existing.value) !== canonicalJson(release)) fail('Deep collector release changed', 'ERR_DIRECT_LOCK');
+    await syncCollectorTerminalDirectory(lock.root, 'released', testSeam);
   }
   abandonedCollectorNonces.delete(lock.owner.nonce);
 }
@@ -596,7 +623,7 @@ async function waitForCollection(responseRoot, outputRoot, jobId, { wait, deadli
   await receiptTestSeam?.afterCollectionWaitStart?.();
   const pollMilliseconds = receiptTestSeam?.collectionPollMilliseconds ?? 10;
   do {
-    const state = await readDeepResponse({ outputRoot, jobId });
+    const state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
     const lock = await readCollectorState(responseRoot, { receiptTestSeam });
     if (!lock.current || !isCollectorOwnerLive(lock.current)) {
       await receiptTestSeam?.afterCollectionWaitNull?.();
@@ -651,7 +678,7 @@ async function publishDeepReport(responseRoot, payload, testSeam) {
 }
 
 export async function getDeepPreparedJobStatus({ outputRoot, jobId, receiptTestSeam } = {}) {
-  const state = await readDeepResponse({ outputRoot, jobId });
+  const state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
   if (state.status.status === 'completed' && await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) return Object.freeze(state.running ?? state.handoff);
   await validateExistingCompletionEvent(state, receiptTestSeam);
   return Object.freeze(state.status);
@@ -667,17 +694,17 @@ async function completedStateOrStatus(state, receiptTestSeam) {
 async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, wait, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, readDeep = runOpenCliDeepResearchResult, readStatus = runOpenCliDeepResearchStatus, receiptTestSeam } = {}) {
   const { deepTimeoutSeconds, runtimeOptions } = directTransportOptions(transportOptions);
   const waitDeadline = wait ? Date.now() + (deepTimeoutSeconds * 1000) : null;
-  let state = await readDeepResponse({ outputRoot, jobId });
+  let state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
   if (state.uncommittedAmbiguousResult) {
     await commitExistingDirectResult(state.responseRoot, state.result);
-    state = await readDeepResponse({ outputRoot, jobId });
+    state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
     return Object.freeze(state.status);
   }
   if (state.status.status !== 'running' && state.status.status !== 'accepted') {
     if (state.status.status !== 'completed' || !await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) return completedStateOrStatus(state, receiptTestSeam);
     if (await hasLiveCollector(state.responseRoot, receiptTestSeam)) {
       await waitForCollection(state.responseRoot, outputRoot, jobId, { wait, deadline: waitDeadline, receiptTestSeam });
-      state = await readDeepResponse({ outputRoot, jobId });
+      state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
       if (!await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) return completedStateOrStatus(state, receiptTestSeam);
       if (await hasLiveCollector(state.responseRoot, receiptTestSeam)) return Object.freeze(state.running ?? state.handoff);
     }
@@ -685,7 +712,7 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
   let lock = await acquireCollectionLock(state.responseRoot, now, receiptTestSeam);
   if (!lock.acquired) {
     await waitForCollection(state.responseRoot, outputRoot, jobId, { wait, deadline: waitDeadline, receiptTestSeam });
-    state = await readDeepResponse({ outputRoot, jobId });
+    state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
     const collector = await collectorStateIfPresent(state.responseRoot, receiptTestSeam);
     if (!collector.current) return completedStateOrStatus(state, receiptTestSeam);
     if (isCollectorOwnerLive(collector.current)) return Object.freeze(state.running ?? state.handoff ?? state.status);
@@ -695,10 +722,10 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
   let completedState = null;
   let outcome;
   try {
-    state = await readDeepResponse({ outputRoot, jobId });
+    state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
     if (state.uncommittedResult) {
       await commitExistingDirectResult(state.responseRoot, state.result);
-      completedState = await readDeepResponse({ outputRoot, jobId });
+      completedState = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
     } else if (state.status.status !== 'running' && state.status.status !== 'accepted') {
       completedState = state;
     } else {
@@ -708,13 +735,13 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
       } else {
         try {
           const preflightOptions = wait ? runtimeOptionsBeforeDeadline(runtimeOptions, waitDeadline) : runtimeOptions;
-          const identity = await preflight({ ...preflightOptions, executablePath: openCliPath });
+          const identity = await preflight({ ...preflightOptions, deadlineMs: wait ? waitDeadline : undefined, executablePath: openCliPath });
           if (wait && Date.now() >= waitDeadline) {
             outcome = Object.freeze({ ...state.status, collection_disposition: 'ERR_OPENCLI_TIMEOUT' });
           } else {
             const readerOptions = wait ? runtimeOptionsBeforeDeadline(runtimeOptions, waitDeadline) : runtimeOptions;
             const timeoutSeconds = wait ? Math.max(1, Math.ceil((waitDeadline - Date.now()) / 1000)) : deepTimeoutSeconds;
-            observation = await (wait ? readDeep : readStatus)({ ...readerOptions, executablePath: openCliPath, identity, conversationId: state.handoff.conversation_id, timeoutSeconds });
+            observation = await (wait ? readDeep : readStatus)({ ...readerOptions, deadlineMs: wait ? waitDeadline : undefined, executablePath: openCliPath, identity, conversationId: state.handoff.conversation_id, timeoutSeconds });
           }
         } catch (error) {
           outcome = Object.freeze({ ...state.status, collection_disposition: disposition(error) });
@@ -738,7 +765,7 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
           if (error?.code !== 'ERR_DIRECT_EXISTS') throw error;
           await commitExistingDirectResult(state.responseRoot, result);
         }
-        completedState = await readDeepResponse({ outputRoot, jobId });
+        completedState = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
       }
     }
   } finally { if (lock.acquired) await releaseCollectionLock(lock, now, receiptTestSeam); }

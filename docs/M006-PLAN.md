@@ -48,7 +48,13 @@ caller-scoped OpenCLI pins, durable commit rollback, and a bounded journal
 checkpoint. The next exact-head review found two more bounded cases: invalid
 negative termination grace and stale-predecessor PID reuse after a durable
 successor. Their regressions and corrections remain part of PR #21's unmerged
-review loop. This correction cycle performs no provider submission and must not
+review loop. A subsequent exact-head review added five confirmed cases covering
+compatibility-copy deadline refresh, checkpoint/legacy-scan publication races,
+and directory durability repair for existing event, commit-marker, and release
+records. A final independent working-tree sweep extended the same absolute
+deadline through OpenCLI preflight identity work, including a fresh pre-spawn
+budget and rejection of late preflight completion. This correction cycle
+performs no provider submission and must not
 merge until a new exact-head review has completed with every actionable thread
 resolved.
 

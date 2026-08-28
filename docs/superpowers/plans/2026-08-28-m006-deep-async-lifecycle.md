@@ -4,7 +4,7 @@
 
 **Goal:** Close issues #15–#17 by making Deep Research submit once, return a durable running handle, collect the current completed Deep report later, and publish one host-neutral completion event.
 
-**Architecture:** Standard and Web keep their existing synchronous paths. Deep uses one write-once submission operation followed by structurally read-only status, collect, or wait operations. The pinned OpenCLI reader runs through an exact-source-checked private compatibility copy; completed artifacts are published in report → result → event order.
+**Architecture:** Standard and Web keep their existing synchronous paths. Deep uses one write-once submission operation followed by non-submitting status, collect, or wait operations. Status creates no entry but may `fsync` existing terminal-record directories before accepting uncertain publication durability. The pinned OpenCLI reader runs through an exact-source-checked private compatibility copy; completed artifacts are published in report → result → event order.
 
 **Tech Stack:** Node.js >=22 ESM; Node built-ins only; pinned `@jackwener/opencli@1.8.7`; existing external Chrome Browser Bridge path; `node:test`; zero package dependencies.
 

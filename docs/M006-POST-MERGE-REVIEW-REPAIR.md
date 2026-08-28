@@ -86,6 +86,31 @@ the immutable takeover authority instead of rechecking its predecessor PID.
 Deterministic REDs cover both invalid grace before preflight and simulated PID
 reuse after successor publication.
 
+The exact-head review at `3b9fbddd0f7bb5e02eb9ea55442966674d491ee8`
+identified five more durability and timing cases, all reproduced:
+
+| PR #21 exact-head finding | Correction |
+| --- | --- |
+| Compatibility setup uses a stale child budget | Thread the absolute deadline into the Deep transport, recompute timeout and termination grace immediately before child spawn, prohibit an expired spawn, and reject results that finish cleanup after the deadline. |
+| Checkpoint publication races the legacy scan | If `collector-head.json` appears after the initial miss, require a regular file and restart through exact checkpoint validation. |
+| Existing event accepted before directory durability repair | Validate its exact bytes, then sync `events/` before treating the event as finalized. |
+| Existing result marker accepted before directory durability repair | Validate the hash-bound marker, then sync `response/` before exposing terminal state. |
+| Recovered release accepted before directory durability repair | Validate the release, then sync `collector-locks/` before treating the owner as terminal, including the matching-`EEXIST` path. |
+
+Node's recursive `cp`, `chmod`, and `rm` promises are not cancelable. The
+deadline contract therefore prevents a child from starting or running beyond
+its freshly recomputed budget and rejects a late post-cleanup result, while
+still awaiting mandatory private-workspace cleanup. Strict wall-clock promise
+settlement would require a larger killable helper-process architecture and is
+not claimed by this repair.
+
+The final independent working-tree sweep found the same stale-budget mechanism
+in the preceding OpenCLI identity preflight. The absolute deadline now reaches
+that preflight too: timing is recomputed after executable identity work and
+immediately before `--version` spawn, and a preflight or second identity check
+that completes after the deadline is rejected. Deterministic REDs cover both
+the expired-before-spawn and late-completion cases.
+
 ## Verification contract
 
 The repair is acceptable only when the focused RED scenarios pass, the complete

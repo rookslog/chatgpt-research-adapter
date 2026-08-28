@@ -239,7 +239,7 @@ test('recovers event staging and final-link interruptions without another Deep r
     }
     if (failAt === 'after-completion-event-publish') {
       await assert.doesNotReject(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-events-directory-sync' }, preflight: async () => assert.fail('existing-event validation must not preflight'), readStatus: async () => assert.fail('existing-event validation must not read') }));
-      await assert.doesNotReject(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-event-existing-sync' }, preflight: async () => assert.fail('existing-event validation must not preflight'), readStatus: async () => assert.fail('existing-event validation must not read') }));
+      await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-completion-event-existing-sync' }, preflight: async () => assert.fail('existing-event validation must not preflight'), readStatus: async () => assert.fail('existing-event validation must not read') }), { code: 'ERR_INJECTED_FAULT' });
     }
     await assert.doesNotReject(collectDeepPreparedJob({ outputRoot, jobId, openCliPath: '/tmp/opencli', preflight: async () => assert.fail('completed-event recovery must not preflight'), readStatus: async () => assert.fail('completed-event recovery must not read') }));
     assert.ok((await readFile(eventPath)).length > 0);
@@ -494,6 +494,24 @@ test('advances past an owner linked after a stale checkpoint when both recorded 
   assert.equal(JSON.parse(await readFile(join(locks, 'collector-head.json'), 'utf8')).generation, 3);
 }));
 
+test('restarts through a checkpoint published after the legacy-path miss', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'checkpoint publication race', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_checkpoint_publication_race', newTurnId: () => 'turn_checkpoint_publication_race',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-checkpoint-publication-race-1', conversationUrl: 'https://chatgpt.com/c/deep-checkpoint-publication-race-1', tool: 'Deep Research', response: '' }) })
+  });
+  const owner = collectorOwner(1, process.pid, '11111111-1111-4111-8111-111111111111');
+  let published = false;
+  const result = await collectDeepPreparedJob({
+    outputRoot, jobId: 'job_checkpoint_publication_race', openCliPath: '/tmp/opencli',
+    receiptTestSeam: { afterCollectorCheckpointMiss: async ({ root }) => { if (published) return; published = true; await writeFile(join(root, '1.owner.json'), owner); await writeFile(join(root, 'collector-head.json'), collectorHead(1, owner)); } },
+    preflight: async () => assert.fail('published live owner must prevent preflight'),
+    readStatus: async () => assert.fail('published live owner must prevent provider read')
+  });
+  assert.equal(result.status, 'running');
+  assert.deepEqual((await readdir(join(outcome.jobPath, 'response', 'collector-locks'))).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', 'collector-head.json']);
+}));
+
 test('advances through a durable successor after the stale predecessor PID is reused', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
     question: 'checkpoint PID reuse recovery', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
@@ -538,6 +556,7 @@ test('retains a durable release record when release crashes after publication', 
   });
   await assert.rejects(collectDeepPreparedJob({ outputRoot, jobId: 'job_release_crash', openCliPath: '/tmp/opencli', receiptTestSeam: { failAt: 'after-collector-released-publish' }, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-release-1', report: '# Report', sources: [] }) }), { code: 'ERR_INJECTED_FAULT' });
   assert.deepEqual((await readdir(join(outcome.jobPath, 'response', 'collector-locks'))).filter((name) => !name.startsWith('.')).sort(), ['1.owner.json', '1.released.json', 'collector-head.json']);
+  await assert.rejects(getDeepPreparedJobStatus({ outputRoot, jobId: 'job_release_crash', receiptTestSeam: { failAt: 'after-collector-released-existing-sync' } }), { code: 'ERR_INJECTED_FAULT' });
   assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_release_crash' })).status, 'completed');
 }));
 
@@ -647,6 +666,7 @@ test('includes configured child termination grace inside the absolute wait deadl
   });
   assert.equal(observed.length, 2);
   for (const options of observed) {
+    assert.ok(Number.isSafeInteger(options.deadlineMs));
     assert.ok(options.killGraceMs >= 0);
     assert.ok(options.timeoutMs + options.killGraceMs <= 1000);
   }
@@ -821,6 +841,18 @@ test('preserves the result-marker pair when commit directory durability is uncer
   const result = JSON.parse(await readFile(join(responseRoot, 'result.json'), 'utf8'));
   assert.equal(result.status, 'completed');
   assert.ok((await readFile(join(responseRoot, 'result.committed.json'))).length > 0);
+}));
+
+test('resyncs an uncertain Deep result-marker pair before exposing completion', async () => withOutputRoot(async (outputRoot) => {
+  await directAsk({
+    question: 'deep commit sync uncertainty', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_deep_commit_sync_uncertain', newTurnId: () => 'turn_deep_commit_sync_uncertain',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-commit-sync-uncertain-1', conversationUrl: 'https://chatgpt.com/c/deep-commit-sync-uncertain-1', tool: 'Deep Research', response: '' }) })
+  });
+  const base = { outputRoot, jobId: 'job_deep_commit_sync_uncertain', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => ({ status: 'completed', conversationId: 'deep-commit-sync-uncertain-1', report: '# Uncertain commit', sources: [] }) };
+  await assert.rejects(collectDeepPreparedJob({ ...base, receiptTestSeam: { failAt: 'after-direct-result-commit-publish' } }), { code: 'ERR_INJECTED_FAULT' });
+  await assert.rejects(getDeepPreparedJobStatus({ outputRoot, jobId: 'job_deep_commit_sync_uncertain', receiptTestSeam: { failAt: 'after-direct-result-commit-existing-sync' } }), { code: 'ERR_INJECTED_FAULT' });
+  assert.equal((await getDeepPreparedJobStatus({ outputRoot, jobId: 'job_deep_commit_sync_uncertain' })).status, 'completed');
 }));
 
 test('validates an existing completion event without staging replacement bytes', async () => withOutputRoot(async (outputRoot) => {
