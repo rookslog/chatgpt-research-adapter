@@ -179,6 +179,61 @@
       ]
     },
     {
+      "id": "REQ-DEEP-LIFECYCLE-001",
+      "level": "hard",
+      "external": false,
+      "statement": "After an accepted Deep handoff, status, collect, and wait must not create another provider submission; the typed collector grammar must reject prompts and modes.",
+      "bindings": [
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "returns an immutable Deep running receipt after one handoff without reading a result" },
+        { "type": "integration", "path": "test/ask-cli.test.js", "test": "routes typed Deep lifecycle commands without accepting prompts or modes" },
+        { "type": "integration", "path": "test/opencli-transport.test.js", "test": "uses a nonwaiting Deep observation and maps only exit 66 to not-ready" }
+      ]
+    },
+    {
+      "id": "REQ-DEEP-LIFECYCLE-002",
+      "level": "hard",
+      "external": false,
+      "statement": "A durable accepted Deep handoff must remain resumable across restart without automatic resubmission, while an intent without handoff remains an attention state.",
+      "bindings": [
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "resumes a persisted Deep handoff through pending, collect, and wait without resubmitting" },
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "keeps accepted Deep collection failures nonterminal and does not resubmit" }
+      ]
+    },
+    {
+      "id": "REQ-DEEP-LIFECYCLE-003",
+      "level": "hard",
+      "external": false,
+      "statement": "A completed Deep observation must publish and bind the durable report and immutable terminal result before reporting completion.",
+      "bindings": [
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "publishes one exact completion event only after the durable Deep result and report" },
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "never exposes a report after a staging crash and recovers a byte-identical published report" }
+      ]
+    },
+    {
+      "id": "REQ-DEEP-LIFECYCLE-004",
+      "level": "hard",
+      "external": false,
+      "statement": "Deep collection serialization must use immutable append-only generations: concurrent collectors share one terminal result, a dead owner may advance, and a live or stale owner cannot alter a newer generation.",
+      "bindings": [
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "serializes concurrent Deep collectors onto one immutable completed result" },
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "advances beyond a provably dead immutable collector owner without deleting it" },
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "does not steal a live long-running collector owner" },
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "an ABA stale generation cannot affect a newer live collector" }
+      ]
+    },
+    {
+      "id": "REQ-DEEP-LIFECYCLE-005",
+      "level": "hard",
+      "external": false,
+      "statement": "The Deep completion event must be published after report and result bytes, and every collector that returns completed must finalize or validate that immutable event first.",
+      "bindings": [
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "publishes one exact completion event only after the durable Deep result and report" },
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "a collector that waited for a terminal result finalizes its missing event without transport" },
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "a wait-null follower rereads and finalizes a result published in that gap" },
+        { "type": "integration", "path": "test/direct-ask.test.js", "test": "fails closed for malformed, symlinked, or different preexisting completion events" }
+      ]
+    },
+    {
       "id": "REQ-AUTHORITY-001",
       "level": "hard",
       "external": false,
