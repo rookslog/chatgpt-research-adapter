@@ -48,16 +48,60 @@ async function withDeepResultFixtureOpenCli(run) {
   await writeFile(join(packageRoot, 'package.json'), `${JSON.stringify({ name: '@jackwener/opencli', version: '1.8.7', type: 'module' })}\n`);
   await writeFile(sourcePath, `class CommandExecutionError extends Error {}
 
-export function extractDeepResearchFromConversationPayload(payload, { expectedConversationId = '' } = {}) {
+function extractDeepResearchFromConversationPayload(payload, { expectedConversationId = '' } = {}) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new CommandExecutionError('Malformed ChatGPT conversation payload for Deep Research extraction.');
+    }
     const payloadConversationId = String(payload.conversation_id || payload.conversationId || payload.id || '').trim();
     if (expectedConversationId && payloadConversationId && payloadConversationId !== expectedConversationId) {
-        throw new Error('conversation mismatch');
+        throw new CommandExecutionError(
+            \`ChatGPT conversation payload id mismatch: expected \${expectedConversationId}, got \${payloadConversationId}.\`,
+        );
     }
     const mapping = payload?.mapping && typeof payload.mapping === 'object' ? payload.mapping : {};
     if (!payload.mapping || typeof payload.mapping !== 'object' || Array.isArray(payload.mapping)) {
         throw new CommandExecutionError('Malformed ChatGPT conversation payload for Deep Research extraction: missing mapping.');
     }
-    return null;
+    const candidates = [];
+    for (const [messageId, node] of Object.entries(mapping)) {
+        const message = node?.message || {};
+        const metadata = message?.metadata || {};
+        const sdk = metadata?.chatgpt_sdk || {};
+        const responseMetadata = pickFirstObject(
+            sdk?.response_metadata,
+            sdk?.responseMetadata,
+            metadata?.response_metadata,
+            metadata?.responseMetadata,
+        );
+        let sawWidgetState = false;
+        for (const widgetState of [
+            sdk?.widget_state,
+            sdk?.widgetState,
+            metadata?.widget_state,
+            metadata?.widgetState,
+        ]) {
+            if (widgetState === undefined || widgetState === null) continue;
+            sawWidgetState = true;
+            const extracted = extractDeepResearchFromWidgetState(widgetState, 'conversation-widget-state', responseMetadata);
+            if (extracted) {
+                candidates.push({
+                    ...extracted,
+                    conversationMessageId: messageId,
+                });
+            }
+        }
+        if (!sawWidgetState && Object.keys(responseMetadata).length) {
+            const extracted = extractDeepResearchFromWidgetState(null, 'conversation-widget-state', responseMetadata);
+            if (extracted) {
+                candidates.push({
+                    ...extracted,
+                    conversationMessageId: messageId,
+                });
+            }
+        }
+    }
+    candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
+    return candidates[0] || null;
 }
 `);
   await writeFile(path, `#!/usr/bin/env node
