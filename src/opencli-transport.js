@@ -222,6 +222,15 @@ const OPENCLI_DEEP_RESULT_PATCHED_NETWORK_EXTRACTOR = String.raw`function extrac
     candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
     return candidates[0] || null;
 }`.replace('@SLASH@', '/');
+const OPENCLI_DEEP_RESULT_NETWORK_CALL_SITE = 'extractDeepResearchFromNetworkEntries(relevantEntries, { expectedConversationId: conversationId })';
+const OPENCLI_DEEP_RESULT_FETCH_ID = 'const fetchConversationId = conversationId || currentConversationId;';
+const OPENCLI_DEEP_RESULT_FETCH_CALL = 'fetchChatGPTConversationPayload(page, fetchConversationId)';
+const OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE = String.raw`extractDeepResearchFromConversationPayload(conversation?.payload, {
+                    expectedConversationId: fetchConversationId,
+                })`;
+const OPENCLI_DEEP_RESULT_CALLER_START = "export async function getChatGPTDeepResearchResult(page, { conversationId = '', useBridgeProbes = false } = {}) {";
+const OPENCLI_DEEP_RESULT_CALLER_END = '\n\nexport async function waitForChatGPTDeepResearchResult(';
+const OPENCLI_DEEP_RESULT_CALLER_SHA256 = '897c5e7ac3a64a8a54bf1731c908fc339f635ef61b1f891d6fb43258bfaf7cc9';
 
 const OPENCLI_TOOL_OPTIONS = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', '搜索', 'Web Search', 'Search'] },\n};";
 const OPENCLI_TOOL_OPTIONS_PATCHED = "const CHATGPT_TOOL_OPTIONS = {\n    'deep-research': { label: 'Deep Research', labels: ['深度研究', 'Deep Research'] },\n    'web-search': { label: 'Web Search', labels: ['网页搜索', 'Web Search'] },\n};";
@@ -510,6 +519,15 @@ function patchOpenCliMarkdownSource(source) {
 }
 
 function patchOpenCliDeepResearchResultSource(source) {
+  const callerParts = source.split(OPENCLI_DEEP_RESULT_CALLER_START);
+  if (callerParts.length !== 2) throw fail('OpenCLI Deep Research caller does not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+  const callerEnd = callerParts[1].indexOf(OPENCLI_DEEP_RESULT_CALLER_END);
+  if (callerEnd === -1 || callerParts[1].indexOf(OPENCLI_DEEP_RESULT_CALLER_END, callerEnd + 1) !== -1) throw fail('OpenCLI Deep Research caller boundary does not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+  const callerSource = `${OPENCLI_DEEP_RESULT_CALLER_START}${callerParts[1].slice(0, callerEnd + 1)}`;
+  if (digest(Buffer.from(callerSource)) !== OPENCLI_DEEP_RESULT_CALLER_SHA256) throw fail('OpenCLI Deep Research caller bytes do not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+  for (const callSite of [OPENCLI_DEEP_RESULT_NETWORK_CALL_SITE, OPENCLI_DEEP_RESULT_FETCH_ID, OPENCLI_DEEP_RESULT_FETCH_CALL, OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE]) {
+    if (callerSource.split(callSite).length !== 2) throw fail('OpenCLI Deep Research identity call sites do not match the pinned caller', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+  }
   const expected = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_EXTRACTOR);
   const replacement = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_PATCHED_EXTRACTOR);
   const parts = source.split(expected);
@@ -568,7 +586,7 @@ async function makeCopiedDirectoriesRemovable(root) {
   }
 }
 
-async function withPatchedOpenCli(identity, environment, { patchSource, compatCode, label, isolateHome = false }, run) {
+async function withPatchedOpenCli(identity, environment, { patchSource, compatCode, label, isolateHome = false, testSeam }, run) {
   const entrySuffix = join('dist', 'src', 'main.js');
   if (typeof identity?.real_path !== 'string' || !identity.real_path.endsWith(entrySuffix)) throw fail(`OpenCLI package layout is incompatible with ${label}`, compatCode);
   const packageRoot = dirname(dirname(dirname(identity.real_path)));
@@ -603,7 +621,10 @@ async function withPatchedOpenCli(identity, environment, { patchSource, compatCo
     const copiedExecutable = join(tempPackageRoot, 'dist', 'src', 'main.js');
     const copiedIdentity = await executableIdentity(copiedExecutable);
     if (copiedIdentity.sha256 !== identity.sha256 || copiedIdentity.size !== identity.size) throw fail('OpenCLI copied executable identity changed', 'ERR_OPENCLI_IDENTITY');
-    return await run(copiedExecutable, runEnvironment);
+    await testSeam?.beforeRun?.({ workspace });
+    const outcome = await run(copiedExecutable, runEnvironment);
+    await testSeam?.beforeCleanup?.({ workspace });
+    return outcome;
   } finally {
     await makeCopiedDirectoriesRemovable(tempPackageRoot);
     await rm(workspace, { recursive: true, force: true });
@@ -619,11 +640,12 @@ async function withMarkdownCompatibleOpenCli(identity, environment, run) {
   }, run);
 }
 
-async function withDeepResearchCompatibleOpenCli(identity, environment, run) {
+async function withDeepResearchCompatibleOpenCli(identity, environment, run, testSeam) {
   return withPatchedOpenCli(identity, environment, {
     patchSource: patchOpenCliDeepResearchResultSource,
     compatCode: 'ERR_OPENCLI_DEEP_RESULT_COMPAT',
     label: 'Deep Research result compatibility',
+    testSeam,
   }, run);
 }
 
@@ -679,14 +701,34 @@ function runProcess(executablePath, args, { spawnImpl = spawn, timeoutMs, output
   });
 }
 
-export async function preflightOpenCli({ executablePath, spawnImpl, environment, timeoutMs = 5000 } = {}) {
+function validateChildTiming(timeoutMs, killGraceMs, deadlineMs) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || !Number.isSafeInteger(killGraceMs) || killGraceMs < 0) throw fail('OpenCLI child timeout is invalid', 'ERR_OPENCLI_TIMEOUT_VALUE');
+  if (deadlineMs !== undefined && (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1)) throw fail('OpenCLI absolute deadline is invalid', 'ERR_OPENCLI_TIMEOUT_VALUE');
+}
+
+function childTimingBeforeDeadline(timeoutMs, killGraceMs, deadlineMs) {
+  validateChildTiming(timeoutMs, killGraceMs, deadlineMs);
+  if (deadlineMs === undefined) return Object.freeze({ timeoutMs, killGraceMs });
+  const remaining = Math.floor(deadlineMs - Date.now());
+  if (remaining <= 0) throw fail('OpenCLI child timed out', 'ERR_OPENCLI_TIMEOUT');
+  const boundedGrace = Math.min(killGraceMs, Math.floor(remaining / 4));
+  return Object.freeze({ timeoutMs: Math.max(1, Math.min(timeoutMs, remaining - boundedGrace)), killGraceMs: boundedGrace });
+}
+
+export async function preflightOpenCli({ executablePath, spawnImpl, environment, timeoutMs = 5000, killGraceMs = 2000, deadlineMs, preflightTestSeam } = {}) {
+  validateChildTiming(timeoutMs, killGraceMs, deadlineMs);
   const before = await executableIdentity(executablePath);
-  const result = await runProcess(before.real_path, ['--version'], { spawnImpl, timeoutMs, outputLimit: VERSION_LIMIT, environment });
+  await preflightTestSeam?.beforeRun?.();
+  const childTiming = childTimingBeforeDeadline(timeoutMs, killGraceMs, deadlineMs);
+  const result = await runProcess(before.real_path, ['--version'], { spawnImpl, ...childTiming, outputLimit: VERSION_LIMIT, environment });
+  await preflightTestSeam?.afterRun?.();
+  if (deadlineMs !== undefined && Date.now() >= deadlineMs) throw fail('OpenCLI child timed out', 'ERR_OPENCLI_TIMEOUT');
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI version preflight failed', 'ERR_OPENCLI_PREFLIGHT');
   let version;
   try { version = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(result.stdout).trim(); } catch { throw fail('OpenCLI version output is invalid', 'ERR_OPENCLI_VERSION'); }
   if (version !== VERSION) throw fail(`OpenCLI version must be ${VERSION}`, 'ERR_OPENCLI_VERSION');
   const after = await executableIdentity(executablePath);
+  if (deadlineMs !== undefined && Date.now() >= deadlineMs) throw fail('OpenCLI child timed out', 'ERR_OPENCLI_TIMEOUT');
   if (!sameIdentity(before, after)) throw fail('OpenCLI executable identity changed during preflight', 'ERR_OPENCLI_IDENTITY');
   return Object.freeze({ ...after, version });
 }
@@ -750,15 +792,21 @@ export async function runOpenCliDetail({ executablePath, identity, conversationI
   return Object.freeze({ response: assistant.Text, rows: Object.freeze(rows) });
 }
 
-async function runOpenCliDeepResearchObservation({ executablePath, identity, conversationId, wait, timeoutSeconds = 1200, spawnImpl, environment, timeoutMs, killGraceMs = 2000 } = {}) {
+async function runOpenCliDeepResearchObservation({ executablePath, identity, conversationId, wait, timeoutSeconds = 1200, spawnImpl, environment, timeoutMs, killGraceMs = 2000, deadlineMs, compatibilityTestSeam } = {}) {
   if (!identity || identity.version !== VERSION) throw fail('OpenCLI identity is required', 'ERR_OPENCLI_IDENTITY');
   if (typeof conversationId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(conversationId)) throw fail('OpenCLI conversation id is invalid', 'ERR_OPENCLI_CONVERSATION');
   const seconds = requireTimeoutSeconds(timeoutSeconds);
   const current = await executableIdentity(executablePath);
   if (!sameIdentity(identity, current)) throw fail('OpenCLI executable identity changed', 'ERR_OPENCLI_IDENTITY');
   if (typeof wait !== 'boolean') throw fail('OpenCLI Deep Research wait mode is invalid', 'ERR_OPENCLI_WAIT');
+  const requestedTimeoutMs = timeoutMs ?? ((seconds + 30) * 1000);
+  validateChildTiming(requestedTimeoutMs, killGraceMs, deadlineMs);
   const args = ['chatgpt', 'deep-research-result', conversationId, '--wait', String(wait), '--timeout', String(seconds), '--stable', '6', '--site-session', 'persistent', '--format', 'json'];
-  const result = await withDeepResearchCompatibleOpenCli(identity, environment, (patchedExecutable, patchedEnvironment) => runProcess(patchedExecutable, args, { spawnImpl, timeoutMs: timeoutMs ?? ((seconds + 30) * 1000), outputLimit: OUTPUT_LIMIT, environment: patchedEnvironment, killGraceMs }));
+  const result = await withDeepResearchCompatibleOpenCli(identity, environment, (patchedExecutable, patchedEnvironment) => {
+    const childTiming = childTimingBeforeDeadline(requestedTimeoutMs, killGraceMs, deadlineMs);
+    return runProcess(patchedExecutable, args, { spawnImpl, ...childTiming, outputLimit: OUTPUT_LIMIT, environment: patchedEnvironment });
+  }, compatibilityTestSeam);
+  if (deadlineMs !== undefined && Date.now() >= deadlineMs) throw fail('OpenCLI child timed out', 'ERR_OPENCLI_TIMEOUT');
   if (!wait && result.code === 66 && result.signal === null) return Object.freeze({ status: 'not_ready', conversationId });
   if (result.code !== 0 || result.signal !== null) throw fail('OpenCLI Deep Research reader did not exit successfully', 'ERR_OPENCLI_EXIT', { code: result.code, signal: result.signal, stderr: result.stderr.toString('utf8') });
   let parsed;

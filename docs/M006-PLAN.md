@@ -1,6 +1,6 @@
 # M006 — Production Usability
 
-- Status: Deep asynchronous lifecycle and completion-event contracts implemented deterministically; live Deep extraction qualification remains open
+- Status: post-merge lifecycle/event review repair in progress; live Deep extraction qualification remains open
 - Date: 2026-08-28
 - Closure target: a readable, dependable research adapter with the explicitly supported research modes and remaining rigor variants exercised
 - Remote: public `rookslog/chatgpt-research-adapter`; recovered baseline in `m006/baseline-recovery`
@@ -24,6 +24,8 @@
 
 Issues #2–#5 and #15–#17 are tracked beneath #1 in `M006 — Production usability`. The deterministic implementation at `07d7a0dcb2c49998d353a308c5b28adcd80c06f0` establishes #15's split lifecycle and #17's local completion-event contract; it does not establish #16 or live Deep usability.
 
+`[REVIEW CORRECTION — 2026-08-28]` PRs #18–#20 were merged before their asynchronous Codex Connector reviews completed. Ten post-merge comments were reconciled in [M006-POST-MERGE-REVIEW-REPAIR.md](M006-POST-MERGE-REVIEW-REPAIR.md). Nine mechanisms reproduced; the reported lexical `..` output-root alias did not because `node:path.join()` normalizes that form. Issues #15 and #17 are reopened until the repair is reviewed and merged. No new provider submission is part of the repair.
+
 ## Connector capability observation
 
 `[ROOT LIVE OBSERVATION — 2026-08-25]` Standard-mode job `job_f9710a3eb59f4f4a8a7f080e6231ba94`, conversation `6a8e28f2-1d4c-83ea-a95a-a28960b87be9`, was instructed to create exactly one Markdown child issue or make no write. The returned answer accurately named private parent #1 and milestone #1 and reported that its 89-operation GitHub surface exposed issue creation with milestone assignment but no parent/sub-issue operation. It therefore reported no write. A direct GitHub issue listing immediately afterward showed only parent #1, corroborating the no-write outcome. The connector-operation count and schema are provider-reported rather than captured directly.
@@ -37,5 +39,23 @@ Because correct hierarchy was part of the acceptance contract, root created #2�
 3. #15/#17 Deep lifecycle and completion event — implemented deterministically without a new provider submission.
 4. #16 Deep completed report/source extraction — remains blocked on the separately approval-gated Bridge diagnostic.
 5. #3 Deep Research selector compatibility retains its live qualification criterion. #5 is closed after its bounded qualification, including preserved negative citation-coverage findings.
+
+The post-merge review repair remains in PR #21. Its first asynchronous exact-head
+review produced seven additional lifecycle/authority P2 findings; the follow-up
+cycle adds durable cross-process abandonment, deadline-inclusive termination
+grace, deterministic event-error injection, result-envelope headroom,
+caller-scoped OpenCLI pins, durable commit rollback, and a bounded journal
+checkpoint. The next exact-head review found two more bounded cases: invalid
+negative termination grace and stale-predecessor PID reuse after a durable
+successor. Their regressions and corrections remain part of PR #21's unmerged
+review loop. A subsequent exact-head review added five confirmed cases covering
+compatibility-copy deadline refresh, checkpoint/legacy-scan publication races,
+and directory durability repair for existing event, commit-marker, and release
+records. A final independent working-tree sweep extended the same absolute
+deadline through OpenCLI preflight identity work, including a fresh pre-spawn
+budget and rejection of late preflight completion. This correction cycle
+performs no provider submission and must not
+merge until a new exact-head review has completed with every actionable thread
+resolved.
 
 Issue acceptance criteria are authoritative for their slices. The owner subsequently authorized publication of the recovered baseline and local/offline implementation commits and PRs for the ChatGPT/GitHub-connector experiment. Dependency changes, live provider turns, merge, publication, and deployment retain their applicable separate gates. Adaptive multi-wave orchestration is deferred to the next milestone; no new provider submission is part of this implementation phase.

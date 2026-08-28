@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
 import { OPENCLI_COMMAND_CONTRACT_SHA256, parseOpenCliAnswer, preflightOpenCli, runOpenCliAsk, runOpenCliDeepResearchResult, runOpenCliDeepResearchStatus, runOpenCliDetail, runOpenCliStandard } from '../src/opencli-transport.js';
+
+const pinnedDeepCallerSource = await readFile(new URL('./fixtures/opencli-v1.8.7-deep-caller.js.txt', import.meta.url), 'utf8');
 
 async function withFake(body, run) {
   const root = await mkdtemp(join(tmpdir(), 'm003-opencli-'));
@@ -129,6 +131,11 @@ function extractDeepResearchFromNetworkEntries(entries, { expectedConversationId
     candidates.sort((a, b) => deepResearchCandidateScore(b) - deepResearchCandidateScore(a));
     return candidates[0] || null;
 }
+
+async function fetchChatGPTConversationPayload(page) { return page.fetchConversation(); }
+
+${pinnedDeepCallerSource}
+export async function waitForChatGPTDeepResearchResult() {}
 `);
   await writeFile(path, `#!/usr/bin/env node
 import { writeFileSync } from 'node:fs';
@@ -147,6 +154,29 @@ test('preflights one absolute executable as exact OpenCLI v1.8.7 identity', asyn
   assert.match(identity.sha256, /^[0-9a-f]{64}$/);
   assert.ok(identity.size > 0);
   assert.match(OPENCLI_COMMAND_CONTRACT_SHA256, /^[0-9a-f]{64}$/);
+}));
+
+test('includes explicit termination grace in a bounded preflight runtime', async () => withFake("process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);", async ({ path }) => {
+  const startedAt = Date.now();
+  await assert.rejects(preflightOpenCli({ executablePath: path, timeoutMs: 40, killGraceMs: 40 }), { code: 'ERR_OPENCLI_TIMEOUT' });
+  assert.ok(Date.now() - startedAt < 500);
+}));
+
+test('does not spawn preflight after executable identity work exhausts its absolute deadline', async () => withFake("console.log('1.8.7');", async ({ path }) => {
+  let spawned = false;
+  await assert.rejects(preflightOpenCli({
+    executablePath: path, deadlineMs: Date.now() + 25,
+    preflightTestSeam: { beforeRun: async () => new Promise((resolve) => setTimeout(resolve, 50)) },
+    spawnImpl: () => { spawned = true; throw new Error('expired preflight must not spawn'); }
+  }), { code: 'ERR_OPENCLI_TIMEOUT' });
+  assert.equal(spawned, false);
+}));
+
+test('rejects preflight identity completion that crosses its absolute deadline', async () => withFake("console.log('1.8.7');", async ({ path }) => {
+  await assert.rejects(preflightOpenCli({
+    executablePath: path, deadlineMs: Date.now() + 250,
+    preflightTestSeam: { afterRun: async () => new Promise((resolve) => setTimeout(resolve, 300)) }
+  }), { code: 'ERR_OPENCLI_TIMEOUT' });
 }));
 
 test('rejects relative, non-executable, wrong-version, nonzero, and changed executable identities', async () => {
@@ -241,6 +271,30 @@ test('collects one completed Deep Research report by conversation id', async () 
   const result = await runOpenCliDeepResearchResult({ executablePath: path, identity, conversationId: 'deep-1', timeoutSeconds: 1200 });
   assert.equal(result.report, deepRow.report);
   assert.deepEqual(await readFile(capture, 'utf8').then(JSON.parse), ['chatgpt', 'deep-research-result', 'deep-1', '--wait', 'true', '--timeout', '1200', '--stable', '6', '--site-session', 'persistent', '--format', 'json']);
+}));
+
+test('does not spawn a Deep reader after compatibility setup exhausts its absolute deadline', async () => withDeepResultFixtureOpenCli(async ({ path }) => {
+  const identity = await preflightOpenCli({ executablePath: path });
+  let spawned = false;
+  await assert.rejects(runOpenCliDeepResearchResult({
+    executablePath: path, identity, conversationId: 'deep-1', deadlineMs: Date.now() + 25,
+    compatibilityTestSeam: { beforeRun: async () => new Promise((resolve) => setTimeout(resolve, 50)) },
+    spawnImpl: () => { spawned = true; throw new Error('expired reader must not spawn'); }
+  }), { code: 'ERR_OPENCLI_TIMEOUT' });
+  assert.equal(spawned, false);
+}));
+
+test('cleans the compatibility workspace and rejects a Deep result completed after its deadline', async () => withDeepResultFixtureOpenCli(async ({ path }) => {
+  const identity = await preflightOpenCli({ executablePath: path });
+  let workspace;
+  await assert.rejects(runOpenCliDeepResearchResult({
+    executablePath: path, identity, conversationId: 'deep-1', deadlineMs: Date.now() + 500,
+    compatibilityTestSeam: {
+      beforeRun: ({ workspace: value }) => { workspace = value; },
+      beforeCleanup: async () => new Promise((resolve) => setTimeout(resolve, 550))
+    }
+  }), { code: 'ERR_OPENCLI_TIMEOUT' });
+  await assert.rejects(lstat(workspace), { code: 'ENOENT' });
 }));
 
 test('uses a nonwaiting Deep observation and maps only exit 66 to not-ready', async () => withDeepResultFixtureOpenCli(async ({ path, capture }) => {

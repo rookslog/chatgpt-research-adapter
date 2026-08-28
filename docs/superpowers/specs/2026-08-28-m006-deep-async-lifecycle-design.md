@@ -1,9 +1,17 @@
 # M006 Deep Research Async Lifecycle — Design
 
 **Date:** 2026-08-28
-**Status:** Approved through owner authorization to execute GitHub issues #15–#17
+**Status:** Approved design; post-merge deterministic correction in progress
 **Milestone:** M006 — Production usability
 **Parent issue:** #1
+
+**Post-merge correction:** The asynchronous reviews for PRs #18–#20 completed
+after merge and identified credible lifecycle, durability, event, and pinned
+reader gaps. Issues #15 and #17 were reopened. The reconciled evidence and
+bounded correction are recorded in
+[`docs/M006-POST-MERGE-REVIEW-REPAIR.md`](../../M006-POST-MERGE-REVIEW-REPAIR.md).
+This correction adds no provider submission and does not establish live Deep
+usability.
 
 ## Objective
 
