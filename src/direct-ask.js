@@ -103,6 +103,7 @@ function directTransportOptions(value) {
   if (!options || Array.isArray(options) || typeof options !== 'object' || Object.keys(options).some((key) => !TRANSPORT_OPTION_KEYS.has(key))) fail('direct transport options are invalid', 'ERR_DIRECT_TRANSPORT_OPTIONS');
   const { askTimeoutSeconds = 600, deepTimeoutSeconds = 1200, spawnImpl, environment, timeoutMs, killGraceMs } = options;
   if (![askTimeoutSeconds, deepTimeoutSeconds].every((seconds) => Number.isSafeInteger(seconds) && seconds >= 1 && seconds <= 7200)) fail('OpenCLI timeout must be an integer from 1 to 7200 seconds', 'ERR_OPENCLI_TIMEOUT_VALUE');
+  if (killGraceMs !== undefined && (!Number.isSafeInteger(killGraceMs) || killGraceMs < 0)) fail('OpenCLI termination grace must be a nonnegative integer', 'ERR_OPENCLI_TIMEOUT_VALUE');
   const runtimeOptions = {};
   if (spawnImpl !== undefined) runtimeOptions.spawnImpl = spawnImpl;
   if (environment !== undefined) runtimeOptions.environment = environment;
@@ -448,8 +449,6 @@ async function readCheckpointedCollectorState(root, testSeam) {
       if (!Number.isSafeInteger(nextGeneration)) fail('Deep collector generation limit reached', 'ERR_DIRECT_LOCK');
       const nextOwnerPath = generationFile(root, nextGeneration, 'owner');
       if (await collectorRecordExists(nextOwnerPath)) {
-        const abandonedInProcess = owner.value.pid === process.pid && abandonedCollectorNonces.has(owner.value.nonce);
-        if (!abandonedInProcess && isOwnerLive(owner.value.pid)) fail('Deep collector successor follows a live owner', 'ERR_DIRECT_LOCK');
         generation = nextGeneration;
         owner = await readCollectorRecord(nextOwnerPath, generation, 'owner', null, null, testSeam);
         state = 'owner';

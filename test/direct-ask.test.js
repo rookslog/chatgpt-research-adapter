@@ -494,6 +494,26 @@ test('advances past an owner linked after a stale checkpoint when both recorded 
   assert.equal(JSON.parse(await readFile(join(locks, 'collector-head.json'), 'utf8')).generation, 3);
 }));
 
+test('advances through a durable successor after the stale predecessor PID is reused', async () => withOutputRoot(async (outputRoot) => {
+  const outcome = await directAsk({
+    question: 'checkpoint PID reuse recovery', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    clock: () => preparedAt, newJobId: () => 'job_checkpoint_pid_reuse', newTurnId: () => 'turn_checkpoint_pid_reuse',
+    submit: (options) => submitDirectPreparedJob({ ...options, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'deep-checkpoint-pid-reuse-1', conversationUrl: 'https://chatgpt.com/c/deep-checkpoint-pid-reuse-1', tool: 'Deep Research', response: '' }) })
+  });
+  const locks = join(outcome.jobPath, 'response', 'collector-locks');
+  await mkdir(locks);
+  const firstOwner = collectorOwner(1, process.pid, '11111111-1111-4111-8111-111111111111');
+  const secondOwner = collectorOwner(2, 2147483647, '22222222-2222-4222-8222-222222222222');
+  await writeFile(join(locks, '1.owner.json'), firstOwner);
+  await writeFile(join(locks, '2.owner.json'), secondOwner);
+  await writeFile(join(locks, 'collector-head.json'), collectorHead(1, firstOwner));
+  let reads = 0;
+  const result = await collectDeepPreparedJob({ outputRoot, jobId: 'job_checkpoint_pid_reuse', openCliPath: '/tmp/opencli', preflight: async () => ({ version: '1.8.7' }), readStatus: async () => { reads += 1; return { status: 'not_ready', conversationId: 'deep-checkpoint-pid-reuse-1' }; } });
+  assert.equal(result.status, 'running');
+  assert.equal(reads, 1);
+  assert.ok((await readdir(locks)).includes('3.released.json'));
+}));
+
 test('keeps owner publication crash states immutable before and after the final link', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
     question: 'owner crash', mode: 'deep', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
@@ -640,6 +660,11 @@ test('rejects invalid direct timeout values consistently before collection prefl
   });
   for (const deepTimeoutSeconds of ['1', 0.5, 0, 7201]) {
     const options = { outputRoot, jobId: 'job_timeout_validation', openCliPath: '/tmp/opencli', transportOptions: { deepTimeoutSeconds }, preflight: async () => assert.fail('invalid timeout must fail before preflight') };
+    await assert.rejects(waitDeepPreparedJob(options), { code: 'ERR_OPENCLI_TIMEOUT_VALUE' });
+    await assert.rejects(collectDeepPreparedJob(options), { code: 'ERR_OPENCLI_TIMEOUT_VALUE' });
+  }
+  for (const killGraceMs of ['1', -1, -60000, 0.5, Number.POSITIVE_INFINITY]) {
+    const options = { outputRoot, jobId: 'job_timeout_validation', openCliPath: '/tmp/opencli', transportOptions: { killGraceMs }, preflight: async () => assert.fail('invalid termination grace must fail before preflight') };
     await assert.rejects(waitDeepPreparedJob(options), { code: 'ERR_OPENCLI_TIMEOUT_VALUE' });
     await assert.rejects(collectDeepPreparedJob(options), { code: 'ERR_OPENCLI_TIMEOUT_VALUE' });
   }

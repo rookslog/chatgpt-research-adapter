@@ -68,12 +68,23 @@ and successor acquisition therefore cannot race to regress the checkpoint.
 If a successor owner was linked after its predecessor was already provably dead
 but the successor publisher crashed before replacing the checkpoint, readers
 validate and advance across that one-generation tail rather than retrying the
-occupied generation forever. A successor behind a currently live predecessor
-is rejected.
+occupied generation forever. The validated contiguous successor is the durable
+takeover decision; readers do not re-evaluate its historical predecessor PID,
+which may since have been reused by the operating system. Liveness is checked
+only for the latest owner before another successor is created.
 If a release failure also prevents the abandonment receipt from being written,
 the process-local fallback remains fail-closed and another process must wait for
 the owner PID to become provably dead. No storage protocol can durably advertise
 abandonment when the storage itself cannot accept the record.
+
+The exact-head review at `a2efe9b88a84ffe4d6a78c120dd44d764dba1b58`
+identified two further P2 boundary cases. Shared direct transport validation now
+rejects a supplied termination grace unless it is a nonnegative safe integer,
+preventing negative values from algebraically expanding the absolute deadline.
+Checkpoint-tail validation also treats a valid contiguous successor record as
+the immutable takeover authority instead of rechecking its predecessor PID.
+Deterministic REDs cover both invalid grace before preflight and simulated PID
+reuse after successor publication.
 
 ## Verification contract
 

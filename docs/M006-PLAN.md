@@ -45,7 +45,10 @@ review produced seven additional lifecycle/authority P2 findings; the follow-up
 cycle adds durable cross-process abandonment, deadline-inclusive termination
 grace, deterministic event-error injection, result-envelope headroom,
 caller-scoped OpenCLI pins, durable commit rollback, and a bounded journal
-checkpoint. This correction cycle performs no provider submission and must not
+checkpoint. The next exact-head review found two more bounded cases: invalid
+negative termination grace and stale-predecessor PID reuse after a durable
+successor. Their regressions and corrections remain part of PR #21's unmerged
+review loop. This correction cycle performs no provider submission and must not
 merge until a new exact-head review has completed with every actionable thread
 resolved.
 
