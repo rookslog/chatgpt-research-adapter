@@ -13,7 +13,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 
-Check with the user that these seams match their expectations.
+Infer and record the seams from the existing conversation and repository evidence. Do not pause for confirmation: if a seam remains uncertain, label that uncertainty in the spec and leave the published issue in `needs-triage`.
 
 3. Infer the `bug` or `enhancement` category from the conversation, write it into the spec using the template below, then publish the spec to the project issue tracker. Apply `needs-triage`, not `ready-for-agent`: a spec is planning input and does not become runnable until triage adds the canonical agent brief and complete execution contract. Do not interview merely to force readiness.
 
