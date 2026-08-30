@@ -24,6 +24,7 @@ Look at the current repo to understand its starting state. Read whatever exists;
 - `CONTEXT.md` and `CONTEXT-MAP.md` at the repo root
 - `docs/adr/` and any `src/*/docs/adr/` directories
 - `docs/agents/`: does this skill's prior output already exist?
+- `docs/agents/orchestration.md`: does it define one claim authority, an active-lane cap, the ticket execution contract, completed-result closure, and root verification?
 - `.scratch/`: a sign that a local-markdown issue tracker convention is already in use
 - Is any triage-state consumer or producer installed? Check at least `triage`, `to-spec`, and `to-tickets`, and inspect other installed skills (excluding this setup skill itself) for the canonical workflow states. This decides whether Section B runs at all.
 - Monorepo signals: a `pnpm-workspace.yaml`, a `workspaces` field in `package.json`, or a populated `packages/*` with its own `src/`. These are present only in a genuinely large multi-package repo; their absence means single-context, which is almost every repo.
@@ -53,7 +54,7 @@ Record the choice in `docs/agents/issue-tracker.md`. The GitHub and GitLab templ
 
 **Section B: Triage metadata.** Run this section whenever any installed skill consumes or produces triage state, including `triage`, `to-spec`, or `to-tickets`. Skip it only when exploration established that no installed skill uses the category or workflow-state contract.
 
-If it is installed, ask exactly one question:
+When Section B runs, ask exactly one question:
 
 > Do you want to keep the default triage metadata? (recommended: **yes**)
 
@@ -63,12 +64,18 @@ The default category representation is one durable field in the latest triage re
 
 Offer **multi-context** (a root `CONTEXT-MAP.md` pointing to per-context `CONTEXT.md` files) only when exploration found monorepo signals. Then confirm which layout they want.
 
+**Section D: Orchestration.** Always run this section because Wayfinder and delegated research require a wave-capacity and lifecycle contract. If `docs/agents/orchestration.md` already defines one root claim authority, an explicit maximum number of active lanes including root, the complete ticket execution contract, collection of assigned/no-locator runs, direct closure of validated delegated results, and root integration/verification, preserve it and present those verified values. Otherwise ask exactly one question:
+
+> Do you want to use the default orchestration contract: one root claim authority and at most three active lanes including root? (recommended: **yes**)
+
+If the user declines, collect the replacement active-lane cap and lifecycle contract before setup can complete. Do not leave “remaining wave capacity” undefined.
+
 ### 3. Confirm and edit
 
 Show the user a draft of:
 
 - The `## Agent skills` block to add to each confirmed active-agent instruction file (see step 4 for selection rules)
-- The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md`, including category and workflow-state mappings (the last only when `triage` is installed)
+- The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, `docs/agents/orchestration.md`, and `docs/agents/triage-labels.md`, including category and workflow-state mappings (the last whenever Section B ran)
 
 Let them edit before writing.
 
@@ -84,7 +91,7 @@ For a real tracker, include a tracker-mutation preview: every required triage an
 
 Do not create a missing counterpart when one instruction file already exists. When both exist and the user approves both, merge the same setup-owned subsections into each while preserving their distinct custom content.
 
-If an `## Agent skills` block already exists in a chosen file, update only the setup-owned `### Issue tracker`, `### Triage labels`, and `### Domain docs` subsections in place. Preserve every unknown or custom subsection, including orchestration, routing, verification, or repository-specific additions, and never replace the whole block from the fixed template. Don't overwrite user edits to the surrounding sections.
+If an `## Agent skills` block already exists in a chosen file, update only the setup-owned `### Issue tracker`, `### Triage labels`, `### Domain docs`, and `### Orchestration` pointer subsections in place. Preserve every unknown or custom subsection, including routing, verification, or repository-specific additions, and never replace the whole block from the fixed template. Preserve an existing orchestration contract that satisfies Section D rather than replacing its policy with the seed. Don't overwrite user edits to the surrounding sections.
 
 The block:
 
@@ -102,24 +109,31 @@ The block:
 ### Domain docs
 
 [one-line summary of layout: "single-context" or "multi-context"]. See `docs/agents/domain.md`.
+
+### Orchestration
+
+Read `docs/agents/orchestration.md` before claiming work, delegating, launching parallel lanes, or defining a verification/review gate.
 ```
 
 Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, whenever Section B ran for any state-consuming or state-producing skill. When it did not run, both are omitted.
 
 Then write the docs files using the seed templates in this skill folder as a starting point. For a missing file, create it from the selected seed. For an existing `docs/agents/*.md`, merge only the setup-owned tracker choice, triage mapping, or domain-layout sections approved in step 3. Preserve unknown headings, backend-neutral boundaries, execution contracts, run records, required context sources, and other custom content. When the tracker changes, replace the old backend-specific commands, endpoints, relationship operations, and query fields with the selected seed's backend; do not preserve commands that still target the previous tracker. Never replace an existing document wholesale from a seed template.
 
+Always create `docs/agents/orchestration.md` from the orchestration seed when it is missing. When it exists, preserve repository-specific routing, verification, and authority policy while merging only the missing Section-D contract elements; verify the resulting root authority, active-lane cap, ticket contract, collection/closure lifecycle, and root integration before continuing.
+
 When multi-context is selected and `CONTEXT-MAP.md` does not exist, create a root skeleton immediately so the chosen layout is durable before first domain-modeling use. Include `# Context Map`, empty `## Contexts` and `## Relationships` sections with comments describing the expected links, and do not invent context names. Single-context setup still creates no glossary eagerly.
 
 - [issue-tracker-github.md](./issue-tracker-github.md): GitHub issue tracker
 - [issue-tracker-gitlab.md](./issue-tracker-gitlab.md): GitLab issue tracker
 - [issue-tracker-local.md](./issue-tracker-local.md): local-markdown issue tracker
-- [triage-labels.md](./triage-labels.md): label mapping (only if `triage` is installed)
+- [triage-labels.md](./triage-labels.md): label mapping (whenever Section B ran)
 - [domain.md](./domain.md): domain doc consumer rules + layout
+- [orchestration.md](./orchestration.md): default claim, wave-capacity, lifecycle, and root-verification contract
 
 For "other" issue trackers, write `docs/agents/issue-tracker.md` from the confirmed complete operation and capability contract. Do not declare setup complete from a generic tracker description.
 
-**Provision and verify tracker capability and labels before declaring setup complete.** Re-read that the selected real tracker has issues enabled. On GitHub or GitLab, create the approved missing triage labels plus `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, and `wayfinder:task`, then fetch the label inventory again and verify every configured label exists. If issues are disabled or unknown, the user did not authorize the preview, the tracker is read-only, or any required label remains absent, report setup as incomplete and do not claim downstream ticket publication is ready.
+**Provision and verify tracker capability and labels before declaring setup complete.** Re-read that the selected real tracker has issues enabled. On GitHub or GitLab, create the approved missing triage labels when Section B ran, plus `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, and `wayfinder:task`; then fetch the label inventory again and verify every configured label exists. If issues are disabled or unknown, the user did not authorize the preview, the tracker is read-only, or any required label remains absent, report setup as incomplete and do not claim downstream ticket publication is ready.
 
 ### 5. Done
 
-Tell the user setup is complete only after the configured files and required tracker labels are verified, and say which engineering skills will now read from them. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
+Tell the user setup is complete only after the configured files, required tracker labels, and orchestration contract are verified. Report the exact active-lane cap and say which engineering skills will now read from these artifacts. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.

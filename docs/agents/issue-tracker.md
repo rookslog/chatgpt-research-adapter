@@ -47,10 +47,13 @@ GitHub Issues at `rookslog/chatgpt-research-adapter`. Use the `gh` CLI and pass
   locator after dispatch. Root uses the available waiter/wakeup or reconciles
   all assigned delegated issues and `claiming` records at the start of the next
   map session, including assigned/no-locator claims. Completed artifacts are
-  validated, confirmed in-progress work remains claimed, known-unsent failures
-  are dispositioned and unassigned, and possibly-dispatched failures remain
-  held for investigation without resubmission. Unfinished HITL claims remain
-  assigned for the live owner/root to resume or explicitly disposition.
+  validated and move directly into root-owned reconciliation and closure while
+  the issue remains assigned; root publishes the answer, updates the map and
+  dependencies, and closes the child last before selecting new work. Confirmed
+  in-progress work remains claimed, known-unsent failures are dispositioned
+  and unassigned, and possibly-dispatched failures remain held for
+  investigation without resubmission. Unfinished HITL claims remain assigned
+  for the live owner/root to resume or explicitly disposition.
 - **Resolve:** while the child remains open, reconcile new or invalidated
   tickets and fog, post the decision or finding, append the map pointer, and
   re-read dependencies. Close the child last because closure can unblock work.

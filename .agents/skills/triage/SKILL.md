@@ -38,7 +38,7 @@ Five **state** roles:
 - `ready-for-human`: needs human implementation
 - `wontfix`: will not be actioned
 
-For a PR, the same states read against the attached code: `ready-for-agent` means a brief is attached and an agent should take the next step on the diff; `ready-for-human` means it's ready for a human to merge.
+For a PR, the same states read against the attached code: `ready-for-agent` means a brief is attached and an agent should take the next step on the diff; `ready-for-human` means the brief names human work still required. Merge readiness is assessed only after that human work is completed and verified.
 
 Every triaged issue should have exactly one category in its latest durable
 triage record and exactly one state label. Read `docs/agents/triage-labels.md`
@@ -83,14 +83,15 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 4. **Grill (if needed).** If the request needs fleshing out, apply the installed `grilling` and `domain-modeling` skills through the supported harness mechanism, and grill it into shape a round of questions at a time, sharpening domain terms and updating `CONTEXT.md`/ADRs inline as decisions land.
 
 5. **Apply the outcome:**
+   Before applying any state, publish and verify exactly one selected category in the configured durable triage record. The branch-specific note or Agent Brief may carry it, but the conversational recommendation from step 2 is not durable state.
    - `ready-for-agent`: publish the canonical agent brief through the configured tracker operation ([AGENT-BRIEF.md](AGENT-BRIEF.md)). On a real tracker, post and verify the separate comment or note. On local Markdown, embed and verify the brief directly below the ticket's plain `Status:` field rather than appending it under `## Comments`. Apply the ready state only after the authoritative record is present.
-   - `ready-for-human`: same structure as an agent brief, but note why it can't be delegated (judgment calls, external access, design decisions, manual testing).
-- `needs-info`: post triage notes (template below).
+   - `ready-for-human`: publish the same structure as an agent brief, but name the human work still required (judgment calls, external access, design decisions, manual testing); this state does not itself mean merge-ready.
+   - `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
      - **Rejected (bug)**: give a polite explanation, then close.
-     - **Rejected (enhancement)**: write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
-   - `needs-triage`: apply the role. Optional comment if there's partial progress.
+     - **Rejected (enhancement)**: write to `.out-of-scope/`, complete and verify its repository-publication prerequisite, link the published record from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
+   - `needs-triage`: after the required category record above is verified, apply the role. Additional partial-progress content is optional; the category record is not.
 
 ## Quick state override
 

@@ -96,9 +96,12 @@ Delegated research must expose a resumable task/return locator after dispatch.
 Root uses a supported waiter/wakeup when available or reconciles every assigned
 and pre-dispatch record before selecting new work in the next session. A ticket
 remains claimed while its run is confirmed in progress; completed output is
-validated before reconciliation, a known-unsent failure is dispositioned and
-unassigned, and a possibly-dispatched or lost run remains held for explicit
-investigation without automatic resubmission.
+validated and moved directly into a root-owned closure queue while it remains
+assigned. Root reconciles the finding, publishes the ticket answer, updates the
+map and dependencies, and closes the child last before selecting new work. A
+completed result never returns to selection or resubmission. A known-unsent
+failure is dispositioned and unassigned, and a possibly-dispatched or lost run
+remains held for explicit investigation without automatic resubmission.
 
 For the current decision maps, the intended topology is:
 

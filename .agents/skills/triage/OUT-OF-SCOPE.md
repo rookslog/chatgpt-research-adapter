@@ -93,8 +93,9 @@ The flow:
 2. Check if a matching `.out-of-scope/` file already exists
 3. If yes: append the new issue to the "Prior requests" list
 4. If no: create a new file with the concept name, decision, reason, and first prior request
-5. Post a comment on the issue explaining the decision and mentioning the `.out-of-scope/` file
-6. Close the issue with the `wontfix` label
+5. Publish the changed record through the repository's authorized version-control workflow and verify that the durable destination revision contains it. If the required commit, push, PR, or merge is not authorized or not yet complete, keep the request open and report that publication prerequisite instead of claiming durable memory.
+6. Post a comment on the issue explaining the decision and linking the published record or durable revision
+7. Only then close the issue with the `wontfix` label
 
 ## Updating or removing out-of-scope files
 
