@@ -266,19 +266,42 @@ const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    const deepResea
                 .map((node) => [node.nodeId, node]));
             const rootWebAreas = nodes.filter((node) => String(node?.role?.value || node?.role || '').toLowerCase() === 'rootwebarea');
             diagnostics.exactTargetRootCount = rootWebAreas.length;
-            const lines = [];
             const sourcesByUrl = new Map();
-            const visited = new Set();
+            const projectedTextByNode = new Map();
+            const projectionVisited = new Set();
+            const semanticTextRoles = new Set(['heading', 'paragraph', 'link', 'button', 'text']);
+            const propertyValue = (node, name) => node?.properties?.find((property) => property?.name === name)?.value?.value;
+            const project = (node) => {
+                if (!node || projectionVisited.has(node)) return [];
+                projectionVisited.add(node);
+                const role = String(node?.role?.value || node?.role || '').toLowerCase();
+                if (role === 'navigation') return [];
+                const name = String(node?.name?.value || node?.name || '').replace(/\s+/g, ' ').trim();
+                const childLines = (Array.isArray(node?.childIds) ? node.childIds : [])
+                    .flatMap((childId) => project(nodeById.get(childId)));
+                if (role === 'statictext' || role === 'inlinetextbox') {
+                    const text = name || normalizeDeepResearchText(childLines.join(' '));
+                    projectedTextByNode.set(node, text);
+                    return text ? [text] : [];
+                }
+                if (semanticTextRoles.has(role)) {
+                    const text = name || normalizeDeepResearchText(childLines.join(' '));
+                    projectedTextByNode.set(node, text);
+                    return text ? [text] : [];
+                }
+                return childLines;
+            };
+            const projectedLines = rootWebAreas.length === 1 ? project(rootWebAreas[0]) : [];
             let sourcesHeadingLevel = null;
             let collectingSources = false;
-            const propertyValue = (node, name) => node?.properties?.find((property) => property?.name === name)?.value?.value;
-            const visit = (node, suppressText = false) => {
-                if (!node || visited.has(node)) return;
-                visited.add(node);
+            const sourceVisited = new Set();
+            const visitSources = (node) => {
+                if (!node || sourceVisited.has(node)) return;
+                sourceVisited.add(node);
                 const role = String(node?.role?.value || node?.role || '').toLowerCase();
                 if (role === 'navigation') return;
-                const name = String(node?.name?.value || node?.name || '').replace(/\s+/g, ' ').trim();
-                const isTextLeaf = role === 'statictext' || role === 'inlinetextbox';
+                const name = projectedTextByNode.get(node)
+                    || String(node?.name?.value || node?.name || '').replace(/\s+/g, ' ').trim();
                 if (role === 'heading') {
                     const rawLevel = propertyValue(node, 'level');
                     const levelValue = Number(rawLevel);
@@ -294,7 +317,6 @@ const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    const deepResea
                         sourcesHeadingLevel = level;
                     }
                 }
-                if (!(suppressText && isTextLeaf) && name) lines.push(name);
                 if (collectingSources && role === 'link') {
                     const rawUrl = String(node?.properties?.find((property) => property?.name === 'url')?.value?.value || '').trim();
                     let parsedUrl = null;
@@ -306,21 +328,47 @@ const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    const deepResea
                         if (!sourcesByUrl.has(url)) sourcesByUrl.set(url, { title: name || parsedUrl.hostname, url });
                     }
                 }
-                const suppressChildText = suppressText || (name !== '' && !isTextLeaf);
                 for (const childId of Array.isArray(node?.childIds) ? node.childIds : []) {
-                    visit(nodeById.get(childId), suppressChildText);
+                    visitSources(nodeById.get(childId));
                 }
             };
-            if (rootWebAreas.length === 1) visit(rootWebAreas[0]);
-            const text = normalizeDeepResearchText(lines.join('\n'));
-            if (!generating && looksLikeDeepResearchReport(text)) {
+            if (rootWebAreas.length === 1) visitSources(rootWebAreas[0]);
+            const text = normalizeDeepResearchText(projectedLines.join('\n'));
+            if (looksLikeDeepResearchReport(text)) {
+                let exactTargetGenerationState = 'unknown';
+                try {
+                    const finalGenerating = await isGenerating(page);
+                    if (finalGenerating === false) exactTargetGenerationState = 'inactive';
+                    else if (finalGenerating === true) exactTargetGenerationState = 'active';
+                } catch (error) {
+                    diagnostics.exactTargetGenerationError = String(error?.message || error);
+                }
+                diagnostics.exactTargetGenerationState = exactTargetGenerationState;
+                if (exactTargetGenerationState === 'inactive') {
+                    return {
+                        status: 'completed',
+                        report: text,
+                        html: '',
+                        url: iframeState.url,
+                        method: '@PROTOCOL@-accessibility-exact-target',
+                        sources: Array.from(sourcesByUrl.values()),
+                        diagnostics,
+                    };
+                }
+                if (progressCandidate) {
+                    return {
+                        ...progressCandidate,
+                        url: iframeState.url,
+                        diagnostics,
+                    };
+                }
                 return {
-                    status: 'completed',
-                    report: text,
+                    status: exactTargetGenerationState === 'active' ? 'running' : 'unavailable',
+                    report: '',
                     html: '',
                     url: iframeState.url,
-                    method: '@PROTOCOL@-accessibility-exact-target',
-                    sources: Array.from(sourcesByUrl.values()),
+                    method: 'cross-origin-iframe-detected',
+                    sources: [],
                     diagnostics,
                 };
             }

@@ -13,6 +13,7 @@
       "conversation_id",
       "iframe_state",
       "frame_tree",
+      "generation_probe_outcomes",
       "exact_target_ax_tree",
       "expected_report",
       "expected_sources"
@@ -61,6 +62,7 @@
     }
   ],
   "browser_frames": [],
+  "generation_probe_outcomes": [false, false],
   "frame_tree": {
     "frameTree": {
       "frame": {
@@ -75,6 +77,7 @@
       {
         "nodeId": "root",
         "role": { "value": "RootWebArea" },
+        "name": { "value": "Synthetic Deep Research document title" },
         "childIds": ["navigation", "heading", "body", "source-heading", "source-a", "source-b", "source-a-duplicate", "unsafe-source", "appendix-heading", "appendix-link", "terminal-sentinel"]
       },
       {
@@ -109,7 +112,6 @@
       {
         "nodeId": "body",
         "role": { "value": "paragraph" },
-        "name": { "value": "This completed Deep Research fixture models a long report recovered from the cross-origin result application. It contains enough stable prose to satisfy the pinned reader's completed-report heuristic while keeping every name, URL, and claim synthetic. The fixture represents the observed current surface in which the ordinary assistant-message list is empty, one inaccessible Deep iframe is visible, and the root frame tree does not enumerate that iframe. The exact target accessibility response is a deterministic protocol fixture, not a claim that the live target route has already succeeded. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content." },
         "childIds": ["body-static"]
       },
       {

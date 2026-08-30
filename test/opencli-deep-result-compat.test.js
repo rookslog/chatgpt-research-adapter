@@ -22,7 +22,7 @@ function parseJsonMaybe(value) { try { return JSON.parse(String(value)); } catch
 async function fetchChatGPTConversationPayload(page) { return page.fetchConversation(); }
 function unwrapEvaluateResult(value) { return value; }
 function requireObjectEvaluateResult(value) { if (!value || Array.isArray(value) || typeof value !== 'object') throw new CommandExecutionError('malformed object'); return value; }
-async function isGenerating(page) { return page.generating === true; }
+async function isGenerating(page) { return page.nextGenerationProbe(); }
 function conversationIdFromUrl(url) { return String(url || '').match(/\\/c\\/([a-zA-Z0-9_-]+)/)?.[1] || ''; }
 function normalizeDeepResearchText(value) { return String(value || '').replace(/\\u00a0/g, ' ').replace(/[ \\t]+\\n/g, '\\n').replace(/\\n{3,}/g, '\\n\\n').trim(); }
 function looksLikeDeepResearchReport(value) { const normalized = normalizeDeepResearchText(value); return normalized.length >= 500 && /Sources|References|Executive Summary/i.test(normalized); }
@@ -174,9 +174,18 @@ const payload = ${JSON.stringify(payload)};
 const networkEntries = ${JSON.stringify(networkEntries)};
 const readerFixture = ${JSON.stringify(readerFixture)};
 let fallbackCalls = 0;
+let generationProbeCalls = 0;
 const cdpCalls = [];
 const page = {
-  generating: readerFixture?.generating === true,
+  async nextGenerationProbe() {
+    const outcomes = Array.isArray(readerFixture?.generation_probe_outcomes)
+      ? readerFixture.generation_probe_outcomes
+      : [readerFixture?.generating === true];
+    const outcome = outcomes[Math.min(generationProbeCalls, outcomes.length - 1)];
+    generationProbeCalls += 1;
+    if (outcome === 'throw') throw new Error('synthetic generation probe failure');
+    return outcome;
+  },
   async networkEntries() { return networkEntries; },
   async fetchConversation() { return { payload }; },
   async evaluate() { return readerFixture?.iframe_state; },
@@ -212,7 +221,7 @@ if (process.argv[2] === '--version') {
       const extracted = network?.status === 'completed' ? network : extractDeepResearchFromConversationPayload(payload, { expectedConversationId: conversationId });
       result = extracted || await page.existingFallback();
     }
-    writeFileSync(capturePath, JSON.stringify({ args: process.argv.slice(2), executable: process.argv[1], fallbackCalls, cdpCalls, result, environment: { HOME: process.env.HOME, OPENCLI_CONFIG_DIR: process.env.OPENCLI_CONFIG_DIR } }));
+    writeFileSync(capturePath, JSON.stringify({ args: process.argv.slice(2), executable: process.argv[1], fallbackCalls, generationProbeCalls, cdpCalls, result, environment: { HOME: process.env.HOME, OPENCLI_CONFIG_DIR: process.env.OPENCLI_CONFIG_DIR } }));
     console.log(JSON.stringify([{ conversationId: process.argv[4], ...result }]));
   } catch (error) {
     writeFileSync(capturePath, JSON.stringify({ args: process.argv.slice(2), executable: process.argv[1], fallbackCalls, error: error?.message || String(error) }));
@@ -238,6 +247,7 @@ test('deep reader addresses the observed cross-origin iframe by exact URL when t
   assert.ok(exactTargetCalls.every((call) => call.params.sessionId === 'target'));
   assert.ok(exactTargetCalls.every((call) => /^opencli-deep-exact-target-[0-9a-f]+-\d+$/.test(call.params.frameId)));
   assert.ok(exactTargetCalls.every((call) => !call.params.frameId.includes(currentDeepUiFixture.iframe_state.deepResearchIframe.src)));
+  assert.equal(observed.generationProbeCalls, 2);
 }, {
   payload: currentDeepUiFixture.payload,
   networkEntries: currentDeepUiFixture.network_entries,
@@ -246,13 +256,30 @@ test('deep reader addresses the observed cross-origin iframe by exact URL when t
 
 test('deep reader does not finalize a report-like exact-target surface while generation remains active', async () => {
   const readerFixture = structuredClone(currentDeepUiFixture);
-  readerFixture.generating = true;
+  readerFixture.generation_probe_outcomes = [false, true];
   await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
     const identity = await preflightOpenCli({ executablePath });
     await assert.rejects(runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 }), { code: 'ERR_OPENCLI_OUTPUT' });
     const observed = JSON.parse(await readFile(capturePath, 'utf8'));
     assert.equal(observed.result.status, 'running');
     assert.equal(observed.result.method, 'cross-origin-iframe-detected');
+    assert.equal(observed.generationProbeCalls, 2);
+  }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
+});
+
+test('deep reader does not finalize a report-like exact target when the generation probe fails', async () => {
+  const readerFixture = structuredClone(currentDeepUiFixture);
+  readerFixture.generation_probe_outcomes = [false, 'throw'];
+  const body = readerFixture.exact_target_ax_tree.nodes.find((node) => node.nodeId === 'body');
+  const bodyText = readerFixture.exact_target_ax_tree.nodes.find((node) => node.nodeId === 'body-static');
+  body.name = structuredClone(bodyText.name);
+  await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    await assert.rejects(runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 }), { code: 'ERR_OPENCLI_OUTPUT' });
+    const observed = JSON.parse(await readFile(capturePath, 'utf8'));
+    assert.equal(observed.result.status, 'unavailable');
+    assert.notEqual(observed.result.status, 'completed');
+    assert.equal(observed.generationProbeCalls, 2);
   }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
 });
 
