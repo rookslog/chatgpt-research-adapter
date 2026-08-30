@@ -28,9 +28,15 @@ resolve the more specific contract before continuing.
 Exactly one root orchestrator is active as claim authority for a map or wave.
 GitHub assignment is a visibility mechanism, not an atomic ownership lock:
 workers never select or claim their own tickets. Root serializes the final
-frontier read, contract check, assignment verification, run-record write, and
-dispatch. If a single claim authority cannot be established, do not launch the
-wave.
+frontier read, contract check, pre-dispatch run-record write, assignment and
+verification, single dispatch, and task-locator write. If a single claim
+authority cannot be established, do not launch the wave.
+
+The pre-dispatch record contains the stable run ID, `claiming` state, and no
+task locator. If the transition fails, root unassigns only a claim proven not
+dispatched after recording its disposition. A possibly-dispatched claim stays
+assigned for investigation without resubmission. Every session reconciles
+assigned/no-locator claims as well as runs with locators.
 
 ## Before a wave
 
@@ -82,11 +88,13 @@ and the wider wave has a stated benefit. A later wave begins only after root
 has reconciled the prior wave's artifacts and refreshed the dependency
 frontier.
 
-Delegated research must expose a resumable task/return locator in its claim
-record. Root uses a supported waiter/wakeup when available or collects the run
-before selecting new work in the next session. A ticket remains claimed while
-its run is in progress; completed output is validated before reconciliation,
-and failed or lost runs receive an explicit root disposition.
+Delegated research must expose a resumable task/return locator after dispatch.
+Root uses a supported waiter/wakeup when available or reconciles every assigned
+and pre-dispatch record before selecting new work in the next session. A ticket
+remains claimed while its run is confirmed in progress; completed output is
+validated before reconciliation, a known-unsent failure is dispositioned and
+unassigned, and a possibly-dispatched or lost run remains held for explicit
+investigation without automatic resubmission.
 
 For the current decision maps, the intended topology is:
 

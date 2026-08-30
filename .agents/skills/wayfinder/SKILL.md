@@ -25,7 +25,7 @@ The map is an **index**, not a store. It lists the decisions made and points at 
 
 ### The map body
 
-The whole map at low resolution, loaded once per session. Open tickets are **not** listed: they are open child issues, found by query.
+The whole map at low resolution, loaded once per session. Open tickets are normally **not** listed: they are open child issues, found by query. When the configured tracker lacks a complete native child relationship, the map instead carries the tracker-defined fallback child index below so later sessions can enumerate every child.
 
 ```markdown
 ## Destination
@@ -49,6 +49,10 @@ The whole map at low resolution, loaded once per session. Open tickets are **not
 ## Out of scope
 
 <!-- see "Out of scope": work ruled beyond the destination; closed, never graduates -->
+
+## Child tickets (fallback only)
+
+<!-- Include only when the tracker configuration requires it. Maintain the complete tracker-defined child index here; omit this section when native child enumeration is available. -->
 ```
 
 ### Tickets
@@ -69,7 +73,9 @@ Each ticket is a **child issue** of the map; the tracker's issue id is its ident
 
 Each ticket carries a `wayfinder:<type>` label, one of `research`, `prototype`, `grilling`, `task` (see [Ticket Types](#ticket-types)).
 
-A ticket is visibly **claimed** by assigning it to the dev driving the map, but an assignee is availability state, not a concurrency mutex. Exactly one root orchestrator is the claim authority for a map. It serializes `re-read frontier -> verify execution contract -> assign -> verify assignment -> record run -> dispatch`; workers receive an already-claimed ticket and never self-assign. Do not run independent root claimers against the same map. If a single claim authority cannot be established, stop rather than start duplicate work.
+A ticket is visibly **claimed** by assigning it to the dev driving the map, but an assignee is availability state, not a concurrency mutex. Exactly one root orchestrator is the claim authority for a map. It serializes `re-read frontier -> verify execution contract -> persist pre-dispatch run record -> assign -> verify assignment -> dispatch once -> persist task locator`. The pre-dispatch record carries the stable run ID, `claiming` state, and no task locator; workers receive an already-claimed ticket and never self-assign. Do not run independent root claimers against the same map. If a single claim authority cannot be established, stop rather than start duplicate work.
+
+If assignment or dispatch fails, root records the observed boundary. A claim proven not dispatched is unassigned and returned to the frontier after its run is dispositioned; a claim whose dispatch may have occurred stays assigned and is investigated without resubmission. Later sessions reconcile assigned children and `claiming` records even when no task locator was persisted, so no-locator claims cannot disappear from recovery.
 
 Blocking uses the tracker's **native** dependency relationship: essential because it renders the frontier _visually_ in the tracker's own UI, so the human sees what's takeable without opening the map. Only a tracker that lacks native blocking falls back to a body convention. A ticket is **unblocked** when every ticket blocking it is closed; the **frontier** is the open, unblocked, unclaimed children, the edge of the known.
 
@@ -117,16 +123,16 @@ User invokes with a loose idea.
 2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. Fog and unresolved decisions are independent: several sharp tickets can exist with no fog. Skip the map only when there are no unresolved decisions, or when every unresolved decision fits one session and no shared graph or resumption point is needed. Then stop and ask the user how they'd like to proceed.
 3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
 4. **Create the tickets you can specify now** as child issues of the map. Populate the repository's complete ticket execution contract on every ticket at creation, regardless of type; for HITL work, record the human/root route explicitly rather than inventing an agent route. If a contract field cannot yet be supplied, set `Contract status: needs-clarification` and exclude the child from the frontier until the contract is completed. Then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Wiring sorts contract-complete children into the frontier and the blocked; everything you can't yet specify stays in the fog: the **Not yet specified** section.
-5. **Launch the research frontier.** The root claim authority re-reads the wired dependency state and selects only open, unassigned `research` tickets with no open blocker. Launch no more than the remaining wave capacity. Before each launch, add or verify the repository's ticket execution contract, including one owned output path and the route fit; then claim and verify the ticket, record a stable run ID plus task/return locator in the claim comment, and only then dispatch. The subagent calls the Skill tool with "research" and works only in its isolated owned branch/worktree and output path. Blocked, contract-incomplete, or unverifiably claimed tickets remain unlaunched.
-6. **Register collection.** Every launched run must have a supported return path: use the harness's task waiter/wakeup when available, or persist a resumable task locator that a later Wayfinder session can inspect. A later session first collects completed research, validates the ticket-owned artifact, and reconciles the map; in-progress work stays claimed, and failed or lost work gets an explicit disposition from the root. Never abandon an assigned research ticket merely because charting stops.
+5. **Launch the research frontier.** The root claim authority re-reads the wired dependency state and selects only open, unassigned `research` tickets with no open blocker. Launch no more than the remaining wave capacity. Before each launch, add or verify the repository's ticket execution contract, including one owned output path and the route fit; persist the stable run ID in a `claiming` pre-dispatch record, assign and verify the ticket, dispatch exactly once, then persist the task/return locator and `dispatched` state. If the transition fails, apply the known-unsent versus possibly-dispatched recovery rule above. The subagent calls the Skill tool with "research" and works only in its isolated owned branch/worktree and output path. Blocked, contract-incomplete, or unverifiably claimed tickets remain unlaunched.
+6. **Register collection.** Every launched run must have a supported return path: use the harness's task waiter/wakeup when available, or persist a resumable task locator that a later Wayfinder session can inspect. A later session first reconciles every assigned child and every `claiming` record, including assigned claims with no locator; it collects completed research, validates the ticket-owned artifact, leaves confirmed in-progress work claimed, returns provably undispatched work to the frontier after disposition, and holds possibly-dispatched work for investigation without resubmission. Never abandon an assigned research ticket merely because charting stops.
 7. Stop: charting is one session's work; it hand-resolves nothing unless a launched research result has returned and passed collection.
 
 ### Work through the map
 
 User invokes with a map (URL or number). A ticket is **optional**: without one, you pick the next decision, not the user.
 
-1. Load the **map**: the low-res view, not every ticket body. Before taking new work, reconcile already-claimed research runs: inspect their persisted task locators, collect completed artifacts, leave in-progress work claimed, and explicitly disposition failed or unrecoverable runs.
-2. Choose the ticket. Whether the user named one or you select the first frontier ticket, verify that it is open, unblocked, unassigned, and carries any required execution contract. A named ticket does not bypass these gates. The root claim authority then performs the serialized claim sequence and dispatches or starts work only after the assignment and run record are visible.
+1. Load the **map**: the low-res view, not every ticket body. Before taking new work, reconcile assigned children and pre-dispatch records, including claims with no task locator: collect completed artifacts, leave confirmed in-progress work claimed, return provably undispatched work to the frontier after disposition, and hold possibly-dispatched work for investigation without resubmission.
+2. Choose the ticket. Whether the user named one or you select the first frontier ticket, verify that it is open, unblocked, unassigned, and carries any required execution contract. A named ticket does not bypass these gates. The root claim authority then persists the pre-dispatch run record before assignment, verifies the assignment, dispatches once, and persists the task locator; failures use the same recovery rule.
 3. Resolve it. **Zoom as needed**: fetch the full body of any related or closed ticket on demand; call the Skill tool for whichever skills the `## Notes` block names. If in doubt, call the Skill tool twice, for "grilling" and "domain-modeling".
 4. **Reconcile while the ticket is still open.** Add newly surfaced tickets (create-then-wire), graduate any fog the answer has made specifiable, clear each graduated patch from **Not yet specified**, and update or close invalidated tickets. If the answer places work beyond the destination, rule it out of scope rather than recording it as a route decision.
 5. **Publish closure last.** Post the answer as a resolution comment, append its context pointer to the map's Decisions-so-far, re-read the affected dependency/frontier state, and only then close the resolved ticket. Closing is the final publication step because it can unblock dependants.

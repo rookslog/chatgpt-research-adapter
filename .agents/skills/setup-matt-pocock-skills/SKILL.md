@@ -63,7 +63,7 @@ Offer **multi-context** (a root `CONTEXT-MAP.md` pointing to per-context `CONTEX
 
 Show the user a draft of:
 
-- The `## Agent skills` block to add to whichever of `CLAUDE.md` / `AGENTS.md` is being edited (see step 4 for selection rules)
+- The `## Agent skills` block to add to each confirmed active-agent instruction file (see step 4 for selection rules)
 - The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md` (the last only when `triage` is installed)
 
 Let them edit before writing.
@@ -72,15 +72,15 @@ For a real tracker, include a tracker-mutation preview: every required triage an
 
 ### 4. Write
 
-**Pick the file to edit:**
+**Pick the file or files to edit:**
 
-- If `CLAUDE.md` exists, edit it.
-- Else if `AGENTS.md` exists, edit it.
+- If only one of `CLAUDE.md` or `AGENTS.md` exists, edit that file.
+- If both exist, identify which agent surface is active in the current harness, recommend updating its instruction file, and ask the user whether setup should update that file only or both existing files. Never silently prefer `CLAUDE.md` over `AGENTS.md`.
 - If neither exists, ask the user which one to create; don't pick for them.
 
-Never create `AGENTS.md` when `CLAUDE.md` already exists (or vice versa); always edit the one that's already there.
+Do not create a missing counterpart when one instruction file already exists. When both exist and the user approves both, merge the same setup-owned subsections into each while preserving their distinct custom content.
 
-If an `## Agent skills` block already exists in the chosen file, update only the setup-owned `### Issue tracker`, `### Triage labels`, and `### Domain docs` subsections in place. Preserve every unknown or custom subsection, including orchestration, routing, verification, or repository-specific additions, and never replace the whole block from the fixed template. Don't overwrite user edits to the surrounding sections.
+If an `## Agent skills` block already exists in a chosen file, update only the setup-owned `### Issue tracker`, `### Triage labels`, and `### Domain docs` subsections in place. Preserve every unknown or custom subsection, including orchestration, routing, verification, or repository-specific additions, and never replace the whole block from the fixed template. Don't overwrite user edits to the surrounding sections.
 
 The block:
 
