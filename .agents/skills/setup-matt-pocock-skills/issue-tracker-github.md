@@ -37,15 +37,24 @@ Create a GitHub issue.
 
 Run `gh issue view <number> --json number,title,body,author,createdAt,updatedAt,state,comments,labels,url --jq '.'`.
 
+## Spec publication recovery
+
+Every `to-spec` issue body carries `Spec publication key: <source-identity>/<request-intent-digest>`, derived from the normalized user request and settled decisions rather than generated spec prose. Before creation, exhaustively search open and closed issues for that exact key. Zero matches permits one create; one match resumes that issue through trusted category-record publication and singleton `needs-triage` verification; multiple matches stop for explicit duplicate disposition. Never recreate merely because a later category or state transition failed.
+
 ## Implementation-ticket publication recovery
 
-Every `to-tickets` issue body carries one exact `Ticket publication key:` marker derived from the canonical source/breakdown and approved ordinal. Before creation, exhaustively search open and closed issues for every approved key. Zero matches permits creation; one match resumes that issue through relationship verification, trusted Agent Brief publication, and singleton ready-state verification; multiple matches stop for explicit duplicate disposition. Never recreate merely because a later stage failed.
+Every `to-tickets` issue body carries one exact `Ticket publication key: <source-identity>/<approved-breakdown-digest>/<approved-ordinal>` marker. The complete user-approved breakdown digest is required even when a canonical source issue exists. Before creation, exhaustively search open and closed issues for every approved key. Zero matches permits creation; one match resumes that issue through relationship verification, trusted Agent Brief publication, and singleton ready-state verification; multiple matches stop for explicit duplicate disposition. Never recreate merely because a later stage failed.
+
+## Implementation-ticket execution
+
+An ordinary implementation ticket is unclaimed while open and unassigned, claimed only after the root verifies its ready state, blockers, execution contract, and assignee, and complete only after the closure target, deterministic checks, required review, root integration, and durable evidence are published and verified. Post the completion evidence, re-read it, then close the issue as the final durable transition. A dependant treats a blocker as done only when the blocker issue is closed; a ready label or completed comment alone is insufficient.
 
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
+- **Map publication recovery**: every map body carries `Map publication key: <normalized-destination-digest>`. Before creation, exhaustively search open and closed map issues for that exact key. Zero matches permits one create; one match resumes the exact map through identity/state and child-publication reconciliation; multiple matches stop for explicit duplicate disposition. Never replace a map because creation succeeded but identity retention or child publication failed.
+- **Map**: after publication recovery permits creation, create one issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
 - **Child ticket**: create an issue with `Part of #<map>` at the top of its body, then link it to the map as a GitHub sub-issue (`gh api` on the sub-issues endpoint) and verify the relationship. Where sub-issues aren't enabled, add it to the complete task list under the map's `## Child tickets (fallback only)` section and verify that index update. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
 - **Blocking**: GitHub's **native issue dependencies**, the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only, the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
 - **Child publication recovery**: before a frontier or completion query, use a paginated issue inventory to find every issue whose top-level marker is exactly `Part of #<map>`. Compare those candidates with the complete sub-issue relationship or fallback task list. Repair and verify every missing attachment/index entry, or record an explicit duplicate/out-of-scope disposition; do not silently recreate or omit the issue.

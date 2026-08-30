@@ -61,6 +61,7 @@ A recurrence category is defined by the violated invariant, not by file or line.
 - losing durable provider identity after remote mutation;
 - accepting an untrusted producer's record as an authoritative execution contract;
 - dispatching work without a durable recoverable pre-dispatch identity and state;
+- omitting or stranding the durable terminal transition for a published executable work item;
 - publishing terminal state before its required durable evidence;
 - permitting automatic resubmission after an uncertain remote effect;
 - leaving partial local state that permanently wedges a known-unsent operation.

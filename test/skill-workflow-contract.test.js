@@ -118,6 +118,70 @@ test('ready-for-human is included in maintainer attention discovery', async () =
   assert.match(triage, /4\. \*\*`ready-for-human`\*\*/i);
 });
 
+test('built-in trackers define a durable implementation-ticket lifecycle', async () => {
+  const [tracker, github, gitlab] = await Promise.all([
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-local.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-github.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-gitlab.md'),
+  ]);
+
+  assert.match(tracker, /Execution status: unclaimed \| claimed \| completed/i);
+  assert.match(tracker, /implementation-ticket claim[\s\S]*Claimant:[\s\S]*Claimed at:/i);
+  assert.match(tracker, /implementation-ticket completion[\s\S]*final durable transition/i);
+  assert.match(tracker, /blocker[\s\S]*`Execution status: completed`/i);
+  assert.match(github, /ordinary implementation ticket[\s\S]*close the issue as the final durable transition/i);
+  assert.match(gitlab, /ordinary implementation ticket[\s\S]*close the issue as the final durable transition/i);
+});
+
+test('Local Markdown ticket publication reconciles before any write', async () => {
+  const tickets = await text('.agents/skills/to-tickets/SKILL.md');
+
+  assert.match(tickets, /Local Markdown[\s\S]*Ticket publication key:/i);
+  assert.match(tickets, /inventory[\s\S]*zero matches[\s\S]*one match[\s\S]*multiple matches/i);
+  assert.match(tickets, /never (?:implicitly )?(?:overwrite|replace)/i);
+});
+
+test('ticket publication keys bind the complete approved breakdown', async () => {
+  const tickets = await text('.agents/skills/to-tickets/SKILL.md');
+
+  assert.match(tickets, /source identity[\s\S]*approved-breakdown digest[\s\S]*approved ordinal/i);
+  assert.match(tickets, /source reference[\s\S]*does not replace the breakdown digest/i);
+});
+
+test('real-tracker spec publication resumes from a stable key', async () => {
+  const spec = await text('.agents/skills/to-spec/SKILL.md');
+
+  assert.match(spec, /Spec publication key:/i);
+  assert.match(spec, /zero matches[\s\S]*one match[\s\S]*multiple matches/i);
+  assert.match(spec, /resume[\s\S]*category[\s\S]*`needs-triage`/i);
+});
+
+test('Wayfinder reconciles a keyed map before creation', async () => {
+  const wayfinder = await text('.agents/skills/wayfinder/SKILL.md');
+
+  assert.match(wayfinder, /Map publication key:/i);
+  assert.match(wayfinder, /zero matches[\s\S]*one match[\s\S]*multiple matches/i);
+  assert.match(wayfinder, /before (?:permitting )?(?:a )?map creat/i);
+});
+
+test('ticket publication permits only the approved parent relationship mutation', async () => {
+  const tickets = await text('.agents/skills/to-tickets/SKILL.md');
+
+  assert.match(tickets, /permit[\s\S]*approved parent[\s\S]*relationship/i);
+  assert.match(tickets, /do not[\s\S]*unrelated parent[\s\S]*(?:body|state|closure)/i);
+  assert.doesNotMatch(tickets, /Do NOT close or modify any parent issue\./i);
+});
+
+test('Local Markdown replaces the canonical brief as a singleton', async () => {
+  const [tracker, triage] = await Promise.all([
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-local.md'),
+    text('.agents/skills/triage/SKILL.md'),
+  ]);
+
+  assert.match(tracker, /replace[\s\S]*embedded `## Agent Brief`[\s\S]*exactly one/i);
+  assert.match(triage, /Local Markdown[\s\S]*replace[\s\S]*existing embedded brief[\s\S]*exactly one/i);
+});
+
 test('ready-for-human uses the same authoritative brief source as ready-for-agent', async () => {
   const [brief, policy] = await Promise.all([
     text('.agents/skills/triage/AGENT-BRIEF.md'),

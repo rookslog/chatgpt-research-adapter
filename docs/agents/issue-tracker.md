@@ -25,17 +25,46 @@ when they copy the canonical heading or schema.
 ## Implementation-ticket publication recovery
 
 Every `to-tickets` issue body carries one exact `Ticket publication key:`
-derived from the canonical source or approved-breakdown digest plus ticket
-ordinal. Before creation, exhaustively search open and closed issues for all
-approved keys. Zero matches permits creation; one match resumes the existing
+formed from the stable source identity, the digest of the complete
+owner-approved breakdown, and the approved ticket ordinal. A source issue does
+not replace the breakdown digest. Before creation, exhaustively search open and
+closed issues for all approved keys. Zero matches permits creation; one match resumes the existing
 issue through relationship verification, trusted Agent Brief publication, and
 singleton ready-state verification; multiple matches stop for duplicate
 disposition. A failed later stage never authorizes recreating the issue.
 
+## Implementation-ticket execution
+
+An ordinary implementation ticket is unclaimed while open and unassigned.
+Root claims it only after verifying its ready state, blockers, complete execution
+contract, and assignee. Completion requires the closure target, deterministic
+checks, required review, root integration, and durable evidence to be published
+and verified. Post and re-read that evidence, then close the issue as the final
+durable transition. A dependant treats a blocker as done only when GitHub shows
+the blocker issue closed.
+
+## Spec publication recovery
+
+Every `to-spec` issue body carries one exact `Spec publication key:` formed
+from the stable source/conversation identity and a digest of the normalized
+user request plus settled decisions, excluding generated spec prose. Before
+creation, exhaustively search open and closed issues for the key. Zero matches
+permits one create; one match resumes the issue through
+trusted category publication and singleton `needs-triage` verification;
+multiple matches stop for duplicate disposition. A failed later stage never
+authorizes another create.
+
 ## Wayfinding operations
 
-- **Map:** create one issue labelled `wayfinder:map` and assign it to the
-  relevant milestone.
+- **Recover map publication:** every map body carries
+  `Map publication key: <normalized-destination-digest>`. Before creation,
+  exhaustively search open and closed map issues for that exact key. Zero
+  matches permits one create; one match resumes the same map through
+  identity/state and child-publication reconciliation; multiple matches stop
+  for duplicate disposition. A failed post-create stage never authorizes a
+  replacement map.
+- **Map:** only after map-publication recovery permits creation, create one
+  issue labelled `wayfinder:map` and assign it to the relevant milestone.
 - **Child:** create a separate issue with `Part of #<map>` at the top and one
   of `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, or
   `wayfinder:task`, then attach and verify it through GitHub's native

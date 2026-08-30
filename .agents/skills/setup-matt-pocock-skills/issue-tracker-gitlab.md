@@ -38,15 +38,24 @@ Create a GitLab issue.
 
 Run `glab issue view <number> --comments`.
 
+## Spec publication recovery
+
+Every `to-spec` issue description carries `Spec publication key: <source-identity>/<request-intent-digest>`, derived from the normalized user request and settled decisions rather than generated spec prose. Before creation, exhaustively search open and closed issues for that exact key. Zero matches permits one create; one match resumes that issue through trusted category-record publication and singleton `needs-triage` verification; multiple matches stop for explicit duplicate disposition. Never recreate merely because a later category or state transition failed.
+
 ## Implementation-ticket publication recovery
 
-Every `to-tickets` issue description carries one exact `Ticket publication key:` marker derived from the canonical source/breakdown and approved ordinal. Before creation, exhaustively search open and closed issues for every approved key. Zero matches permits creation; one match resumes that issue through relationship verification, trusted Agent Brief publication, and singleton ready-state verification; multiple matches stop for explicit duplicate disposition. Never recreate merely because a later stage failed.
+Every `to-tickets` issue description carries one exact `Ticket publication key: <source-identity>/<approved-breakdown-digest>/<approved-ordinal>` marker. The complete user-approved breakdown digest is required even when a canonical source issue exists. Before creation, exhaustively search open and closed issues for every approved key. Zero matches permits creation; one match resumes that issue through relationship verification, trusted Agent Brief publication, and singleton ready-state verification; multiple matches stop for explicit duplicate disposition. Never recreate merely because a later stage failed.
+
+## Implementation-ticket execution
+
+An ordinary implementation ticket is unclaimed while open and unassigned, claimed only after the root verifies its ready state, blockers, execution contract, and assignee, and complete only after the closure target, deterministic checks, required review, root integration, and durable evidence are published and verified. Post the completion evidence, re-read it, then close the issue as the final durable transition. A dependant treats a blocker as done only when the blocker issue is closed; a ready label or completed note alone is insufficient.
 
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
 
-- **Map**: the map is always an issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. Create it with `glab issue create --label wayfinder:map`. This contract does not use epics because every identity, child, recovery, update, and closure operation below is issue-specific.
+- **Map publication recovery**: every map description carries `Map publication key: <normalized-destination-digest>`. Before creation, exhaustively search open and closed map issues for that exact key. Zero matches permits one create; one match resumes the exact map through identity/state and child-publication reconciliation; multiple matches stop for explicit duplicate disposition. Never replace a map because creation succeeded but identity retention or child publication failed.
+- **Map**: the map is always an issue. After publication recovery permits creation, create it with label `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body through `glab issue create --label wayfinder:map`. This contract does not use epics because every identity, child, recovery, update, and closure operation below is issue-specific.
 - **Child ticket**: create an issue carrying `Part of #<map>` at the top of its description, then add it in full under the map's `## Child tickets (fallback only)` section and verify the index update. Label it `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
 - **Blocking**: GitLab's **native blocking link**, the canonical, UI-visible representation. Add it with the `/blocked_by #<n>` quick action, posted as a note (`glab issue note <child> --message "/blocked_by #<blocker>"`). Native blocking links are a Premium/Ultimate feature; on the free tier (or where unavailable) fall back to a `Blocked by: #<n>, #<n>` line at the top of the description. A ticket is unblocked when every blocker is closed.
 - **Child publication recovery**: before a frontier or completion query, use the paginated issues API to find every issue whose top-level marker is exactly `Part of #<map>`. Compare those candidates with the complete fallback index. Add and verify every missing index entry, or record an explicit duplicate/out-of-scope disposition; do not silently recreate or omit the issue.

@@ -60,16 +60,22 @@ Iterate until the user approves the breakdown.
 
 Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock-skills` configured; the tickets are the same either way, only the shape of the blocking edges changes:
 
-- **Local files** → write one file per ticket under `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below: one ticket per file, never a single combined file.
+- **Local Markdown** → reconcile the complete feature-directory inventory before any write, then create or resume one file per approved key under `.scratch/<feature-slug>/issues/<NN>-<slug>.md`. Each file's "Blocked by" lists the reconciled numbers/titles it depends on. Use the per-ticket file template below: one ticket per file, never a single combined file.
 - **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues.
 
-For every real-tracker ticket, derive one stable `Ticket publication key:` from the canonical source reference (or a digest of the user-approved breakdown when there is no source ticket) plus the approved ticket ordinal. Put the exact key in the issue body. Before creating anything, exhaustively query open and closed issues for all approved keys and reconcile them: **zero matches** permits one create; **one match** means resume the existing issue from its observed stage; **multiple matches** stops for explicit duplicate disposition. Resume the existing issue by verifying or repairing relationships, then publishing and verifying the trusted Agent Brief, then applying and verifying the ready state. Never recreate an issue merely because brief publication, relationship mutation, or state application failed.
+Before any tracker write, compute one approved-breakdown digest over the complete normalized user-approved list: ticket titles, observable deliverables, blocking edges, and order. The key binds the source identity, approved-breakdown digest, and approved ordinal. Every ticket receives `Ticket publication key: <source-identity>/<approved-breakdown-digest>/<approved-ordinal>`; use a stable conversation-derived source identity when no source ticket exists. A canonical source reference supplies the source identity but does not replace the breakdown digest. Reordering, inserting, removing, or materially changing a slice therefore produces a different key set and requires explicit disposition of tickets from the prior breakdown.
+
+For a real tracker, put the exact key in the issue body, exhaustively query open and closed issues for all approved keys before creation, and reconcile them: **zero matches** permits one create; **one match** means resume the existing issue from its observed stage; **multiple matches** stops for explicit duplicate disposition. Resume the existing issue by verifying or repairing relationships, then publishing and verifying the trusted Agent Brief, then applying and verifying the ready state. Never recreate an issue merely because brief publication, relationship mutation, or state application failed.
+
+For Local Markdown, put the same exact `Ticket publication key:` in every file and inventory the complete feature issue directory before allocating any path. For each approved key, **zero matches** permits one exclusive create at an unused number, **one match** resumes that exact file without discarding its observed state or evidence, and **multiple matches** stops for explicit duplicate disposition. Stop on duplicate numbers, malformed files, or unmatched existing tickets until they are dispositioned. Never implicitly overwrite or replace a path, claim, completion record, discussion, or prior evidence. After reconciliation, map approved ordinals to the actual local numbers and write blocking references in a second pass.
 
 Before marking any published ticket `ready-for-agent`, use the authoritative [agent-brief template](../triage/AGENT-BRIEF.md), including its complete execution contract, and add the parent/blocking relationship. On a real tracker, create or recover the keyed issue body with its parent and blocker metadata, then post the complete Agent Brief through the configured trusted triage producer; fetch and verify the comment/note author plus immutable ID or URL. Do not embed the authoritative brief only in the description. Apply the ready state only after that trusted record is verified. For local Markdown, keep the complete brief in the ticket file. Do not maintain a second reduced brief schema here. If any required field is undecided, leave the ticket non-runnable and route it for human clarification instead of applying `ready-for-agent`.
 
-Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
+Work the **frontier**: any real-tracker ticket whose blockers are closed, or any Local Markdown ticket whose blockers all verify `Execution status: completed`. For a purely linear chain that means top to bottom.
 
-Do NOT close or modify any parent issue.
+Execution uses the configured tracker lifecycle. Root claims only a ready, unblocked, contract-complete ticket and verifies the durable claimant before work. Completion requires the closure target, deterministic verification, declared review, root integration, and durable evidence; it is then published and verified before the tracker-specific final transition. Real trackers close the issue last. Local Markdown sets `Execution status: completed` last. Neither a ready state nor an answer/evidence record alone unblocks dependants.
+
+Permit only the approved parent relationship mutation needed to attach/index the published implementation tickets, and verify it. Do not change unrelated parent body content, workflow state, or closure; do not close the parent as part of ticket publication.
 
 <local-ticket-template>
 
@@ -79,6 +85,10 @@ Created: <current RFC 3339 timestamp>
 
 Status: ready-for-agent
 
+Ticket publication key: <source-identity>/<approved-breakdown-digest>/<approved-ordinal>
+
+Execution status: unclaimed
+
 <complete canonical Agent Brief, including Category and Execution contract>
 
 **Blocked by:** the numbers/titles of the tickets that gate this one, or "None (can start immediately)".
@@ -87,7 +97,7 @@ Status: ready-for-agent
 
 <issue-template>
 
-Ticket publication key: <canonical-source-or-approved-breakdown-digest>/<approved-ordinal>
+Ticket publication key: <source-identity>/<approved-breakdown-digest>/<approved-ordinal>
 
 ## Parent
 
