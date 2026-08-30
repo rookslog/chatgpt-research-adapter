@@ -68,6 +68,8 @@ Show the user a draft of:
 
 Let them edit before writing.
 
+For a real tracker, include a tracker-mutation preview: every required triage and Wayfinder label, whether it already exists, and the proposed name, description, and color for each missing label. The user's approval of this preview is the authority to create only those missing labels. Preserve matching existing labels; do not silently rename or recolor them.
+
 ### 4. Write
 
 **Pick the file to edit:**
@@ -110,6 +112,8 @@ Then write the docs files using the seed templates in this skill folder as a sta
 
 For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch using the user's description.
 
+**Provision and verify tracker labels before declaring setup complete.** On GitHub or GitLab, create the approved missing triage labels plus `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, and `wayfinder:task`, then fetch the label inventory again and verify every configured label exists. If the user did not authorize the preview, the tracker is read-only, or any required label remains absent, report setup as incomplete and do not claim downstream ticket publication is ready.
+
 ### 5. Done
 
-Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
+Tell the user setup is complete only after the configured files and required tracker labels are verified, and say which engineering skills will now read from them. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.

@@ -25,6 +25,13 @@ acceptance criteria of an issue or milestone.
 When sources conflict, stop the affected lane, preserve the conflict, and
 resolve the more specific contract before continuing.
 
+Exactly one root orchestrator is active as claim authority for a map or wave.
+GitHub assignment is a visibility mechanism, not an atomic ownership lock:
+workers never select or claim their own tickets. Root serializes the final
+frontier read, contract check, assignment verification, run-record write, and
+dispatch. If a single claim authority cannot be established, do not launch the
+wave.
+
 ## Before a wave
 
 Record a compact execution snapshot:
@@ -74,6 +81,12 @@ Increase it only when outputs are disjoint, integration capacity is available,
 and the wider wave has a stated benefit. A later wave begins only after root
 has reconciled the prior wave's artifacts and refreshed the dependency
 frontier.
+
+Delegated research must expose a resumable task/return locator in its claim
+record. Root uses a supported waiter/wakeup when available or collects the run
+before selecting new work in the next session. A ticket remains claimed while
+its run is in progress; completed output is validated before reconciliation,
+and failed or lost runs receive an explicit root disposition.
 
 For the current decision maps, the intended topology is:
 

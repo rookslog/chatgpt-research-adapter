@@ -23,10 +23,20 @@ GitHub Issues at `rookslog/chatgpt-research-adapter`. Use the `gh` CLI and pass
   it through GitHub's native sub-issue endpoint.
 - **Blocking:** use GitHub's native issue-dependency endpoint. Supply the
   blocker's numeric database `id`, not its issue number or GraphQL node ID.
-- **Frontier:** open map children with no open blocker and no assignee.
-- **Claim:** assign the selected frontier issue before working it.
-- **Resolve:** post the decision or finding, close the child, and append a
-  one-line context pointer to the map's `Decisions so far` section.
+- **Frontier:** enumerate every map child through the paginated sub-issues API,
+  then keep open children with no open blocker and no assignee. Default
+  30-item CLI results are not evidence of a complete frontier.
+- **Claim:** one root orchestrator is the serialized claim authority for a map.
+  It re-reads eligibility and the execution contract, assigns the issue,
+  verifies the assignment, records the stable run ID, and only then dispatches.
+  Workers never self-assign; an assignee is visible state, not a mutex.
+- **Collect:** every delegated research claim records a resumable task/return
+  locator. Root uses the available waiter/wakeup or collects it at the start of
+  the next map session; completed artifacts are validated, in-progress work
+  remains claimed, and failed runs receive an explicit disposition.
+- **Resolve:** while the child remains open, reconcile new or invalidated
+  tickets and fog, post the decision or finding, append the map pointer, and
+  re-read dependencies. Close the child last because closure can unblock work.
 
 When an authorized operation is not expressible through `gh issue`, use the
 documented `gh api` REST endpoint and inspect the resulting relationship.
@@ -52,6 +62,10 @@ Do not add an agent review merely as ceremony. Use it when deterministic checks
 cannot adequately discriminate correctness, the change crosses consequential
 contracts, or an independent judgment channel is itself part of the required
 evidence.
+
+Tickets created by `to-tickets` receive `ready-for-agent` only after every
+execution-contract field above is populated. An unresolved field keeps the
+ticket non-runnable and routed for human clarification.
 
 ## Delegated run record
 
