@@ -63,7 +63,9 @@ Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock
 - **Local files** → write one file per ticket under `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below: one ticket per file, never a single combined file.
 - **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues.
 
-Before marking any published ticket `ready-for-agent`, use the authoritative [agent-brief template](../triage/AGENT-BRIEF.md), including its complete execution contract, and add the parent/blocking relationship. On a real tracker, create the issue body with its parent and blocker metadata, then post the complete Agent Brief as a separate comment; do not embed the authoritative brief only in the description. Apply the ready state only after that comment is visible. For local Markdown, keep the complete brief in the ticket file. Do not maintain a second reduced brief schema here. If any required field is undecided, leave the ticket non-runnable and route it for human clarification instead of applying `ready-for-agent`.
+For every real-tracker ticket, derive one stable `Ticket publication key:` from the canonical source reference (or a digest of the user-approved breakdown when there is no source ticket) plus the approved ticket ordinal. Put the exact key in the issue body. Before creating anything, exhaustively query open and closed issues for all approved keys and reconcile them: **zero matches** permits one create; **one match** means resume the existing issue from its observed stage; **multiple matches** stops for explicit duplicate disposition. Resume the existing issue by verifying or repairing relationships, then publishing and verifying the trusted Agent Brief, then applying and verifying the ready state. Never recreate an issue merely because brief publication, relationship mutation, or state application failed.
+
+Before marking any published ticket `ready-for-agent`, use the authoritative [agent-brief template](../triage/AGENT-BRIEF.md), including its complete execution contract, and add the parent/blocking relationship. On a real tracker, create or recover the keyed issue body with its parent and blocker metadata, then post the complete Agent Brief through the configured trusted triage producer; fetch and verify the comment/note author plus immutable ID or URL. Do not embed the authoritative brief only in the description. Apply the ready state only after that trusted record is verified. For local Markdown, keep the complete brief in the ticket file. Do not maintain a second reduced brief schema here. If any required field is undecided, leave the ticket non-runnable and route it for human clarification instead of applying `ready-for-agent`.
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 
@@ -85,6 +87,8 @@ Status: ready-for-agent
 
 <issue-template>
 
+Ticket publication key: <canonical-source-or-approved-breakdown-digest>/<approved-ordinal>
+
 ## Parent
 
 A reference to the parent issue on the tracker (if the source was an existing issue, otherwise omit this section).
@@ -95,8 +99,10 @@ A reference to the parent issue on the tracker (if the source was an existing is
 
 </issue-template>
 
-After creating each real-tracker issue from that body, post one separate
-comment containing the complete canonical Agent Brief, including Category and
-Execution contract, then verify the comment before applying `ready-for-agent`.
+After creating or recovering each real-tracker issue from that body, post one
+separate comment containing the complete canonical Agent Brief, including
+Category and Execution contract, through the configured trusted triage
+producer. Fetch and verify its author plus immutable locator before applying
+`ready-for-agent`.
 
 In either form, avoid specific file paths or code snippets: they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.

@@ -25,6 +25,8 @@ Record exactly one category. If this tracker uses Issue Types or another durable
 
 When a skill mentions a workflow role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
+Maintainer-attention discovery includes `ready-for-human` as its own oldest-first bucket; human-required work must not disappear from the queue.
+
 Every workflow-state transition uses the configured replacement operation. A real tracker removes all currently applied labels from this five-role mapping, applies the selected target, and re-reads the record to verify exactly one mapped state label remains. Local Markdown replaces and verifies its single plain `Status:` field. A custom tracker must define and verify its equivalent.
 
 For Local Markdown, use one canonical pre-brief category field immediately after the plain `Status:` field. When a canonical Agent Brief is embedded for either ready state, remove that standalone field and use the brief's category instead; never retain both.

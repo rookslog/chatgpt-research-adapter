@@ -14,6 +14,10 @@ Issues and specs for this repo live as GitLab issues. Use the [`glab`](https://g
 
 Infer the repo from `git remote -v`; `glab` does this automatically when run inside a clone.
 
+## Trusted triage producers
+
+The setup-approved authenticated account(s) are the only trusted triage producers. Publish Agent Briefs through one of those identities, capture the returned note ID/URL, then fetch the note and verify its author username matches the configured producer. A contributor-authored lookalike is never canonical.
+
 ## Merge requests as a triage surface
 
 **MRs as a request surface: no.** _(Set to `yes` if this repo treats external merge requests as feature requests; `/triage` reads this flag.)_
@@ -34,6 +38,10 @@ Create a GitLab issue.
 
 Run `glab issue view <number> --comments`.
 
+## Implementation-ticket publication recovery
+
+Every `to-tickets` issue description carries one exact `Ticket publication key:` marker derived from the canonical source/breakdown and approved ordinal. Before creation, exhaustively search open and closed issues for every approved key. Zero matches permits creation; one match resumes that issue through relationship verification, trusted Agent Brief publication, and singleton ready-state verification; multiple matches stop for explicit duplicate disposition. Never recreate merely because a later stage failed.
+
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
@@ -48,4 +56,4 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 
 ## Ticket execution contract
 
-Every actionable ticket carries the complete contract defined by `.agents/skills/triage/AGENT-BRIEF.md`: closure target; start revision/evidence and blockers; owned write/output set and non-goals; deterministic verification; external/live boundary; review declaration; root integration; and route fit. A Wayfinder planning child records these fields under its body `## Execution contract`. A `ready-for-agent` or `ready-for-human` implementation ticket uses the latest complete Agent Brief **note** as its authoritative contract; create the issue description and relationships first, post and verify that note, then apply the selected ready label through the singleton state-replacement transition. Missing fields require `Contract status: needs-clarification` and exclusion from the frontier.
+Every actionable ticket carries the complete contract defined by `.agents/skills/triage/AGENT-BRIEF.md`: closure target; start revision/evidence and blockers; owned write/output set and non-goals; deterministic verification; external/live boundary; review declaration; root integration; and route fit. A Wayfinder planning child records these fields under its body `## Execution contract`. A `ready-for-agent` or `ready-for-human` implementation ticket uses the latest complete Agent Brief **note** whose author and immutable locator were verified against the trusted-producer contract; create or recover the issue description and relationships first, post and verify that note, then apply the selected ready label through the singleton state-replacement transition. Missing fields require `Contract status: needs-clarification` and exclusion from the frontier.

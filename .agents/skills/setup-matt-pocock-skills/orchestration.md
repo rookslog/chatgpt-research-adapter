@@ -18,6 +18,18 @@ external/live boundary; review declaration; root integration including durable
 primary-artifact publication; and route fit.
 Missing fields keep the ticket out of the runnable frontier.
 
+## Direct delegated research run record
+
+A ticketless direct research invocation may run in root without a claim record.
+If root delegates it, root first creates
+`docs/research/runs/<run-id>.md` with a stable run ID, exact owned output path,
+validation oracle, selected route, `claiming` state, and no task locator before
+dispatch. Root dispatches exactly once, then records the locator and
+`dispatched` state or a known-unsent/possibly-dispatched disposition. Later
+sessions reconcile every nonterminal direct run record before new delegation;
+a possibly-dispatched run remains held for investigation without resubmission.
+The record stores no prompt, transcript, credential, or account data.
+
 ## Delegated lifecycle
 
 Root serializes `frontier read -> contract check -> pre-dispatch record ->

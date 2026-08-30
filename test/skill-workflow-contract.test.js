@@ -74,6 +74,50 @@ test('the GitHub issue reader selects JSON fields before jq filtering', async ()
   assert.match(tracker, /gh issue view <number> --json [^\n]*comments[^\n]*labels[^\n]* --jq/i);
 });
 
+test('canonical real-tracker briefs require a trusted verified producer', async () => {
+  const [brief, policy, tracker] = await Promise.all([
+    text('.agents/skills/triage/AGENT-BRIEF.md'),
+    text('docs/REVIEW-POLICY.md'),
+    text('docs/agents/issue-tracker.md'),
+  ]);
+
+  assert.match(brief, /trusted triage producer/i);
+  assert.match(policy, /latest verified canonical Agent Brief[\s\S]*trusted triage producer/i);
+  assert.match(tracker, /Trusted triage producer:[\s\S]*`rookslog`/i);
+});
+
+test('implementation-ticket publication resumes from a stable key', async () => {
+  const tickets = await text('.agents/skills/to-tickets/SKILL.md');
+
+  assert.match(tickets, /Ticket publication key:/i);
+  assert.match(tickets, /zero matches[\s\S]*one match[\s\S]*multiple matches/i);
+  assert.match(tickets, /resume the existing issue[\s\S]*Agent Brief[\s\S]*ready state/i);
+});
+
+test('Local Markdown HITL claims persist a stable claimant identity', async () => {
+  const tracker = await text('.agents/skills/setup-matt-pocock-skills/issue-tracker-local.md');
+
+  assert.match(tracker, /Claimant: <configured stable claimant identity>/i);
+  assert.match(tracker, /verify the same claimant before HITL resume/i);
+});
+
+test('ticketless delegated research persists a recoverable run before dispatch', async () => {
+  const [research, orchestration] = await Promise.all([
+    text('.agents/skills/research/SKILL.md'),
+    text('docs/agents/orchestration.md'),
+  ]);
+
+  assert.match(research, /docs\/research\/runs\/<run-id>\.md/i);
+  assert.match(orchestration, /stable run ID[\s\S]*`claiming`[\s\S]*before\s+dispatch/i);
+  assert.match(orchestration, /possibly-dispatched[\s\S]*without resubmission/i);
+});
+
+test('ready-for-human is included in maintainer attention discovery', async () => {
+  const triage = await text('.agents/skills/triage/SKILL.md');
+
+  assert.match(triage, /4\. \*\*`ready-for-human`\*\*/i);
+});
+
 test('ready-for-human uses the same authoritative brief source as ready-for-agent', async () => {
   const [brief, policy] = await Promise.all([
     text('.agents/skills/triage/AGENT-BRIEF.md'),
@@ -81,7 +125,7 @@ test('ready-for-human uses the same authoritative brief source as ready-for-agen
   ]);
 
   assert.match(brief, /`ready-for-agent` or `ready-for-human`/i);
-  assert.match(policy, /`ready-for-agent` or `ready-for-human`[\s\S]*latest canonical Agent Brief/i);
+  assert.match(policy, /`ready-for-agent` or `ready-for-human`[\s\S]*latest verified canonical Agent Brief/i);
 });
 
 test('direct research establishes a root-owned output without inventing a ticket', async () => {

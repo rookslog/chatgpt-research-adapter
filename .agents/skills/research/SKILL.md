@@ -17,8 +17,15 @@ the invocation:
   contract.
 
 - If you are the root orchestrator and delegation is justified, launch one
-  bounded background research agent using the ticket's recorded route or a
-  direct-run contract that records the root-owned output and validation oracle.
+  bounded background research agent using the ticket's recorded route. For a
+  ticketless direct delegation, first create
+  `docs/research/runs/<run-id>.md` under the repository's direct-run contract:
+  persist a stable run ID, root-owned output, validation oracle, route, and
+  `claiming` state before dispatch; dispatch exactly once; then add the task
+  locator and `dispatched` state, or a known-unsent/possibly-dispatched
+  disposition. A possibly-dispatched run is investigated without resubmission.
+  If that durable pre-dispatch record cannot be created, perform the research
+  directly or stop; do not delegate ticketless work.
 - If you are already the delegated researcher, perform the research directly;
   do not create another delegation layer.
 

@@ -62,11 +62,12 @@ The maintainer invokes `/triage` and describes what they want in natural languag
 
 ## Show what needs attention
 
-Query the issue tracker and present three buckets, oldest first:
+Query the issue tracker and present four buckets, oldest first:
 
 1. **No state label**: never triaged. Compute this as the set of issues lacking every configured state label, not as issues with no labels at all. Unrelated labels do not remove an issue from this bucket, except for planning-artifact labels that the configured triage contract explicitly exempts (such as this repository's `wayfinder:*` map and decision tickets).
 2. **`needs-triage`**: evaluation in progress.
 3. **`needs-info` with reporter activity since the last triage notes**: needs re-evaluation.
+4. **`ready-for-human`**: human implementation, judgment, access, or verification is still required.
 
 When PRs are in scope, include external PRs in these buckets and tag each line `[PR]` or `[issue]`. Discovery surfaces only *external* PRs (the tracker config defines who counts as external), so a collaborator's in-flight PR is not triage work. This filter is discovery-only; an explicitly named PR is always triaged regardless of author.
 
@@ -83,10 +84,10 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 4. **Grill (if needed).** If the request needs fleshing out, apply the installed `grilling` and `domain-modeling` skills through the supported harness mechanism, and grill it into shape a round of questions at a time, sharpening domain terms and updating `CONTEXT.md`/ADRs inline as decisions land.
 
 5. **Apply the outcome:**
-   Before applying any state, publish and verify exactly one selected category in the configured durable triage record. The branch-specific note or Agent Brief may carry it, but the conversational recommendation from step 2 is not durable state.
+   Before applying any state, publish and verify exactly one selected category in the configured durable triage record. On a real tracker, that record must come from the configured trusted triage producer and verification retains its author plus immutable locator. The branch-specific note or Agent Brief may carry it, but the conversational recommendation from step 2 is not durable state.
    Every outcome uses the configured state-replacement operation. On a real tracker, re-read the item, remove every configured workflow-state label currently present, apply exactly the selected target label, then re-read and verify that the target is the only configured workflow-state label. On Local Markdown, replace the one plain `Status:` field with the selected role, then re-read and verify exactly one `Status:` field with that value. A custom tracker uses its verified equivalent. Perform this transition for `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`; closing a `wontfix` item happens only after the singleton state is verified. If replacement or verification is partial or ambiguous, stop without claiming the outcome and reconcile the observed tracker state before another mutation.
-   - `ready-for-agent`: publish the canonical agent brief through the configured tracker operation ([AGENT-BRIEF.md](AGENT-BRIEF.md)). On a real tracker, post and verify the separate comment or note. On local Markdown, embed and verify the brief directly below the ticket's plain `Status:` field rather than appending it under `## Comments`. Apply the ready state only after the authoritative record is present.
-   - `ready-for-human`: publish and verify a canonical work brief through the same tracker-configured authoritative location and schema as an Agent Brief, but name the human work still required (judgment calls, external access, design decisions, manual testing) and record the review declaration there. This state does not itself mean merge-ready.
+   - `ready-for-agent`: publish the canonical agent brief through the configured tracker operation ([AGENT-BRIEF.md](AGENT-BRIEF.md)). On a real tracker, post it through the configured trusted triage producer, then fetch and verify the author identity plus immutable comment/note ID or URL. On local Markdown, embed and verify the brief directly below the ticket's plain `Status:` field rather than appending it under `## Comments`. Apply the ready state only after the authoritative record is present.
+   - `ready-for-human`: publish and verify a canonical work brief through the same tracker-configured authoritative location, trusted producer, and schema as an Agent Brief, but name the human work still required (judgment calls, external access, design decisions, manual testing) and record the review declaration there. This state does not itself mean merge-ready.
    - `needs-info`: post triage notes (template below). For Local Markdown, retain the standalone canonical category beside `Status:` and omit the `**Category:**` line from the appended needs-info notes. On a real tracker, keep the category in the durable triage note because that note is the canonical record.
    - For `wontfix`, close the issue, with the comment depending on *why*:
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).

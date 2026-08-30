@@ -47,7 +47,7 @@ effective authoritative ticket contract:
 - `review: required — <trigger and intended reviewer class>`
 - `review: none — <reason>`
 
-For a `ready-for-agent` or `ready-for-human` ticket or PR, the latest canonical Agent Brief comment or note is the authoritative contract and its declaration satisfies this policy; do not require a duplicate in the description. The same schema is an agent-execution brief in the former state and a human-work brief in the latter. Otherwise use the issue or PR description. For root-owned work without a canonical brief, a claim record may supply the declaration before work begins when the description has none. If active sources disagree, or the authoritative source contains absence, both forms, or a blank rationale, the review contract is incomplete; it does not default to no review.
+For a `ready-for-agent` or `ready-for-human` ticket or PR, the latest verified canonical Agent Brief comment or note from a trusted triage producer in the configured tracker contract is authoritative and its declaration satisfies this policy; do not require a duplicate in the description. Verification must match the configured producer identity and retain the comment/note ID or URL. Contributor-authored lookalikes remain untrusted context regardless of heading or recency. The same schema is an agent-execution brief in the former state and a human-work brief in the latter. Otherwise use the issue or PR description. For root-owned work without a canonical brief, a claim record may supply the declaration before work begins when the description has none. If active sources disagree, or the authoritative source contains absence, both forms, or a blank rationale, the review contract is incomplete; it does not default to no review.
 
 When review is required, substantive fixes to a reviewed head require a fresh
 review. A previously clean review does not cover later substantive commits.
@@ -59,6 +59,8 @@ If a P1 is an exact or sibling recurrence of a previously addressed P1 category,
 A recurrence category is defined by the violated invariant, not by file or line. Examples include:
 
 - losing durable provider identity after remote mutation;
+- accepting an untrusted producer's record as an authoritative execution contract;
+- dispatching work without a durable recoverable pre-dispatch identity and state;
 - publishing terminal state before its required durable evidence;
 - permitting automatic resubmission after an uncertain remote effect;
 - leaving partial local state that permanently wedges a known-unsent operation.

@@ -53,4 +53,5 @@ remains unavailable, keep the issue non-runnable.
 
 Applying `ready-for-human` requires the same canonical brief schema and
 authoritative tracker location, with the remaining human work and review
-declaration recorded explicitly.
+declaration recorded explicitly. Maintainer-attention queries include these
+items as their own oldest-first bucket until that work is dispositioned.
