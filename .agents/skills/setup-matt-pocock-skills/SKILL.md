@@ -102,7 +102,7 @@ The block:
 
 Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, only when `triage` is installed and Section B ran. When it isn't, both are omitted.
 
-Then write the docs files using the seed templates in this skill folder as a starting point. For a missing file, create it from the selected seed. For an existing `docs/agents/*.md`, merge only the setup-owned tracker choice, triage mapping, or domain-layout sections approved in step 3. Preserve unknown headings, repository-specific commands and boundaries, execution contracts, run records, required context sources, and other custom content. Never replace an existing document wholesale from a seed template.
+Then write the docs files using the seed templates in this skill folder as a starting point. For a missing file, create it from the selected seed. For an existing `docs/agents/*.md`, merge only the setup-owned tracker choice, triage mapping, or domain-layout sections approved in step 3. Preserve unknown headings, backend-neutral boundaries, execution contracts, run records, required context sources, and other custom content. When the tracker changes, replace the old backend-specific commands, endpoints, relationship operations, and query fields with the selected seed's backend; do not preserve commands that still target the previous tracker. Never replace an existing document wholesale from a seed template.
 
 - [issue-tracker-github.md](./issue-tracker-github.md): GitHub issue tracker
 - [issue-tracker-gitlab.md](./issue-tracker-gitlab.md): GitLab issue tracker

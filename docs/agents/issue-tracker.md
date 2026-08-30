@@ -38,6 +38,11 @@ GitHub Issues at `rookslog/chatgpt-research-adapter`. Use the `gh` CLI and pass
 - **Resolve:** while the child remains open, reconcile new or invalidated
   tickets and fog, post the decision or finding, append the map pointer, and
   re-read dependencies. Close the child last because closure can unblock work.
+- **Complete the map:** after a child closes, re-read all children and
+  `Not yet specified`. When no open child and no fog remain, record the
+  destination outcome and the owner-approval gate for any implementation
+  breakdown, then close the map. An empty frontier is not sufficient while
+  blocked/claimed children or fog remain.
 
 When an authorized operation is not expressible through `gh issue`, use the
 documented `gh api` REST endpoint and inspect the resulting relationship.

@@ -50,7 +50,7 @@
         ".agents/skills/triage/SKILL.md",
         ".agents/skills/wayfinder/SKILL.md"
       ],
-      "reason": "Apply PR #41 review hardening: provision required labels, avoid truncated exhaustive queries, initialize local ticket state, derive readiness from one complete Agent Brief contract, serialize claims through root, collect asynchronous research, validate named-ticket eligibility, centralize reconciliation-before-closure in Wayfinder, preserve triage records and custom setup content, keep deterministic fact checks with root, scope ADR storage correctly, and explicitly separate Wayfinder planning artifacts from triage intake."
+      "reason": "Apply PR #41 review hardening: provision required labels, avoid truncated or schema-mismatched queries, initialize local ticket state, derive readiness from one complete Agent Brief contract, serialize claims through root, collect asynchronous research, validate named-ticket eligibility, centralize child/map completion in Wayfinder, preserve custom setup content while replacing a switched tracker backend, keep deterministic fact checks with root, scope ADR storage correctly, and explicitly separate Wayfinder planning artifacts from triage intake."
     }
   ]
 }
