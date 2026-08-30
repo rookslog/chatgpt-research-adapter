@@ -42,13 +42,19 @@ reasoning remains, or the owner or governing issue explicitly requires it.
 Record `review: none` with a reason when no trigger applies.
 
 The declaration itself is mandatory and uses exactly one of these forms in the
-ticket or pull-request description:
+effective authoritative ticket contract:
 
 - `review: required — <trigger and intended reviewer class>`
 - `review: none — <reason>`
 
-Absence, both forms, or a blank rationale is an incomplete review contract; it
-does not default to no review.
+For a `ready-for-agent` ticket or PR, the latest canonical Agent Brief comment
+is the authoritative contract and its declaration satisfies this policy; do
+not require a duplicate in the description. Otherwise use the issue or PR
+description. For root-owned work without an Agent Brief, a claim record may
+supply the declaration before work begins when the description has none. If
+active sources disagree, or the authoritative source contains absence, both
+forms, or a blank rationale, the review contract is incomplete; it does not
+default to no review.
 
 When review is required, substantive fixes to a reviewed head require a fresh
 review. A previously clean review does not cover later substantive commits.
@@ -82,8 +88,8 @@ Review threads are not resolved merely because code changed.
 
 Review policy is satisfied only when:
 
-- the current ticket or pull request contains exactly one nonblank review
-  declaration and its required review, if any, has a disposition;
+- the effective authoritative ticket contract contains exactly one nonblank
+  review declaration and its required review, if any, has a disposition;
 - every current finding has a disposition when review occurred;
 - no unresolved valid P1 or recurring-P1 architectural stop remains when
   review occurred;

@@ -7,6 +7,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - One feature per directory: `.scratch/<feature-slug>/`
 - The spec is `.scratch/<feature-slug>/spec.md`
 - Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
+- A ticket's canonical reference is its full path or `local:<feature-slug>/<NN>`; numbers are reused across feature directories and are never globally resolvable
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
@@ -16,7 +17,7 @@ Create a new file under `.scratch/<feature-slug>/` (creating the directory if ne
 
 ## When a skill says "fetch the relevant ticket"
 
-Read the file at the referenced path. The user will normally pass the path or the issue number directly.
+Require the full path or an effort-qualified `local:<feature-slug>/<NN>` reference and resolve it inside that feature directory. Reject a bare number as ambiguous.
 
 ## Wayfinding operations
 

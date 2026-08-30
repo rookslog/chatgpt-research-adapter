@@ -64,8 +64,9 @@ field below. A spec without that brief stays `needs-triage`; a producer with a
 missing field routes the issue to clarification. Producer skills reference
 this contract rather than defining smaller runnable schemas.
 
-Before implementation or delegated investigation begins, the issue body or a
-claim comment must state:
+Before implementation or delegated investigation begins, the authoritative
+Agent Brief must state the following when one exists. Otherwise the issue body
+or a root claim comment must state them:
 
 - the closure target and observable deliverable;
 - dependencies and the exact starting revision or evidence cutoff;

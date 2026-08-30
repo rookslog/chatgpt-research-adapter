@@ -25,14 +25,14 @@ Look at the current repo to understand its starting state. Read whatever exists;
 - `docs/adr/` and any `src/*/docs/adr/` directories
 - `docs/agents/`: does this skill's prior output already exist?
 - `.scratch/`: a sign that a local-markdown issue tracker convention is already in use
-- Is the `triage` skill installed? (a `triage` skill folder alongside this one, or `triage` in your available skills.) This decides whether Section B runs at all.
+- Is any triage-state consumer or producer installed? Check at least `triage`, `to-spec`, and `to-tickets`, and inspect other installed skills (excluding this setup skill itself) for the canonical workflow states. This decides whether Section B runs at all.
 - Monorepo signals: a `pnpm-workspace.yaml`, a `workspaces` field in `package.json`, or a populated `packages/*` with its own `src/`. These are present only in a genuinely large multi-package repo; their absence means single-context, which is almost every repo.
 
 ### 2. Present findings and ask
 
 Summarise what's present and what's missing. Then take the sections in order. One section, one answer, then the next.
 
-Lead each section with the recommended answer so the user can accept it in a word. Give a one-line explainer only when the choice genuinely branches; skip the section entirely when exploration already settled it (Section B when `triage` isn't installed, Section C when there's no monorepo).
+Lead each section with the recommended answer so the user can accept it in a word. Give a one-line explainer only when the choice genuinely branches; skip the section entirely when exploration already settled it (Section B when no installed skill consumes or produces triage state, Section C when there's no monorepo).
 
 **Section A: Issue tracker.**
 
@@ -43,13 +43,15 @@ Default posture: these skills were designed for GitHub. If a `git remote` points
 - **GitHub**: issues live in the repo's GitHub Issues (uses the `gh` CLI)
 - **GitLab**: issues live in the repo's GitLab Issues (uses the [`glab`](https://gitlab.com/gitlab-org/cli) CLI)
 - **Local markdown**: issues live as files under `.scratch/<feature>/` in this repo (good for solo projects or repos without a remote)
-- **Other** (Jira, Linear, etc.): ask the user to describe the workflow in one paragraph; the skill will record it as freeform prose
+- **Other** (Jira, Linear, etc.): elicit and confirm the complete tracker operation contract below; a one-paragraph product description is not sufficient
 
 Before accepting a real issue tracker, verify that it can host issues. For GitHub, read the repository REST field `.has_issues`; for GitLab, read `.issues_enabled`. If issues are disabled or capability cannot be established, do not treat label access as proof that the tracker is usable: report setup incomplete and ask the user to enable issues or choose another tracker.
 
+For an **Other** tracker, require concrete commands or API operations for issue create/read/comment/category/state mutation plus every Wayfinder operation: map creation, complete child enumeration, blocker add/read, frontier derivation, delegated and HITL claims, known-unsent and possibly-dispatched recovery, child resolution, and terminal map closure. Record authentication and mutation authority boundaries without secrets. Verify the issue capability and at least one read-only inventory operation before completion; if any required operation or capability is unknown, keep setup incomplete.
+
 Record the choice in `docs/agents/issue-tracker.md`. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off**. Leave it off and don't raise it: a user who wants external PRs in the triage queue can flip the flag in the file later.
 
-**Section B: Triage metadata.** Skip this section entirely if the `triage` skill isn't installed (exploration told you), since an uninstalled skill needs no triage mapping.
+**Section B: Triage metadata.** Run this section whenever any installed skill consumes or produces triage state, including `triage`, `to-spec`, or `to-tickets`. Skip it only when exploration established that no installed skill uses the category or workflow-state contract.
 
 If it is installed, ask exactly one question:
 
@@ -102,7 +104,7 @@ The block:
 [one-line summary of layout: "single-context" or "multi-context"]. See `docs/agents/domain.md`.
 ```
 
-Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, only when `triage` is installed and Section B ran. When it isn't, both are omitted.
+Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, whenever Section B ran for any state-consuming or state-producing skill. When it did not run, both are omitted.
 
 Then write the docs files using the seed templates in this skill folder as a starting point. For a missing file, create it from the selected seed. For an existing `docs/agents/*.md`, merge only the setup-owned tracker choice, triage mapping, or domain-layout sections approved in step 3. Preserve unknown headings, backend-neutral boundaries, execution contracts, run records, required context sources, and other custom content. When the tracker changes, replace the old backend-specific commands, endpoints, relationship operations, and query fields with the selected seed's backend; do not preserve commands that still target the previous tracker. Never replace an existing document wholesale from a seed template.
 
@@ -114,7 +116,7 @@ When multi-context is selected and `CONTEXT-MAP.md` does not exist, create a roo
 - [triage-labels.md](./triage-labels.md): label mapping (only if `triage` is installed)
 - [domain.md](./domain.md): domain doc consumer rules + layout
 
-For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch using the user's description.
+For "other" issue trackers, write `docs/agents/issue-tracker.md` from the confirmed complete operation and capability contract. Do not declare setup complete from a generic tracker description.
 
 **Provision and verify tracker capability and labels before declaring setup complete.** Re-read that the selected real tracker has issues enabled. On GitHub or GitLab, create the approved missing triage labels plus `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, and `wayfinder:task`, then fetch the label inventory again and verify every configured label exists. If issues are disabled or unknown, the user did not authorize the preview, the tracker is read-only, or any required label remains absent, report setup as incomplete and do not claim downstream ticket publication is ready.
 

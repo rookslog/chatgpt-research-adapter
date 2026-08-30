@@ -55,10 +55,19 @@ Variants must be **structurally different**: different layout, different informa
 
 ### 3. Wire them together
 
-Create a single switcher component on the route:
+Gate the entire prototype render path, not only its switcher. For sub-shape A,
+preserve the original page render and return it unchanged in production,
+ignoring `?variant=`. For sub-shape B, make the throwaway route unavailable
+(for example, return the framework's not-found response) in production. Only
+the non-production branch may select or render variants.
+
+Create a single switcher component inside that non-production branch:
 
 ```tsx
 // pseudo-code, adapt to the project's framework
+if (process.env.NODE_ENV === 'production') {
+  return <OriginalPage {...data} />; // sub-shape A; use notFound() for B
+}
 const variant = searchParams.get('variant') ?? 'A';
 return (
   <>
@@ -87,7 +96,7 @@ Behaviour:
 - Clicking an arrow updates the URL search param (use the framework's router, e.g. `router.replace` on Next, `navigate` on React Router, etc) so the variant is shareable and reload-stable.
 - Keyboard: `←` and `→` arrow keys also cycle. Don't intercept arrow keys when an `<input>`, `<textarea>`, or `[contenteditable]` is focused.
 - Visually distinct from the page (e.g. high-contrast pill, subtle shadow) so it's obviously not part of the design being evaluated.
-- Hidden in production builds: gate on `process.env.NODE_ENV !== 'production'` or an equivalent check, so a stray prototype merge can't ship the bar to users.
+- Rendered only inside the prototype-enabled branch. Hiding the bar alone is not a production guard: variant query handling and every alternate render must also be unreachable.
 
 Put the switcher in a single shared component so both sub-shapes can reuse it. Locate it wherever shared UI lives in the project.
 
