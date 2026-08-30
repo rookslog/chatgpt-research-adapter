@@ -1,0 +1,40 @@
+{
+  "source": "https://github.com/mattpocock/skills",
+  "commit": "6654f6b60cd9d5be8b54c6fafe44346dabeb3b76",
+  "installed_at": "2026-08-29",
+  "destination": ".agents/skills",
+  "skills": [
+    "skills/engineering/setup-matt-pocock-skills",
+    "skills/engineering/wayfinder",
+    "skills/engineering/to-spec",
+    "skills/engineering/to-tickets",
+    "skills/engineering/triage",
+    "skills/engineering/domain-modeling",
+    "skills/engineering/prototype",
+    "skills/engineering/research",
+    "skills/productivity/grilling"
+  ],
+  "local_modifications": [
+    {
+      "path": ".agents/skills/triage/SKILL.md",
+      "reason": "Represent category in the configured durable triage record while reserving GitHub labels for workflow state; this personal repository exposes no Issue Types."
+    },
+    {
+      "paths": [
+        ".agents/skills/setup-matt-pocock-skills/SKILL.md",
+        ".agents/skills/wayfinder/SKILL.md",
+        ".agents/skills/to-spec/SKILL.md",
+        ".agents/skills/to-tickets/SKILL.md",
+        ".agents/skills/triage/SKILL.md"
+      ],
+      "reason": "Remove unsupported disable-model-invocation frontmatter; preserve explicit-only invocation through the upstream agents/openai.yaml policy.allow_implicit_invocation=false setting."
+    },
+    {
+      "paths": [
+        ".agents/skills/wayfinder/SKILL.md",
+        ".agents/skills/research/SKILL.md"
+      ],
+      "reason": "Enforce the repository's verified dependency frontier, wave capacity, claim/done contract, route fit, non-nested delegation, and ticket-owned research output before launching local research work."
+    }
+  ]
+}

@@ -34,9 +34,15 @@ Unclear findings are not partially implemented. Resolve the ambiguity first or c
 
 ## Fresh-review rule
 
-After substantive fixes to a reviewed head, request a fresh review. A previously clean review does not cover later substantive commits.
+Every ticket or pull request declares whether independent review is required
+and the concrete trigger. Require review when deterministic checks cannot
+adequately discriminate correctness, the change crosses a consequential
+contract or external-effect boundary, difficult state-machine/concurrency
+reasoning remains, or the owner or governing issue explicitly requires it.
+Record `review: none` with a reason when no trigger applies.
 
-PR #6 review rounds continue until there is no unresolved valid P1 or the recurrence stop rule fires.
+When review is required, substantive fixes to a reviewed head require a fresh
+review. A previously clean review does not cover later substantive commits.
 
 ## Recurring-P1 stop rule
 
@@ -67,11 +73,12 @@ Review threads are not resolved merely because code changed.
 
 Review policy is satisfied only when:
 
-- every current finding has a disposition;
-- no unresolved valid P1 remains;
-- no recurring-P1 architectural stop is active;
-- the current substantive head has received a fresh review;
+- every current finding has a disposition when review occurred;
+- no unresolved valid P1 or recurring-P1 architectural stop remains when
+  review occurred;
+- the current substantive head has received a fresh review when the declared
+  review trigger requires one;
 - required deterministic verification is green;
-- review conversations are resolved or explicitly dispositioned.
+- review conversations are resolved or explicitly dispositioned when present.
 
 Merge remains a separate owner-authorized action.
