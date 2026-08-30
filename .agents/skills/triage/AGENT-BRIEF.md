@@ -12,7 +12,8 @@ The issue may sit in `ready-for-agent` for days or weeks. The codebase will chan
 
 - **Do** describe interfaces, types, and behavioral contracts
 - **Do** name specific types, function signatures, or config shapes that the agent should look for or modify
-- **Don't** reference file paths: they go stale
+- **Don't** prescribe implementation file paths: they go stale
+- **Do** give an exact ticket-owned artifact/output path when the execution contract requires one, especially for a delegated research deliverable; that path is an ownership boundary, not an implementation instruction
 - **Don't** reference line numbers
 - **Don't** assume the current implementation structure will remain the same
 
@@ -69,7 +70,7 @@ Be specific about edge cases and error conditions.
 **Execution contract:**
 - **Closure target:** observable deliverable that closes the ticket
 - **Start and dependencies:** exact revision or evidence cutoff and blocker state
-- **Ownership:** owned write/output set and explicit non-goals
+- **Ownership:** owned write/output set and explicit non-goals; include the exact owned Markdown artifact path for a research lane
 - **Deterministic verification:** focused checks, full repository gate, and expected results
 - **External/live boundary:** separately authorized or manual operations, or `none`
 - **Review declaration:** `review: required — <trigger and reviewer class>` or `review: none — <reason>`

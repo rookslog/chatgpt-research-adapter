@@ -21,7 +21,7 @@ Before writing code, write down what state model and what question you're protot
 
 ### 2. Isolate the logic in a portable module
 
-Put the actual logic (the bit that's answering the question) in a single `<script>` block written as a small, pure module that could be lifted out and dropped into the real codebase later. The page around it is throwaway; this module isn't.
+Put the actual logic (the bit that's answering the question) in a single `<script>` block written as a small, pure module that can serve as precise prototype evidence. The page and module are both prototype artifacts, not production code; an authorized later implementation can rewrite the validated behavior into the real codebase.
 
 The right shape depends on the question:
 
@@ -30,7 +30,7 @@ The right shape depends on the question:
 - **A small set of pure functions** over a plain data type. Good when there's no implicit current state, just transformations.
 - **A class or module with a clear method surface** when the logic genuinely owns ongoing internal state.
 
-Pick whichever shape best fits the question being asked, *not* whichever is easiest to wire to a page. Keep it pure: no DOM, no `document`, no button handlers reaching inside it. The page calls into it; nothing flows the other direction. This is what makes the prototype useful past its own lifetime: once the question's answered, the validated reducer / machine / function set lifts into the real module on its own.
+Pick whichever shape best fits the question being asked, *not* whichever is easiest to wire to a page. Keep it pure: no DOM, no `document`, no button handlers reaching inside it. The page calls into it; nothing flows the other direction. This keeps the validated behavior legible as evidence and, when production execution is separately authorized, makes a proper rewrite into the real module straightforward.
 
 ### 3. Build the shareable HTML file
 
@@ -55,7 +55,7 @@ Send them the file, or open it for them. They'll click through the walkthroughs 
 
 ### 5. Capture the answer and the prototype
 
-Once the prototype has answered its question, capture the answer, then capture the prototype the way the [SKILL](SKILL.md) describes. The logic-specific mapping: the validated reducer / machine / function set lifts into the real module (the decision, absorbed); the HTML shell rides along to the throwaway branch that keeps the prototype as a primary source, and being one self-contained file, it stays trivially re-runnable there.
+Once the prototype has answered its question, capture the answer, then capture the prototype the way the [SKILL](SKILL.md) describes. The HTML shell rides along to the throwaway branch that keeps the prototype as a primary source and stays trivially re-runnable there. If production execution is explicitly authorized under the parent contract, rewrite the validated reducer / machine / function set into the real module; otherwise record the validated behavior and required promotion work on the planning ticket without modifying production code.
 
 ## Anti-patterns
 

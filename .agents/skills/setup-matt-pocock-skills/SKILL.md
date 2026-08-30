@@ -8,7 +8,7 @@ description: "Configure this repo for the engineering skills: set up its issue t
 Scaffold the per-repo configuration that the engineering skills assume:
 
 - **Issue tracker**: where issues live (GitHub by default; local markdown is also supported out of the box)
-- **Triage labels**: the strings used for the five canonical triage roles
+- **Triage metadata**: representation for two category roles plus label strings for five workflow-state roles
 - **Domain docs**: where `CONTEXT.md` and ADRs live, and the consumer rules for reading them
 
 This is a prompt-driven skill, not a deterministic script. Explore, present what you found, confirm with the user, then write.
@@ -49,13 +49,13 @@ Before accepting a real issue tracker, verify that it can host issues. For GitHu
 
 Record the choice in `docs/agents/issue-tracker.md`. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off**. Leave it off and don't raise it: a user who wants external PRs in the triage queue can flip the flag in the file later.
 
-**Section B: Triage label vocabulary.** Skip this section entirely if the `triage` skill isn't installed (exploration told you), since an uninstalled skill needs no labels.
+**Section B: Triage metadata.** Skip this section entirely if the `triage` skill isn't installed (exploration told you), since an uninstalled skill needs no triage mapping.
 
 If it is installed, ask exactly one question:
 
-> Do you want to keep the default triage labels? (recommended: **yes**)
+> Do you want to keep the default triage metadata? (recommended: **yes**)
 
-The defaults are the five canonical roles, each label string equal to its name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. On **yes**, write them as-is. Only if the user says no, usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`), collect the overrides so `triage` applies existing labels instead of creating duplicates.
+The default category representation is one durable field in the latest triage record or agent brief: `**Category:** bug` or `**Category:** enhancement`. The five workflow-state labels each use their canonical name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. On **yes**, write both mappings as-is. Only if the user says no, collect the category representation and state-label overrides together so `triage` can record exactly one category and apply existing workflow labels without creating duplicates.
 
 **Section C: Domain docs.** Default to **single-context** (one `CONTEXT.md` + `docs/adr/` at the repo root). This fits almost every repo; write it without asking.
 
@@ -66,7 +66,7 @@ Offer **multi-context** (a root `CONTEXT-MAP.md` pointing to per-context `CONTEX
 Show the user a draft of:
 
 - The `## Agent skills` block to add to each confirmed active-agent instruction file (see step 4 for selection rules)
-- The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md` (the last only when `triage` is installed)
+- The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md`, including category and workflow-state mappings (the last only when `triage` is installed)
 
 Let them edit before writing.
 

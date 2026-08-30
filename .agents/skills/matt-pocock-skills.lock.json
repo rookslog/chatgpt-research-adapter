@@ -45,13 +45,15 @@
         ".agents/skills/setup-matt-pocock-skills/triage-labels.md",
         ".agents/skills/domain-modeling/ADR-FORMAT.md",
         ".agents/skills/grilling/SKILL.md",
+        ".agents/skills/prototype/LOGIC.md",
         ".agents/skills/prototype/SKILL.md",
+        ".agents/skills/prototype/UI.md",
         ".agents/skills/triage/AGENT-BRIEF.md",
         ".agents/skills/to-tickets/SKILL.md",
         ".agents/skills/triage/SKILL.md",
         ".agents/skills/wayfinder/SKILL.md"
       ],
-      "reason": "Apply PR #41 review hardening: verify issue-tracker capability and required labels, avoid truncated or schema-mismatched queries, initialize local ticket state, derive readiness from one complete Agent Brief contract, separate HITL claims from recoverable delegated pre-dispatch claims, collect asynchronous research including no-locator claims, validate named-ticket eligibility, centralize child/map completion and fallback indexing in Wayfinder, keep prototypes inside the planning boundary, invoke installed skills through harness-supported mechanisms, keep untrusted contributor code out of routine triage execution, preserve custom setup content while replacing a switched tracker backend, configure confirmed active-agent instruction files, persist selected multi-context layout, keep deterministic fact checks with root, scope ADR storage correctly, and explicitly separate Wayfinder planning artifacts from triage intake."
+      "reason": "Apply PR #41 review hardening: verify issue-tracker capability, category representation, and required state labels, avoid truncated or schema-mismatched queries, initialize local ticket and map state, derive readiness from one complete Agent Brief contract with exact research output ownership, separate resumable HITL claims from recoverable delegated pre-dispatch claims, collect asynchronous research including no-locator claims, validate named-ticket eligibility, centralize child/map completion and fallback indexing in Wayfinder, keep every prototype branch inside the planning boundary, invoke installed skills through harness-supported mechanisms, keep untrusted contributor code out of routine triage execution, preserve custom setup content while replacing a switched tracker backend, configure confirmed active-agent instruction files, persist selected multi-context layout, keep deterministic fact checks with root, scope ADR storage correctly, and explicitly separate Wayfinder planning artifacts from triage intake."
     }
   ]
 }
