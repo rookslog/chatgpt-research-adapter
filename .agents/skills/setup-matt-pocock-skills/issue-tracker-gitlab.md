@@ -56,7 +56,7 @@ Every `to-spec` issue description carries `Spec publication key: <source-identit
 
 ## Implementation-ticket publication recovery
 
-Every `to-tickets` issue description carries one exact `Ticket publication key: <source-identity>/<approved-breakdown-digest>/<approved-ordinal>` marker. The complete user-approved breakdown digest is required even when a canonical source issue exists. Before creation, exhaustively search open and closed issues for every approved key. Zero matches permits creation; one match resumes that issue through relationship verification, trusted Agent Brief publication, and singleton ready-state verification; multiple matches stop for explicit duplicate disposition. Never recreate merely because a later stage failed.
+Every `to-tickets` issue description carries one exact `Ticket publication key: <source-identity>/<approved-breakdown-digest>/<approved-ordinal>` marker. The complete user-approved breakdown digest is required even when a canonical source issue exists. Before any create, verify the durable source's repository-defined terminal planning state, then exhaustively search open and closed issues by the `Ticket publication key: <source-identity>/` source-identity prefix as well as every approved full key. Explicitly disposition and verify every prior generation before allowing replacements; an obsolete open ready ticket blocks publication. After that generation reconciliation, zero full-key matches permits creation, one match resumes that issue through relationship verification, trusted Agent Brief publication, and singleton ready-state verification, and multiple matches stop for explicit duplicate disposition. Never recreate merely because a later stage failed.
 
 ## Implementation-ticket execution
 

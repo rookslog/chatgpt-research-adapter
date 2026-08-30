@@ -265,3 +265,44 @@ test('open wontfix records remain in maintainer attention until closure succeeds
   assert.match(gitlab, /open `wontfix`[\s\S]*attention/i);
   assert.match(local, /`wontfix`[\s\S]*terminal/i);
 });
+
+test('implementation tickets require a terminal planning source before publication', async () => {
+  const tickets = await text('.agents/skills/to-tickets/SKILL.md');
+
+  assert.match(tickets, /before any tracker write[\s\S]*terminal\s+planning state/i);
+  assert.match(tickets, /open Wayfinder map[\s\S]*`needs-triage`[\s\S]*stop/i);
+  assert.match(tickets, /no\s+durable source[\s\S]*user-approved breakdown/i);
+});
+
+test('implementation-ticket recovery reconciles every source generation', async () => {
+  const [tickets, github, gitlab, local] = await Promise.all([
+    text('.agents/skills/to-tickets/SKILL.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-github.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-gitlab.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-local.md'),
+  ]);
+
+  assert.match(tickets, /stable\s+source identity[\s\S]*prior[- ]generation[\s\S]*before[^.]*creat/i);
+  assert.match(github, /source-identity prefix[\s\S]*prior generation[\s\S]*before[^.]*creat/i);
+  assert.match(gitlab, /source-identity prefix[\s\S]*prior generation[\s\S]*before[^.]*creat/i);
+  assert.match(local, /complete feature issue directory[\s\S]*prior generation/i);
+});
+
+test('an existing context map is authoritative multi-context evidence', async () => {
+  const setup = await text('.agents/skills/setup-matt-pocock-skills/SKILL.md');
+
+  assert.match(setup, /existing root `CONTEXT-MAP\.md`[\s\S]*authoritative multi-context evidence/i);
+  assert.match(setup, /validate every context link/i);
+  assert.match(setup, /do not default to single-context/i);
+});
+
+test('every invalidated child uses the shared publish-then-close queue', async () => {
+  const [wayfinder, tracker] = await Promise.all([
+    text('.agents/skills/wayfinder/SKILL.md'),
+    text('docs/agents/issue-tracker.md'),
+  ]);
+
+  assert.match(wayfinder, /selected, collected, or invalidated[\s\S]*remain open[\s\S]*publish[\s\S]*map and dependenc[\s\S]*re-read[\s\S]*close[^.]*last/i);
+  assert.doesNotMatch(wayfinder, /update or close invalidated tickets/i);
+  assert.match(tracker, /invalidated child[\s\S]*remains? open[\s\S]*close[^.]*last/i);
+});

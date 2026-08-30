@@ -32,11 +32,16 @@ maintainer attention until closure is verified.
 Every `to-tickets` issue body carries one exact `Ticket publication key:`
 formed from the stable source identity, the digest of the complete
 owner-approved breakdown, and the approved ticket ordinal. A source issue does
-not replace the breakdown digest. Before creation, exhaustively search open and
-closed issues for all approved keys. Zero matches permits creation; one match resumes the existing
-issue through relationship verification, trusted Agent Brief publication, and
-singleton ready-state verification; multiple matches stop for duplicate
-disposition. A failed later stage never authorizes recreating the issue.
+not replace the breakdown digest. Before creation, verify that any durable plan,
+spec, or decision-map source is in its repository-defined terminal planning
+state. Then exhaustively search open and closed issues by the stable
+source-identity key prefix as well as all approved full keys. Every prior ticket
+generation requires explicit, verified disposition before any replacement can
+be created. After that reconciliation, zero full-key matches permits creation;
+one match resumes the existing issue through relationship verification, trusted
+Agent Brief publication, and singleton ready-state verification; multiple
+matches stop for duplicate disposition. A failed later stage never authorizes
+recreating the issue.
 
 ## Implementation-ticket execution
 
@@ -116,9 +121,12 @@ authorizes another create.
   and unassigned, and possibly-dispatched failures remain held for
   investigation without resubmission. Unfinished HITL claims remain assigned
   for the live owner/root to resume or explicitly disposition.
-- **Resolve:** while the child remains open, reconcile new or invalidated
-  tickets and fog, post the decision or finding, append the map pointer, and
-  re-read dependencies. Close the child last because closure can unblock work.
+- **Resolve:** while every affected child remains open, reconcile new or
+  invalidated tickets and fog. Each invalidated child remains open and enters
+  the same closure queue: publish and verify its disposition, update the map and
+  dependencies, re-read the affected frontier, and close that child last. For
+  the selected child, post the decision or finding, append the map pointer,
+  re-read dependencies, and close it last because closure can unblock work.
 - **Complete the map:** after a child closes, re-read all children and
   `Not yet specified`. When no open child and no fog remain, record the
   destination outcome and the owner-approval gate for any implementation

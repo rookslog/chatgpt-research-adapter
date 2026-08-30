@@ -17,6 +17,16 @@ Work from whatever is already in the conversation context. If the user passes a 
 
 Determine the durable `bug` or `enhancement` category from that source. Every published implementation ticket must carry that category and the canonical agent brief; a source whose category remains ambiguous is not ready to decompose into runnable tickets.
 
+Classify the source's planning state before drafting. When a durable source
+reference exists, fetch its current tracker record and the repository's
+definition of terminal planning state. A Wayfinder map must be closed/resolved
+with its destination outcome published; another spec or plan must be
+closed/resolved or carry the repository-defined verified terminal approval
+record. An open Wayfinder map, a spec in `needs-triage`, unresolved fog, or a
+missing/ambiguous terminal record must stop before publication. When there is no
+durable source, the user-approved breakdown in the live conversation is the
+source decision; do not invent a tracker state for the conversation.
+
 ### 2. Explore the codebase (optional)
 
 If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
@@ -63,17 +73,28 @@ Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock
 - **Local Markdown** → reconcile the complete feature-directory inventory before any write, then create or resume one file per approved key under `.scratch/<feature-slug>/issues/<NN>-<slug>.md`. Each file's "Blocked by" lists the reconciled numbers/titles it depends on. Use the per-ticket file template below: one ticket per file, never a single combined file.
 - **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues.
 
-Before any tracker write, validate the complete approved blocking graph. Reject
-every self-edge or self-dependency. Run a deterministic topological sort over
-the approved ticket ordinals; if vertices remain, identify one concrete cycle,
-stop without publishing anything, and return that cycle to the user for a
-corrected breakdown. Only an acyclic approved graph may proceed.
+Before any tracker write, re-read every durable source and verify the terminal
+planning state under the rule above, then validate the complete approved
+blocking graph. Reject every self-edge or self-dependency. Run a deterministic
+topological sort over the approved ticket ordinals; if vertices remain,
+identify one concrete cycle, stop without publishing anything, and return that
+cycle to the user for a corrected breakdown. Only a terminal source and an
+acyclic approved graph may proceed.
 
 Then compute one approved-breakdown digest over the complete normalized user-approved list: ticket titles, observable deliverables, blocking edges, and order. The key binds the source identity, approved-breakdown digest, and approved ordinal. Every ticket receives `Ticket publication key: <source-identity>/<approved-breakdown-digest>/<approved-ordinal>`; use a stable conversation-derived source identity when no source ticket exists. A canonical source reference supplies the source identity but does not replace the breakdown digest. Reordering, inserting, removing, or materially changing a slice therefore produces a different key set and requires explicit disposition of tickets from the prior breakdown.
 
-For a real tracker, put the exact key in the issue body, exhaustively query open and closed issues for all approved keys before creation, and reconcile them: **zero matches** permits one create; **one match** means resume the existing issue from its observed stage; **multiple matches** stops for explicit duplicate disposition. Resume the existing issue by verifying or repairing relationships, then publishing and verifying the trusted Agent Brief, then applying and verifying the ready state. Never recreate an issue merely because brief publication, relationship mutation, or state application failed.
+Before any ticket create, reconcile every ticket generation for the stable
+source identity. Exhaustively find open and closed tickets whose publication
+key starts with `Ticket publication key: <source-identity>/`, not only tickets
+whose full keys occur in the newly approved set. Separate exact current keys
+from every prior generation. Each prior-generation ticket requires an explicit,
+verified reuse or supersession disposition that prevents obsolete runnable work
+before creation of any replacement; a still-ready or ambiguously dispositioned
+prior ticket stops publication.
 
-For Local Markdown, put the same exact `Ticket publication key:` in every file and inventory the complete feature issue directory before allocating any path. For each approved key, **zero matches** permits one exclusive create at an unused number, **one match** resumes that exact file without discarding its observed state or evidence, and **multiple matches** stops for explicit duplicate disposition. Stop on duplicate numbers, malformed files, or unmatched existing tickets until they are dispositioned. Never implicitly overwrite or replace a path, claim, completion record, discussion, or prior evidence. After reconciliation, map approved ordinals to the actual local numbers and write blocking references in a second pass.
+For a real tracker, put the exact key in the issue body, perform that exhaustive source-prefix inventory, then reconcile every approved key: **zero matches** permits one create only after all prior generations are dispositioned; **one match** means resume the existing issue from its observed stage; **multiple matches** stops for explicit duplicate disposition. Resume the existing issue by verifying or repairing relationships, then publishing and verifying the trusted Agent Brief, then applying and verifying the ready state. Never recreate an issue merely because brief publication, relationship mutation, or state application failed.
+
+For Local Markdown, put the same exact `Ticket publication key:` in every file and inventory the complete feature issue directory before allocating any path. Treat every unmatched key with the same source-identity prefix as a prior generation requiring explicit verified disposition. For each approved key, **zero matches** permits one exclusive create at an unused number only after that generation reconciliation, **one match** resumes that exact file without discarding its observed state or evidence, and **multiple matches** stops for explicit duplicate disposition. Stop on duplicate numbers, malformed files, or unmatched existing tickets until they are dispositioned. Never implicitly overwrite or replace a path, claim, completion record, discussion, or prior evidence. After reconciliation, map approved ordinals to the actual local numbers and write blocking references in a second pass.
 
 Before marking any published ticket `ready-for-agent`, use the authoritative [agent-brief template](../triage/AGENT-BRIEF.md), including its complete execution contract, and add the parent/blocking relationship. On a real tracker, create or recover the keyed issue body with its parent and blocker metadata, then post the complete Agent Brief through the configured trusted triage producer; fetch and verify the comment/note author plus immutable ID or URL. Do not embed the authoritative brief only in the description. Apply the ready state only after that trusted record is verified. For local Markdown, keep the complete brief in the ticket file. Do not maintain a second reduced brief schema here. If any required field is undecided, leave the ticket non-runnable and route it for human clarification instead of applying `ready-for-agent`.
 
