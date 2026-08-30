@@ -250,9 +250,10 @@ same-page invariant and a typed resolved-state result. Upstream is the right
 long-term owner for generic ChatGPT UI selector maintenance; the wrapper remains
 owner of job receipts, ambiguity semantics, and capability gating.
 
-### D. Maintained fork — not justified yet
+### D. Architecture re-evaluation gate — no fork decision yet
 
-Create a fork only if one of these falsifiers is observed:
+The following observations falsify the assumption that a wrapper plus narrow
+compatibility patches is still obviously the best route:
 
 1. the required same-page behavior cannot be expressed by at most two narrow,
    source-identity-checked ChatGPT adapter patches;
@@ -263,7 +264,18 @@ Create a fork only if one of these falsifiers is observed:
 4. multiple project consumers require a versioned distributable OpenCLI API
    rather than this wrapper's private compatibility copy.
 
-UI drift or one delayed upstream release alone is not a fork trigger.
+Crossing one of these gates does **not** select a fork automatically. It pauses
+capability expansion and requires a fresh comparison of:
+
+1. wrapper plus temporary pinned patches;
+2. a maintained internal fork with an upstream-contribution path;
+3. a different browser/controller boundary.
+
+That review must include accumulated patch surface, requalification cost,
+release drift, distribution needs, and rollback/migration cost. The existing
+wrapper and evidence remain usable inputs; they are not discarded merely
+because a load-bearing assumption needs re-evaluation. UI drift or one delayed
+upstream release alone does not cross the gate.
 
 ## Smallest justified RED set
 
@@ -307,7 +319,8 @@ observation qualifies a path; it does not estimate reliability.
 - **Contract owner:** wrapper.
 - **Current selector implementation owner:** pinned compatibility patch, then
   upstream if accepted.
-- **Fork:** defer.
+- **Architecture:** continue wrapper plus narrow patches; defer a fork, and
+  re-evaluate rather than auto-fork if a gate above is crossed.
 - **First product target:** preserve `current/current`, then qualify
   `current/extra_high`; make `current/pro` the next explicit target using an
   effort-only visible selector.
