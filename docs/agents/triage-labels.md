@@ -26,6 +26,11 @@ Apply exactly one state label:
 | `ready-for-human` | `ready-for-human` | Human action or judgment is required |
 | `wontfix` | `wontfix` | The request will not be actioned |
 
+Every transition replaces workflow state: remove any of these five labels,
+apply the selected target, then re-read the item and verify the target is the
+only workflow-state label present. A partial or ambiguous mutation is not a
+completed triage outcome.
+
 The latest triage record plus the current state label form the issue's triage
 classification. Do not retroactively classify historical M006 issues merely to
 populate this scheme.
@@ -45,3 +50,7 @@ Applying `ready-for-agent` requires both the durable category field and an
 agent-ready brief containing the complete execution contract. A maintainer
 quick override skips the grilling interview, not those records; if either
 remains unavailable, keep the issue non-runnable.
+
+Applying `ready-for-human` requires the same canonical brief schema and
+authoritative tracker location, with the remaining human work and review
+declaration recorded explicitly.

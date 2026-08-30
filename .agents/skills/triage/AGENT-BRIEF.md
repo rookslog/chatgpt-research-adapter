@@ -1,6 +1,8 @@
 # Writing Agent Briefs
 
-An agent brief is the tracker-configured authoritative record published when an issue or PR moves to `ready-for-agent`. A real tracker stores it as a separate comment or note; the local Markdown tracker embeds it directly below the ticket's plain `Status:` field. It is the specification that an AFK agent will work from. The original request and discussion are context: the agent brief is the contract.
+An Agent Brief is the tracker-configured authoritative work record published when an issue or PR moves to `ready-for-agent` or `ready-for-human`. A real tracker stores it as a separate comment or note; the local Markdown tracker embeds it directly below the ticket's plain `Status:` field. For `ready-for-agent`, it is the specification that an AFK agent will work from. For `ready-for-human`, the same schema names the human judgment, access, implementation, or verification still required. The original request and discussion are context: the latest canonical brief is the contract for either ready state.
+
+On Local Markdown, embedding the brief replaces the standalone canonical pre-brief category field; do not retain both. The brief's `**Category:**` field becomes the one authoritative category slot.
 
 The brief states **what the agent should do**, which stretches to both surfaces: for an issue, that's building the change from nothing; for a PR, it's what's left to do *to the existing diff*: finish it, close gaps, address review points. Same principles either way; the PR example below shows the difference.
 
@@ -8,7 +10,7 @@ The brief states **what the agent should do**, which stretches to both surfaces:
 
 ### Durability over precision
 
-The issue may sit in `ready-for-agent` for days or weeks. The codebase will change in the meantime. Write the brief so it stays useful even as files are renamed, moved, or refactored.
+The issue may sit in a ready state for days or weeks. The codebase will change in the meantime. Write the brief so it stays useful even as files are renamed, moved, or refactored.
 
 - **Do** describe interfaces, types, and behavioral contracts
 - **Do** name specific types, function signatures, or config shapes that the agent should look for or modify

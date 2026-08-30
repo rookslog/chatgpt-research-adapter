@@ -71,12 +71,14 @@ documented `gh api` REST endpoint and inspect the resulting relationship.
 
 ## Ticket execution contract
 
-`ready-for-agent` is a derived publication state, never a producer default. It
-requires a durable category plus the authoritative Agent Brief in
-`.agents/skills/triage/AGENT-BRIEF.md`, including every execution-contract
-field below. A spec without that brief stays `needs-triage`; a producer with a
-missing field routes the issue to clarification. Producer skills reference
-this contract rather than defining smaller runnable schemas.
+`ready-for-agent` and `ready-for-human` are derived publication states, never
+producer defaults. Each requires a durable category plus the authoritative
+brief schema in `.agents/skills/triage/AGENT-BRIEF.md`, including every
+execution-contract field below. The latest canonical GitHub brief comment is
+authoritative for either state; the latter names the remaining human work. A
+spec without that brief stays `needs-triage`; a producer with a missing field
+routes the issue to clarification. Producer skills reference this contract
+rather than defining smaller actionable schemas.
 
 Before implementation or delegated investigation begins, the authoritative
 Agent Brief must state the following when one exists. Otherwise the issue body

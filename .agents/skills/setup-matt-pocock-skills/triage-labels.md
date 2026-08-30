@@ -25,6 +25,10 @@ Record exactly one category. If this tracker uses Issue Types or another durable
 
 When a skill mentions a workflow role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
+Every workflow-state transition is a replacement: remove all currently applied labels from this five-role mapping, apply the selected target, and re-read the record to verify exactly one mapped state label remains.
+
+For Local Markdown, use one canonical pre-brief category field immediately after the plain `Status:` field. When a canonical Agent Brief is embedded for either ready state, remove that standalone field and use the brief's category instead; never retain both.
+
 Wayfinder maps and child decision tickets are planning artifacts managed by their `wayfinder:*` type, dependency, assignment, contract, and closure state. Exclude them from general triage attention unless the repository explicitly opts them into the five-state request workflow.
 
 Edit the category mapping and workflow-label column to match the confirmed tracker vocabulary.

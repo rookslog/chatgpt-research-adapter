@@ -47,14 +47,7 @@ effective authoritative ticket contract:
 - `review: required — <trigger and intended reviewer class>`
 - `review: none — <reason>`
 
-For a `ready-for-agent` ticket or PR, the latest canonical Agent Brief comment
-is the authoritative contract and its declaration satisfies this policy; do
-not require a duplicate in the description. Otherwise use the issue or PR
-description. For root-owned work without an Agent Brief, a claim record may
-supply the declaration before work begins when the description has none. If
-active sources disagree, or the authoritative source contains absence, both
-forms, or a blank rationale, the review contract is incomplete; it does not
-default to no review.
+For a `ready-for-agent` or `ready-for-human` ticket or PR, the latest canonical Agent Brief comment or note is the authoritative contract and its declaration satisfies this policy; do not require a duplicate in the description. The same schema is an agent-execution brief in the former state and a human-work brief in the latter. Otherwise use the issue or PR description. For root-owned work without a canonical brief, a claim record may supply the declaration before work begins when the description has none. If active sources disagree, or the authoritative source contains absence, both forms, or a blank rationale, the review contract is incomplete; it does not default to no review.
 
 When review is required, substantive fixes to a reviewed head require a fresh
 review. A previously clean review does not cover later substantive commits.

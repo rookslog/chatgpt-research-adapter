@@ -9,6 +9,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
 - A ticket's canonical reference is its full path or `local:<feature-slug>/<NN>`; numbers are reused across feature directories and are never globally resolvable
 - Every general-triage request file carries `Created: <RFC 3339 timestamp>` and a plain `Status:` line near the top; a missing legacy timestamp never removes it from discovery
+- Before a canonical Agent Brief exists, the canonical pre-brief category is exactly one standalone `**Category:** bug | enhancement` line immediately after the plain `Status:` field. The spec body does not repeat it. When triage embeds a canonical Agent Brief, remove the standalone pre-brief field because the brief's category becomes authoritative; never retain both category slots.
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
 - Comments and conversation history append to the bottom under `## Comments`. Each entry records `At: <RFC 3339 timestamp>` and `By: reporter | triage` before its body so `needs-info` activity is recoverable.
 
@@ -41,4 +42,4 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 
 ## Ticket execution contract
 
-Every runnable ticket file carries the complete contract defined by `.agents/skills/triage/AGENT-BRIEF.md`: closure target; start revision/evidence and blockers; owned write/output set and non-goals; deterministic verification; external/live boundary; review declaration; root integration; and route fit. A Wayfinder planning child records these fields under `## Execution contract`. A `ready-for-agent` implementation ticket embeds the complete canonical Agent Brief in the file below its plain `Status:` field. Missing fields require `Contract status: needs-clarification` and exclusion from the frontier.
+Every actionable ticket file carries the complete contract defined by `.agents/skills/triage/AGENT-BRIEF.md`: closure target; start revision/evidence and blockers; owned write/output set and non-goals; deterministic verification; external/live boundary; review declaration; root integration; and route fit. A Wayfinder planning child records these fields under `## Execution contract`. A `ready-for-agent` or `ready-for-human` implementation ticket embeds the complete canonical Agent Brief in the file below its plain `Status:` field and removes the standalone pre-brief category field. Missing fields require `Contract status: needs-clarification` and exclusion from the frontier.
