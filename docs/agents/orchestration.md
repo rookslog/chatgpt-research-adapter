@@ -27,16 +27,20 @@ resolve the more specific contract before continuing.
 
 Exactly one root orchestrator is active as claim authority for a map or wave.
 GitHub assignment is a visibility mechanism, not an atomic ownership lock:
-workers never select or claim their own tickets. Root serializes the final
-frontier read, contract check, pre-dispatch run-record write, assignment and
-verification, single dispatch, and task-locator write. If a single claim
+workers never select or claim their own tickets. For delegated AFK work, root
+serializes the final frontier read, contract check, pre-dispatch run-record
+write, assignment and verification, single dispatch, and task-locator write.
+For HITL work, root serializes the frontier read, contract check, live
+owner/root assignment and verification, then begins or resumes the exchange
+without a delegated run record, dispatch, or task locator. If a single claim
 authority cannot be established, do not launch the wave.
 
 The pre-dispatch record contains the stable run ID, `claiming` state, and no
 task locator. If the transition fails, root unassigns only a claim proven not
 dispatched after recording its disposition. A possibly-dispatched claim stays
 assigned for investigation without resubmission. Every session reconciles
-assigned/no-locator claims as well as runs with locators.
+delegated assigned/no-locator claims as well as runs with locators. HITL claims
+remain assigned for the live owner/root to resume or explicitly disposition.
 
 ## Before a wave
 

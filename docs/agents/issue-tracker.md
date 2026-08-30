@@ -28,18 +28,21 @@ GitHub Issues at `rookslog/chatgpt-research-adapter`. Use the `gh` CLI and pass
   execution contract. Exclude `Contract status: needs-clarification`. Default
   30-item CLI results are not evidence of a complete frontier.
 - **Claim:** one root orchestrator is the serialized claim authority for a map.
-  It re-reads eligibility and the execution contract, posts a pre-dispatch
-  record with the stable run ID and `claiming` state, assigns and verifies the
-  issue, dispatches exactly once, then records the task locator and
-  `dispatched` state. Workers never self-assign; an assignee is visible state,
-  not a mutex.
+  For delegated AFK work, it re-reads eligibility and the execution contract,
+  posts a pre-dispatch record with the stable run ID and `claiming` state,
+  assigns and verifies the issue, dispatches exactly once, then records the
+  task locator and `dispatched` state. For HITL work, root assigns and verifies
+  the live owner/root, then starts or resumes the exchange without a delegated
+  run record, dispatch, or locator. Workers never self-assign; an assignee is
+  visible state, not a mutex.
 - **Collect:** every delegated research claim records a resumable task/return
   locator after dispatch. Root uses the available waiter/wakeup or reconciles
-  all assigned issues and `claiming` records at the start of the next map
-  session, including assigned/no-locator claims. Completed artifacts are
+  all assigned delegated issues and `claiming` records at the start of the next
+  map session, including assigned/no-locator claims. Completed artifacts are
   validated, confirmed in-progress work remains claimed, known-unsent failures
   are dispositioned and unassigned, and possibly-dispatched failures remain
-  held for investigation without resubmission.
+  held for investigation without resubmission. Unfinished HITL claims remain
+  assigned for the live owner/root to resume or explicitly disposition.
 - **Resolve:** while the child remains open, reconcile new or invalidated
   tickets and fog, post the decision or finding, append the map pointer, and
   re-read dependencies. Close the child last because closure can unblock work.

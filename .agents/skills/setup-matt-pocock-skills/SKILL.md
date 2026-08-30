@@ -45,6 +45,8 @@ Default posture: these skills were designed for GitHub. If a `git remote` points
 - **Local markdown**: issues live as files under `.scratch/<feature>/` in this repo (good for solo projects or repos without a remote)
 - **Other** (Jira, Linear, etc.): ask the user to describe the workflow in one paragraph; the skill will record it as freeform prose
 
+Before accepting a real issue tracker, verify that it can host issues. For GitHub, read the repository REST field `.has_issues`; for GitLab, read `.issues_enabled`. If issues are disabled or capability cannot be established, do not treat label access as proof that the tracker is usable: report setup incomplete and ask the user to enable issues or choose another tracker.
+
 Record the choice in `docs/agents/issue-tracker.md`. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off**. Leave it off and don't raise it: a user who wants external PRs in the triage queue can flip the flag in the file later.
 
 **Section B: Triage label vocabulary.** Skip this section entirely if the `triage` skill isn't installed (exploration told you), since an uninstalled skill needs no labels.
@@ -104,6 +106,8 @@ Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.
 
 Then write the docs files using the seed templates in this skill folder as a starting point. For a missing file, create it from the selected seed. For an existing `docs/agents/*.md`, merge only the setup-owned tracker choice, triage mapping, or domain-layout sections approved in step 3. Preserve unknown headings, backend-neutral boundaries, execution contracts, run records, required context sources, and other custom content. When the tracker changes, replace the old backend-specific commands, endpoints, relationship operations, and query fields with the selected seed's backend; do not preserve commands that still target the previous tracker. Never replace an existing document wholesale from a seed template.
 
+When multi-context is selected and `CONTEXT-MAP.md` does not exist, create a root skeleton immediately so the chosen layout is durable before first domain-modeling use. Include `# Context Map`, empty `## Contexts` and `## Relationships` sections with comments describing the expected links, and do not invent context names. Single-context setup still creates no glossary eagerly.
+
 - [issue-tracker-github.md](./issue-tracker-github.md): GitHub issue tracker
 - [issue-tracker-gitlab.md](./issue-tracker-gitlab.md): GitLab issue tracker
 - [issue-tracker-local.md](./issue-tracker-local.md): local-markdown issue tracker
@@ -112,7 +116,7 @@ Then write the docs files using the seed templates in this skill folder as a sta
 
 For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch using the user's description.
 
-**Provision and verify tracker labels before declaring setup complete.** On GitHub or GitLab, create the approved missing triage labels plus `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, and `wayfinder:task`, then fetch the label inventory again and verify every configured label exists. If the user did not authorize the preview, the tracker is read-only, or any required label remains absent, report setup as incomplete and do not claim downstream ticket publication is ready.
+**Provision and verify tracker capability and labels before declaring setup complete.** Re-read that the selected real tracker has issues enabled. On GitHub or GitLab, create the approved missing triage labels plus `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, and `wayfinder:task`, then fetch the label inventory again and verify every configured label exists. If issues are disabled or unknown, the user did not authorize the preview, the tracker is read-only, or any required label remains absent, report setup as incomplete and do not claim downstream ticket publication is ready.
 
 ### 5. Done
 
