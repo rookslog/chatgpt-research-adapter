@@ -12,7 +12,11 @@ const currentDeepUiFixture = JSON.parse(await readFile(new URL('./fixtures/chatg
 function pinnedDeepResearchSource() {
   return `class CommandExecutionError extends Error {}
 function pickFirstObject(...values) { return values.find((value) => value && typeof value === 'object' && !Array.isArray(value)) || {}; }
-function extractDeepResearchFromWidgetState(value) { return value?.fixture === 'completed' ? { status: 'completed', report: '# Captured network completion', sources: [], reportLength: 28 } : null; }
+function extractDeepResearchFromWidgetState(value) {
+  if (value?.fixture === 'completed') return { status: 'completed', report: '# Captured network completion', sources: [], reportLength: 28 };
+  if (value?.fixture === 'running') return { status: 'running', report: '', sources: [], reportLength: 0 };
+  return null;
+}
 function deepResearchCandidateScore() { return 1; }
 function parseJsonMaybe(value) { try { return JSON.parse(String(value)); } catch { return null; } }
 async function fetchChatGPTConversationPayload(page) { return page.fetchConversation(); }
@@ -182,6 +186,7 @@ const page = {
   async cdp(method, params = {}) {
     cdpCalls.push({ method, params });
     if (method === 'Page.getFrameTree') return readerFixture?.frame_tree || {};
+    if (method === 'Accessibility.getFullAXTree' && readerFixture?.exact_target_ax_trees?.[params.targetUrl]) return readerFixture.exact_target_ax_trees[params.targetUrl];
     if (method === 'Accessibility.getFullAXTree' && params.targetUrl === readerFixture?.iframe_state?.deepResearchIframe?.src) return readerFixture.exact_target_ax_tree;
     return {};
   },
@@ -239,18 +244,104 @@ test('deep reader addresses the observed cross-origin iframe by exact URL when t
   readerFixture: currentDeepUiFixture,
 }));
 
-test('deep reader preserves an in-progress exact-target surface as nonterminal', async () => {
+test('deep reader does not finalize a report-like exact-target surface while generation remains active', async () => {
   const readerFixture = structuredClone(currentDeepUiFixture);
   readerFixture.generating = true;
-  readerFixture.exact_target_ax_tree = {
-    nodes: [{ nodeId: 'progress', role: { value: 'paragraph' }, name: { value: 'Research in progress' } }],
-  };
   await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
     const identity = await preflightOpenCli({ executablePath });
     await assert.rejects(runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 }), { code: 'ERR_OPENCLI_OUTPUT' });
     const observed = JSON.parse(await readFile(capturePath, 'utf8'));
     assert.equal(observed.result.status, 'running');
     assert.equal(observed.result.method, 'cross-origin-iframe-detected');
+  }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
+});
+
+test('deep reader ignores a hidden stale Deep iframe when exactly one visible current target exists', async () => {
+  const readerFixture = structuredClone(currentDeepUiFixture);
+  const active = readerFixture.iframe_state.deepResearchIframe;
+  const hidden = { ...active, src: 'https://connector.example/deep-research/stale-fixture', visible: false };
+  readerFixture.iframe_state.iframes = [hidden, active];
+  readerFixture.iframe_state.deepResearchIframe = hidden;
+  readerFixture.exact_target_ax_trees = {
+    [hidden.src]: {
+      nodes: [
+        { nodeId: 'stale-heading', role: { value: 'heading' }, name: { value: 'Executive Summary' } },
+        { nodeId: 'stale-body', role: { value: 'paragraph' }, name: { value: `Stale report ${'content '.repeat(90)} Sources` } },
+      ],
+    },
+    [active.src]: readerFixture.exact_target_ax_tree,
+  };
+  await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    const result = await runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 });
+    const observed = JSON.parse(await readFile(capturePath, 'utf8'));
+    assert.equal(result.report, readerFixture.expected_report);
+    const exactTargetCalls = observed.cdpCalls.filter((call) => call.method === 'Accessibility.getFullAXTree');
+    assert.equal(exactTargetCalls.length, 1);
+    assert.equal(exactTargetCalls[0].params.targetUrl, active.src);
+  }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
+});
+
+test('deep reader refuses URL-only routing when a hidden Deep iframe shares the visible target URL', async () => {
+  const readerFixture = structuredClone(currentDeepUiFixture);
+  const active = readerFixture.iframe_state.deepResearchIframe;
+  const hiddenDuplicate = { ...active, visible: false };
+  readerFixture.iframe_state.iframes = [hiddenDuplicate, active];
+  await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    await assert.rejects(runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 }), { code: 'ERR_OPENCLI_OUTPUT' });
+    const observed = JSON.parse(await readFile(capturePath, 'utf8'));
+    assert.equal(observed.result.status, 'unavailable');
+    assert.equal(observed.result.diagnostics.exactTargetCandidateCount, 1);
+    assert.equal(observed.result.diagnostics.exactTargetUrlMatchCount, 2);
+    assert.equal(observed.cdpCalls.filter((call) => call.params?.sessionId === 'target').length, 0);
+  }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
+});
+
+test('deep reader probes a completed exact target before returning stale transport progress', async () => {
+  const readerFixture = structuredClone(currentDeepUiFixture);
+  readerFixture.network_entries = [{
+    url: `https://chatgpt.com/backend-api/conversation/${readerFixture.conversation_id}`,
+    responsePreview: JSON.stringify({
+      mapping: { progress: { message: { metadata: { chatgpt_sdk: { widget_state: { fixture: 'running' } } } } } },
+    }),
+  }];
+  await withDeepResultOpenCli(async ({ executablePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    const result = await runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 });
+    assert.equal(result.status, 'completed');
+    assert.equal(result.report, readerFixture.expected_report);
+  }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
+});
+
+test('deep reader refuses exact-target completion when multiple visible Deep iframes are ambiguous', async () => {
+  const readerFixture = structuredClone(currentDeepUiFixture);
+  const first = readerFixture.iframe_state.deepResearchIframe;
+  const second = { ...first, src: 'https://connector.example/deep-research/second-visible-fixture' };
+  readerFixture.iframe_state.iframes = [first, second];
+  await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    await assert.rejects(runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 }), { code: 'ERR_OPENCLI_OUTPUT' });
+    const observed = JSON.parse(await readFile(capturePath, 'utf8'));
+    assert.equal(observed.result.status, 'unavailable');
+    assert.equal(observed.cdpCalls.filter((call) => call.params?.sessionId === 'target').length, 0);
+  }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
+});
+
+test('deep reader refuses a report-like hidden Deep iframe when no visible current target exists', async () => {
+  const readerFixture = structuredClone(currentDeepUiFixture);
+  const hidden = readerFixture.iframe_state.deepResearchIframe;
+  hidden.visible = false;
+  hidden.accessible = true;
+  hidden.text = readerFixture.expected_report;
+  hidden.html = '<article>sanitized hidden fixture</article>';
+  readerFixture.iframe_state.iframes = [hidden];
+  await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    await assert.rejects(runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 }), { code: 'ERR_OPENCLI_OUTPUT' });
+    const observed = JSON.parse(await readFile(capturePath, 'utf8'));
+    assert.equal(observed.result.status, 'unavailable');
+    assert.equal(observed.cdpCalls.filter((call) => call.params?.sessionId === 'target').length, 0);
   }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
 });
 

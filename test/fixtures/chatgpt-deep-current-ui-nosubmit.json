@@ -75,28 +75,76 @@
       {
         "nodeId": "root",
         "role": { "value": "RootWebArea" },
-        "childIds": ["heading", "body", "source-heading", "source-a", "source-b", "source-a-duplicate", "unsafe-source", "terminal-sentinel"]
+        "childIds": ["navigation", "heading", "body", "source-heading", "source-a", "source-b", "source-a-duplicate", "unsafe-source", "appendix-heading", "appendix-link", "terminal-sentinel"]
+      },
+      {
+        "nodeId": "navigation",
+        "role": { "value": "navigation" },
+        "childIds": ["navigation-link"]
+      },
+      {
+        "nodeId": "navigation-link",
+        "role": { "value": "link" },
+        "name": { "value": "Help" },
+        "properties": [{ "name": "url", "value": { "value": "https://help.example/navigation" } }]
       },
       {
         "nodeId": "heading",
         "role": { "value": "heading" },
+        "name": { "value": "Executive Summary" },
+        "properties": [{ "name": "level", "value": { "value": 1 } }],
+        "childIds": ["heading-static"]
+      },
+      {
+        "nodeId": "heading-static",
+        "role": { "value": "StaticText" },
+        "name": { "value": "Executive Summary" },
+        "childIds": ["heading-inline"]
+      },
+      {
+        "nodeId": "heading-inline",
+        "role": { "value": "InlineTextBox" },
         "name": { "value": "Executive Summary" }
       },
       {
         "nodeId": "body",
         "role": { "value": "paragraph" },
-        "name": { "value": "This completed Deep Research fixture models a long report recovered from the cross-origin result application. It contains enough stable prose to satisfy the pinned reader's completed-report heuristic while keeping every name, URL, and claim synthetic. The fixture represents the observed current surface in which the ordinary assistant-message list is empty, one inaccessible Deep iframe is visible, and the root frame tree does not enumerate that iframe. The exact target accessibility response is a deterministic protocol fixture, not a claim that the live target route has already succeeded. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content." }
+        "name": { "value": "This completed Deep Research fixture models a long report recovered from the cross-origin result application. It contains enough stable prose to satisfy the pinned reader's completed-report heuristic while keeping every name, URL, and claim synthetic. The fixture represents the observed current surface in which the ordinary assistant-message list is empty, one inaccessible Deep iframe is visible, and the root frame tree does not enumerate that iframe. The exact target accessibility response is a deterministic protocol fixture, not a claim that the live target route has already succeeded. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content." },
+        "childIds": ["body-static"]
+      },
+      {
+        "nodeId": "body-static",
+        "role": { "value": "StaticText" },
+        "name": { "value": "This completed Deep Research fixture models a long report recovered from the cross-origin result application. It contains enough stable prose to satisfy the pinned reader's completed-report heuristic while keeping every name, URL, and claim synthetic. The fixture represents the observed current surface in which the ordinary assistant-message list is empty, one inaccessible Deep iframe is visible, and the root frame tree does not enumerate that iframe. The exact target accessibility response is a deterministic protocol fixture, not a claim that the live target route has already succeeded. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content." },
+        "childIds": ["body-inline"]
+      },
+      {
+        "nodeId": "body-inline",
+        "role": { "value": "InlineTextBox" },
+        "name": { "value": "This completed Deep Research fixture models a long report recovered from the cross-origin result application." }
       },
       {
         "nodeId": "source-heading",
         "role": { "value": "heading" },
+        "name": { "value": "Sources" },
+        "childIds": ["source-heading-static"]
+      },
+      {
+        "nodeId": "source-heading-static",
+        "role": { "value": "StaticText" },
         "name": { "value": "Sources" }
       },
       {
         "nodeId": "source-a",
         "role": { "value": "link" },
         "name": { "value": "Primary source A" },
-        "properties": [{ "name": "url", "value": { "value": "https://example.com/source-a" } }]
+        "properties": [{ "name": "url", "value": { "value": "https://example.com/source-a" } }],
+        "childIds": ["source-a-static"]
+      },
+      {
+        "nodeId": "source-a-static",
+        "role": { "value": "StaticText" },
+        "name": { "value": "Primary source A" }
       },
       {
         "nodeId": "source-b",
@@ -120,10 +168,27 @@
         "nodeId": "terminal-sentinel",
         "role": { "value": "paragraph" },
         "name": { "value": "END OF SYNTHETIC REPORT" }
+      },
+      {
+        "nodeId": "appendix-heading",
+        "role": { "value": "heading" },
+        "name": { "value": "Appendix" },
+        "properties": [{ "name": "level", "value": { "value": 2 } }]
+      },
+      {
+        "nodeId": "appendix-link",
+        "role": { "value": "link" },
+        "name": { "value": "Appendix navigation" },
+        "properties": [{ "name": "url", "value": { "value": "https://appendix.example/not-a-source" } }]
+      },
+      {
+        "nodeId": "detached-root",
+        "role": { "value": "paragraph" },
+        "name": { "value": "UNRELATED DETACHED ACCESSIBILITY ROOT" }
       }
     ]
   },
-  "expected_report": "Executive Summary\nThis completed Deep Research fixture models a long report recovered from the cross-origin result application. It contains enough stable prose to satisfy the pinned reader's completed-report heuristic while keeping every name, URL, and claim synthetic. The fixture represents the observed current surface in which the ordinary assistant-message list is empty, one inaccessible Deep iframe is visible, and the root frame tree does not enumerate that iframe. The exact target accessibility response is a deterministic protocol fixture, not a claim that the live target route has already succeeded. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content.\nSources\nPrimary source A\nPrimary source B\nPrimary source A duplicate\nUnsafe source\nEND OF SYNTHETIC REPORT",
+  "expected_report": "Executive Summary\nThis completed Deep Research fixture models a long report recovered from the cross-origin result application. It contains enough stable prose to satisfy the pinned reader's completed-report heuristic while keeping every name, URL, and claim synthetic. The fixture represents the observed current surface in which the ordinary assistant-message list is empty, one inaccessible Deep iframe is visible, and the root frame tree does not enumerate that iframe. The exact target accessibility response is a deterministic protocol fixture, not a claim that the live target route has already succeeded. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content. Repeated explanatory text keeps the fixture over the reader threshold without copying any retained conversation content.\nSources\nPrimary source A\nPrimary source B\nPrimary source A duplicate\nUnsafe source\nAppendix\nAppendix navigation\nEND OF SYNTHETIC REPORT",
   "expected_sources": [
     { "title": "Primary source A", "url": "https://example.com/source-a" },
     { "title": "Primary source B", "url": "https://example.org/source-b" }

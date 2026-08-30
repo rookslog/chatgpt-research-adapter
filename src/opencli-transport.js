@@ -228,41 +228,92 @@ const OPENCLI_DEEP_RESULT_FETCH_CALL = 'fetchChatGPTConversationPayload(page, fe
 const OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE = String.raw`extractDeepResearchFromConversationPayload(conversation?.payload, {
                     expectedConversationId: fetchConversationId,
                 })`;
-const OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT = "    if (useBridgeProbes && typeof page.readNetworkCapture === 'function' && !diagnostics.networkEntries) {";
-const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    if (useBridgeProbes && typeof page.@PROTOCOL@ === 'function' && iframe?.src) {
+const OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT = '    if (progressCandidate) {';
+const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    const deepResearchIframes = Array.isArray(iframeState.iframes)
+        ? iframeState.iframes.filter((candidate) => candidate?.deepResearch === true)
+        : [];
+    const visibleExactTargetIframes = deepResearchIframes
+        .filter((candidate) => candidate?.visible === true
+            && typeof candidate?.src === 'string'
+            && candidate.src.trim() !== '');
+    const visibleExactTargetIframe = visibleExactTargetIframes.length === 1 ? visibleExactTargetIframes[0] : null;
+    const exactTargetUrlMatchCount = visibleExactTargetIframe === null
+        ? 0
+        : deepResearchIframes.filter((candidate) => candidate?.src === visibleExactTargetIframe.src).length;
+    diagnostics.exactTargetCandidateCount = visibleExactTargetIframes.length;
+    diagnostics.exactTargetUrlMatchCount = exactTargetUrlMatchCount;
+    const exactTargetIframe = visibleExactTargetIframe !== null && exactTargetUrlMatchCount === 1
+        ? visibleExactTargetIframe
+        : null;
+    if (useBridgeProbes && typeof page.@PROTOCOL@ === 'function' && exactTargetIframe) {
         diagnostics.methodsTried.push('@PROTOCOL@-accessibility-exact-target');
         let exactTargetHash = 2166136261;
-        for (let index = 0; index < iframe.src.length; index += 1) {
-            exactTargetHash ^= iframe.src.charCodeAt(index);
+        for (let index = 0; index < exactTargetIframe.src.length; index += 1) {
+            exactTargetHash ^= exactTargetIframe.src.charCodeAt(index);
             exactTargetHash = Math.imul(exactTargetHash, 16777619);
         }
         const exactTarget = {
-            frameId: 'opencli-deep-exact-target-' + (exactTargetHash >>> 0).toString(16) + '-' + iframe.src.length,
+            frameId: 'opencli-deep-exact-target-' + (exactTargetHash >>> 0).toString(16) + '-' + exactTargetIframe.src.length,
             sessionId: 'target',
-            targetUrl: iframe.src,
+            targetUrl: exactTargetIframe.src,
         };
         try {
             await withTimeout(page.@PROTOCOL@('Accessibility.enable', exactTarget), 5000, 'Accessibility.enable exact target');
             const tree = await withTimeout(page.@PROTOCOL@('Accessibility.getFullAXTree', exactTarget), 5000, 'Accessibility.getFullAXTree exact target');
-            const text = collectAxText(tree);
-            if (looksLikeDeepResearchReport(text)) {
-                const sourcesByUrl = new Map();
-                for (const node of Array.isArray(tree?.nodes) ? tree.nodes : []) {
-                    const role = String(node?.role?.value || node?.role || '');
-                    if (!/^link$/i.test(role)) continue;
+            const nodes = Array.isArray(tree?.nodes) ? tree.nodes : [];
+            const nodeById = new Map(nodes
+                .filter((node) => typeof node?.nodeId === 'string')
+                .map((node) => [node.nodeId, node]));
+            const rootWebAreas = nodes.filter((node) => String(node?.role?.value || node?.role || '').toLowerCase() === 'rootwebarea');
+            diagnostics.exactTargetRootCount = rootWebAreas.length;
+            const lines = [];
+            const sourcesByUrl = new Map();
+            const visited = new Set();
+            let sourcesHeadingLevel = null;
+            let collectingSources = false;
+            const propertyValue = (node, name) => node?.properties?.find((property) => property?.name === name)?.value?.value;
+            const visit = (node, suppressText = false) => {
+                if (!node || visited.has(node)) return;
+                visited.add(node);
+                const role = String(node?.role?.value || node?.role || '').toLowerCase();
+                if (role === 'navigation') return;
+                const name = String(node?.name?.value || node?.name || '').replace(/\s+/g, ' ').trim();
+                const isTextLeaf = role === 'statictext' || role === 'inlinetextbox';
+                if (role === 'heading') {
+                    const rawLevel = propertyValue(node, 'level');
+                    const levelValue = Number(rawLevel);
+                    const level = rawLevel !== undefined && Number.isFinite(levelValue) && levelValue > 0 ? levelValue : null;
+                    if (collectingSources
+                        && !/^(?:sources?|references?)$/i.test(name)
+                        && (sourcesHeadingLevel === null || level === null || level <= sourcesHeadingLevel)) {
+                        collectingSources = false;
+                        sourcesHeadingLevel = null;
+                    }
+                    if (/^(?:sources?|references?)$/i.test(name)) {
+                        collectingSources = true;
+                        sourcesHeadingLevel = level;
+                    }
+                }
+                if (!(suppressText && isTextLeaf) && name) lines.push(name);
+                if (collectingSources && role === 'link') {
                     const rawUrl = String(node?.properties?.find((property) => property?.name === 'url')?.value?.value || '').trim();
-                    let parsedUrl;
+                    let parsedUrl = null;
                     try {
                         parsedUrl = new URL(rawUrl);
-                    } catch {
-                        continue;
+                    } catch {}
+                    if (parsedUrl !== null && ['http:', 'https:'].includes(parsedUrl.protocol) && !parsedUrl.username && !parsedUrl.password) {
+                        const url = parsedUrl.href;
+                        if (!sourcesByUrl.has(url)) sourcesByUrl.set(url, { title: name || parsedUrl.hostname, url });
                     }
-                    if (!['http:', 'https:'].includes(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) continue;
-                    const url = parsedUrl.href;
-                    if (sourcesByUrl.has(url)) continue;
-                    const title = String(node?.name?.value || node?.name || '').trim() || parsedUrl.hostname;
-                    sourcesByUrl.set(url, { title, url });
                 }
+                const suppressChildText = suppressText || (name !== '' && !isTextLeaf);
+                for (const childId of Array.isArray(node?.childIds) ? node.childIds : []) {
+                    visit(nodeById.get(childId), suppressChildText);
+                }
+            };
+            if (rootWebAreas.length === 1) visit(rootWebAreas[0]);
+            const text = normalizeDeepResearchText(lines.join('\n'));
+            if (!generating && looksLikeDeepResearchReport(text)) {
                 return {
                     status: 'completed',
                     report: text,
@@ -276,6 +327,17 @@ const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    if (useBridgePr
         } catch (error) {
             diagnostics.@PROTOCOL@ExactTargetError = String(error?.message || error);
         }
+    }
+    if (useBridgeProbes && deepResearchIframes.length > 0 && exactTargetIframe === null && !progressCandidate) {
+        return {
+            status: generating ? 'running' : 'unavailable',
+            report: '',
+            html: '',
+            url: iframeState.url,
+            method: 'cross-origin-iframe-detected',
+            sources: [],
+            diagnostics,
+        };
     }
 
 `.replaceAll('@PROTOCOL@', ['c', 'dp'].join(''));
