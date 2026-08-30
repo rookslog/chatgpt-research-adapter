@@ -618,6 +618,7 @@ async function releaseCollectionLock(lock, now, testSeam) {
 }
 
 function delay(milliseconds) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
+function currentMilliseconds(testSeam) { return testSeam?.nowMilliseconds?.() ?? Date.now(); }
 
 async function waitForCollection(responseRoot, outputRoot, jobId, { wait, deadline, receiptTestSeam }) {
   await receiptTestSeam?.afterCollectionWaitStart?.();
@@ -631,12 +632,12 @@ async function waitForCollection(responseRoot, outputRoot, jobId, { wait, deadli
     }
     if (!wait) return null;
     await delay(pollMilliseconds);
-  } while (Date.now() < deadline);
+  } while (currentMilliseconds(receiptTestSeam) < deadline);
   return null;
 }
 
-function runtimeOptionsBeforeDeadline(runtimeOptions, deadline) {
-  const remaining = Math.max(1, Math.floor(deadline - Date.now()));
+function runtimeOptionsBeforeDeadline(runtimeOptions, deadline, testSeam) {
+  const remaining = Math.max(1, Math.floor(deadline - currentMilliseconds(testSeam)));
   const requestedGrace = runtimeOptions.killGraceMs ?? 2000;
   const killGraceMs = Math.min(requestedGrace, Math.floor(remaining / 4));
   const processBudget = Math.max(1, remaining - killGraceMs);
@@ -687,9 +688,9 @@ async function completedStateOrStatus(state, receiptTestSeam) {
     : Object.freeze(state.status);
 }
 
-function runningCollectionOutcome(state, wait, deadline) {
+function runningCollectionOutcome(state, wait, deadline, testSeam) {
   const outcome = state.running ?? state.handoff ?? state.status;
-  return wait && Date.now() >= deadline
+  return wait && currentMilliseconds(testSeam) >= deadline
     ? Object.freeze({ ...outcome, collection_disposition: 'ERR_OPENCLI_TIMEOUT' })
     : Object.freeze(outcome);
 }
@@ -698,7 +699,7 @@ function isRunningCollectionOutcome(value) { return value?.status === 'running' 
 
 async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, wait, transportOptions = {}, now = () => new Date().toISOString(), preflight = preflightOpenCli, readDeep = runOpenCliDeepResearchResult, readStatus = runOpenCliDeepResearchStatus, receiptTestSeam } = {}) {
   const { deepTimeoutSeconds, runtimeOptions } = directTransportOptions(transportOptions);
-  const waitDeadline = wait ? Date.now() + (deepTimeoutSeconds * 1000) : null;
+  const waitDeadline = wait ? currentMilliseconds(receiptTestSeam) + (deepTimeoutSeconds * 1000) : null;
   let state = await readDeepResponse({ outputRoot, jobId, receiptTestSeam });
   if (state.uncommittedAmbiguousResult) {
     await commitExistingDirectResult(state.responseRoot, state.result);
@@ -710,12 +711,12 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
     if (!await hasUnreleasedCollector(state.responseRoot, receiptTestSeam)) {
       const completed = await completedStateOrStatus(state, receiptTestSeam);
       if (!isRunningCollectionOutcome(completed)) return completed;
-      if (!wait || Date.now() >= waitDeadline) return runningCollectionOutcome(state, wait, waitDeadline);
+      if (!wait || currentMilliseconds(receiptTestSeam) >= waitDeadline) return runningCollectionOutcome(state, wait, waitDeadline, receiptTestSeam);
     }
   }
   let lock;
   while (true) {
-    if (wait && Date.now() >= waitDeadline) return runningCollectionOutcome(state, wait, waitDeadline);
+    if (wait && currentMilliseconds(receiptTestSeam) >= waitDeadline) return runningCollectionOutcome(state, wait, waitDeadline, receiptTestSeam);
     lock = await acquireCollectionLock(state.responseRoot, now, receiptTestSeam);
     if (lock.acquired) break;
     await waitForCollection(state.responseRoot, outputRoot, jobId, { wait, deadline: waitDeadline, receiptTestSeam });
@@ -726,10 +727,10 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
         const completed = await completedStateOrStatus(state, receiptTestSeam);
         if (!isRunningCollectionOutcome(completed)) return completed;
       }
-      if (!wait) return runningCollectionOutcome(state, wait, waitDeadline);
+      if (!wait) return runningCollectionOutcome(state, wait, waitDeadline, receiptTestSeam);
       continue;
     }
-    if (isCollectorOwnerLive(collector.current) && (!wait || Date.now() >= waitDeadline)) return runningCollectionOutcome(state, wait, waitDeadline);
+    if (isCollectorOwnerLive(collector.current) && (!wait || currentMilliseconds(receiptTestSeam) >= waitDeadline)) return runningCollectionOutcome(state, wait, waitDeadline, receiptTestSeam);
   }
   let completedState = null;
   let outcome;
@@ -742,17 +743,17 @@ async function collectDeepPreparedJobInternal({ outputRoot, jobId, openCliPath, 
       completedState = state;
     } else {
       let observation;
-      if (wait && Date.now() >= waitDeadline) {
+      if (wait && currentMilliseconds(receiptTestSeam) >= waitDeadline) {
         outcome = Object.freeze({ ...state.status, collection_disposition: 'ERR_OPENCLI_TIMEOUT' });
       } else {
         try {
-          const preflightOptions = wait ? runtimeOptionsBeforeDeadline(runtimeOptions, waitDeadline) : runtimeOptions;
+          const preflightOptions = wait ? runtimeOptionsBeforeDeadline(runtimeOptions, waitDeadline, receiptTestSeam) : runtimeOptions;
           const identity = await preflight({ ...preflightOptions, deadlineMs: wait ? waitDeadline : undefined, executablePath: openCliPath });
-          if (wait && Date.now() >= waitDeadline) {
+          if (wait && currentMilliseconds(receiptTestSeam) >= waitDeadline) {
             outcome = Object.freeze({ ...state.status, collection_disposition: 'ERR_OPENCLI_TIMEOUT' });
           } else {
-            const readerOptions = wait ? runtimeOptionsBeforeDeadline(runtimeOptions, waitDeadline) : runtimeOptions;
-            const timeoutSeconds = wait ? Math.max(1, Math.ceil((waitDeadline - Date.now()) / 1000)) : deepTimeoutSeconds;
+            const readerOptions = wait ? runtimeOptionsBeforeDeadline(runtimeOptions, waitDeadline, receiptTestSeam) : runtimeOptions;
+            const timeoutSeconds = wait ? Math.max(1, Math.ceil((waitDeadline - currentMilliseconds(receiptTestSeam)) / 1000)) : deepTimeoutSeconds;
             observation = await (wait ? readDeep : readStatus)({ ...readerOptions, deadlineMs: wait ? waitDeadline : undefined, executablePath: openCliPath, identity, conversationId: state.handoff.conversation_id, timeoutSeconds });
           }
         } catch (error) {
