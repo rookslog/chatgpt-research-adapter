@@ -717,16 +717,17 @@ test('an abandoned-owner takeover preserves the original wait deadline', async (
   const leader = collectDeepPreparedJob({ ...base, receiptTestSeam: { failAt: 'after-collector-released-write' }, preflight: async () => ({ version: '1.8.7' }), readStatus: async () => { leaderStarted(); await leaderBarrier; return { status: 'not_ready', conversationId: 'deep-takeover-deadline-1' }; } });
   await leaderReady;
   let waitStarted; const waiting = new Promise((resolve) => { waitStarted = resolve; });
-  let nowMilliseconds = 0; let preflights = 0; let reads = 0;
+  const initialMilliseconds = 4_000_000_000_000_000;
+  let nowMilliseconds = initialMilliseconds; let preflights = 0; let reads = 0;
   const follower = waitDeepPreparedJob({
     ...base,
     transportOptions: { deepTimeoutSeconds: 1 },
     receiptTestSeam: { collectionPollMilliseconds: 1, nowMilliseconds: () => nowMilliseconds, afterCollectionWaitStart: waitStarted },
-    preflight: async (options) => { preflights += 1; assert.equal(options.deadlineMs, 1000); nowMilliseconds = 1050; return { version: '1.8.7' }; },
+    preflight: async (options) => { preflights += 1; assert.equal(options.deadlineMs, initialMilliseconds + 1000); assert.equal(options.timeoutMs + options.killGraceMs, 150); nowMilliseconds = initialMilliseconds + 1050; return { version: '1.8.7' }; },
     readDeep: async () => { reads += 1; return { status: 'not_ready', conversationId: 'deep-takeover-deadline-1' }; }
   });
   await waiting;
-  nowMilliseconds = 850;
+  nowMilliseconds = initialMilliseconds + 850;
   releaseLeader();
   await assert.rejects(leader, { code: 'ERR_INJECTED_FAULT' });
   const result = await follower;
