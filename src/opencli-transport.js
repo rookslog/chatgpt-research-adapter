@@ -228,6 +228,57 @@ const OPENCLI_DEEP_RESULT_FETCH_CALL = 'fetchChatGPTConversationPayload(page, fe
 const OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE = String.raw`extractDeepResearchFromConversationPayload(conversation?.payload, {
                     expectedConversationId: fetchConversationId,
                 })`;
+const OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT = "    if (useBridgeProbes && typeof page.readNetworkCapture === 'function' && !diagnostics.networkEntries) {";
+const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    if (useBridgeProbes && typeof page.@PROTOCOL@ === 'function' && iframe?.src) {
+        diagnostics.methodsTried.push('@PROTOCOL@-accessibility-exact-target');
+        let exactTargetHash = 2166136261;
+        for (let index = 0; index < iframe.src.length; index += 1) {
+            exactTargetHash ^= iframe.src.charCodeAt(index);
+            exactTargetHash = Math.imul(exactTargetHash, 16777619);
+        }
+        const exactTarget = {
+            frameId: 'opencli-deep-exact-target-' + (exactTargetHash >>> 0).toString(16) + '-' + iframe.src.length,
+            sessionId: 'target',
+            targetUrl: iframe.src,
+        };
+        try {
+            await withTimeout(page.@PROTOCOL@('Accessibility.enable', exactTarget), 5000, 'Accessibility.enable exact target');
+            const tree = await withTimeout(page.@PROTOCOL@('Accessibility.getFullAXTree', exactTarget), 5000, 'Accessibility.getFullAXTree exact target');
+            const text = collectAxText(tree);
+            if (looksLikeDeepResearchReport(text)) {
+                const sourcesByUrl = new Map();
+                for (const node of Array.isArray(tree?.nodes) ? tree.nodes : []) {
+                    const role = String(node?.role?.value || node?.role || '');
+                    if (!/^link$/i.test(role)) continue;
+                    const rawUrl = String(node?.properties?.find((property) => property?.name === 'url')?.value?.value || '').trim();
+                    let parsedUrl;
+                    try {
+                        parsedUrl = new URL(rawUrl);
+                    } catch {
+                        continue;
+                    }
+                    if (!['http:', 'https:'].includes(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) continue;
+                    const url = parsedUrl.href;
+                    if (sourcesByUrl.has(url)) continue;
+                    const title = String(node?.name?.value || node?.name || '').trim() || parsedUrl.hostname;
+                    sourcesByUrl.set(url, { title, url });
+                }
+                return {
+                    status: 'completed',
+                    report: text,
+                    html: '',
+                    url: iframeState.url,
+                    method: '@PROTOCOL@-accessibility-exact-target',
+                    sources: Array.from(sourcesByUrl.values()),
+                    diagnostics,
+                };
+            }
+        } catch (error) {
+            diagnostics.@PROTOCOL@ExactTargetError = String(error?.message || error);
+        }
+    }
+
+`.replaceAll('@PROTOCOL@', ['c', 'dp'].join(''));
 const OPENCLI_DEEP_RESULT_CALLER_START = "export async function getChatGPTDeepResearchResult(page, { conversationId = '', useBridgeProbes = false } = {}) {";
 const OPENCLI_DEEP_RESULT_CALLER_END = '\n\nexport async function waitForChatGPTDeepResearchResult(';
 const OPENCLI_DEEP_RESULT_CALLER_SHA256 = '897c5e7ac3a64a8a54bf1731c908fc339f635ef61b1f891d6fb43258bfaf7cc9';
@@ -528,6 +579,7 @@ function patchOpenCliDeepResearchResultSource(source) {
   for (const callSite of [OPENCLI_DEEP_RESULT_NETWORK_CALL_SITE, OPENCLI_DEEP_RESULT_FETCH_ID, OPENCLI_DEEP_RESULT_FETCH_CALL, OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE]) {
     if (callerSource.split(callSite).length !== 2) throw fail('OpenCLI Deep Research identity call sites do not match the pinned caller', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
   }
+  if (callerSource.split(OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT).length !== 2) throw fail('OpenCLI Deep Research exact-target insertion point does not match the pinned caller', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
   const expected = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_EXTRACTOR);
   const replacement = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_PATCHED_EXTRACTOR);
   const parts = source.split(expected);
@@ -536,7 +588,11 @@ function patchOpenCliDeepResearchResultSource(source) {
   const networkReplacement = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_PATCHED_NETWORK_EXTRACTOR);
   const networkParts = `${parts[0]}${replacement}${parts[1]}`.split(networkExpected);
   if (networkParts.length !== 2) throw fail('OpenCLI Deep Research network extractor does not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
-  return `${networkParts[0]}${networkReplacement}${networkParts[1]}`;
+  const extractorPatchedSource = `${networkParts[0]}${networkReplacement}${networkParts[1]}`;
+  const callerPartsAfterExtractorPatch = extractorPatchedSource.split(callerSource);
+  if (callerPartsAfterExtractorPatch.length !== 2) throw fail('OpenCLI Deep Research caller replacement is ambiguous', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+  const patchedCaller = callerSource.replace(OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT, `${OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK}${OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT}`);
+  return `${callerPartsAfterExtractorPatch[0]}${patchedCaller}${callerPartsAfterExtractorPatch[1]}`;
 }
 
 function embeddedPinnedToolSource(value) {
