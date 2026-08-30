@@ -18,15 +18,23 @@ GitHub Issues at `rookslog/chatgpt-research-adapter`. Use the `gh` CLI and pass
 
 - **Map:** create one issue labelled `wayfinder:map` and assign it to the
   relevant milestone.
-- **Child:** create a separate issue with one of `wayfinder:research`,
-  `wayfinder:prototype`, `wayfinder:grilling`, or `wayfinder:task`, then attach
-  it through GitHub's native sub-issue endpoint.
+- **Child:** create a separate issue with `Part of #<map>` at the top and one
+  of `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, or
+  `wayfinder:task`, then attach and verify it through GitHub's native
+  sub-issue endpoint.
+- **Recover child publication:** before deriving a frontier or closing a map,
+  exhaustively enumerate issues carrying the exact `Part of #<map>` marker,
+  compare them with the complete native sub-issue inventory, and repair or
+  explicitly disposition every missing attachment. Creation without a
+  verified attachment is recoverable partial state, not a reason to recreate
+  or omit the child.
 - **Blocking:** use GitHub's native issue-dependency endpoint. Supply the
   blocker's numeric database `id`, not its issue number or GraphQL node ID.
-- **Frontier:** enumerate every map child through the paginated sub-issues API,
-  then keep open children with no open blocker, no assignee, and a complete
-  execution contract. Exclude `Contract status: needs-clarification`. Default
-  30-item CLI results are not evidence of a complete frontier.
+- **Frontier:** after child-publication recovery is complete, enumerate every
+  map child through the paginated sub-issues API, then keep open children with
+  no open blocker, no assignee, and a complete execution contract. Exclude
+  `Contract status: needs-clarification`. Default 30-item CLI results are not
+  evidence of a complete frontier.
 - **Claim:** one root orchestrator is the serialized claim authority for a map.
   For delegated AFK work, it re-reads eligibility and the execution contract,
   posts a pre-dispatch record with the stable run ID and `claiming` state,

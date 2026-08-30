@@ -83,7 +83,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 4. **Grill (if needed).** If the request needs fleshing out, apply the installed `grilling` and `domain-modeling` skills through the supported harness mechanism, and grill it into shape a round of questions at a time, sharpening domain terms and updating `CONTEXT.md`/ADRs inline as decisions land.
 
 5. **Apply the outcome:**
-   - `ready-for-agent`: post an agent brief comment ([AGENT-BRIEF.md](AGENT-BRIEF.md)).
+   - `ready-for-agent`: publish the canonical agent brief through the configured tracker operation ([AGENT-BRIEF.md](AGENT-BRIEF.md)). On a real tracker, post and verify the separate comment or note. On local Markdown, embed and verify the brief directly below the ticket's plain `Status:` field rather than appending it under `## Comments`. Apply the ready state only after the authoritative record is present.
    - `ready-for-human`: same structure as an agent brief, but note why it can't be delegated (judgment calls, external access, design decisions, manual testing).
 - `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:
@@ -94,7 +94,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 
 ## Quick state override
 
-If the maintainer says "move #42 to ready-for-agent", trust the requested target state and skip grilling, but preserve the state invariant: record exactly one category and post the required agent brief before applying `ready-for-agent`. Draft the brief from the gathered evidence and ask only for information that is still load-bearing. If the category or minimum runnable brief cannot be established, do not apply the ready label; route the issue through the configured clarification state and state what is missing. Confirm the resulting record, role changes, comment, and close behavior before acting.
+If the maintainer says "move #42 to ready-for-agent", trust the requested target state and skip grilling, but preserve the state invariant: record exactly one category and publish the required agent brief at the configured authoritative location before applying `ready-for-agent`. Draft the brief from the gathered evidence and ask only for information that is still load-bearing. If the category or minimum runnable brief cannot be established, do not apply the ready label; route the issue through the configured clarification state and state what is missing. Confirm the resulting record, role changes, authoritative brief location, and close behavior before acting.
 
 ## Needs-info template
 

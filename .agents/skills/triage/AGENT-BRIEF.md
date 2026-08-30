@@ -1,6 +1,6 @@
 # Writing Agent Briefs
 
-An agent brief is a structured comment posted on a GitHub issue or PR when it moves to `ready-for-agent`. It is the authoritative specification that an AFK agent will work from. The original body and discussion are context: the agent brief is the contract.
+An agent brief is the tracker-configured authoritative record published when an issue or PR moves to `ready-for-agent`. A real tracker stores it as a separate comment or note; the local Markdown tracker embeds it directly below the ticket's plain `Status:` field. It is the specification that an AFK agent will work from. The original request and discussion are context: the agent brief is the contract.
 
 The brief states **what the agent should do**, which stretches to both surfaces: for an issue, that's building the change from nothing; for a PR, it's what's left to do *to the existing diff*: finish it, close gaps, address review points. Same principles either way; the PR example below shows the difference.
 

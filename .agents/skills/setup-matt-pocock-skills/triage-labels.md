@@ -4,7 +4,7 @@ The skills speak in terms of two category roles and five workflow-state roles. T
 
 ## Category representation
 
-By default, category is a durable field in the latest triage comment or agent brief rather than a label:
+By default, category is a durable field in the latest real-tracker triage comment or agent brief, or in the configured local ticket record, rather than a label:
 
 | Canonical category | Durable representation |
 | ------------------ | ---------------------- |
