@@ -19,3 +19,9 @@ The research job:
 2. Write the findings to a single Markdown file, citing each claim's source.
 3. Save it only at the ticket-owned output path and return that locator to the
    root for validation.
+
+The returned worktree path is collection evidence, not durable publication.
+Root must publish the validated artifact through the repository's authorized
+version-control destination (or an explicitly approved tracker attachment),
+verify the durable locator, and keep the ticket assigned and open if that
+publication lacks authority or has not completed.

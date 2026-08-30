@@ -47,9 +47,12 @@ GitHub Issues at `rookslog/chatgpt-research-adapter`. Use the `gh` CLI and pass
   locator after dispatch. Root uses the available waiter/wakeup or reconciles
   all assigned delegated issues and `claiming` records at the start of the next
   map session, including assigned/no-locator claims. Completed artifacts are
-  validated and move directly into root-owned reconciliation and closure while
-  the issue remains assigned; root publishes the answer, updates the map and
-  dependencies, and closes the child last before selecting new work. Confirmed
+  validated, published to an authorized durable destination, verified there,
+  and moved directly into root-owned reconciliation and closure while the
+  issue remains assigned; root publishes the answer, updates the map and
+  dependencies, and closes the child last before selecting new work. Missing
+  publication authority or an incomplete publication leaves the issue open
+  and assigned. Confirmed
   in-progress work remains claimed, known-unsent failures are dispositioned
   and unassigned, and possibly-dispatched failures remain held for
   investigation without resubmission. Unfinished HITL claims remain assigned
@@ -87,7 +90,8 @@ or a root claim comment must state them:
   authorization-gated;
 - the condition that warrants independent agent review, including the intended
   reviewer class when known;
-- the root integration check and issue-closing evidence;
+- the root integration check, authorized durable publication and verification
+  of any primary artifact, and issue-closing evidence;
 - the assigned route's role, model, effort, control surface, and fit rationale
   when work is delegated.
 

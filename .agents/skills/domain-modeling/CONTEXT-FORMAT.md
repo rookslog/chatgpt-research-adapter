@@ -58,3 +58,5 @@ The skill infers which structure applies:
 - If neither exists, create a root `CONTEXT.md` lazily when the first term is resolved
 
 When multiple contexts exist, infer which one the current topic relates to. If unclear, ask.
+
+Resolve each context from its actual `CONTEXT-MAP.md` link. For a context-scoped ADR, use `docs/adr/` beneath that linked `CONTEXT.md` file's parent; do not reconstruct `src/<context>` from its display name.

@@ -1,6 +1,6 @@
 # ADR Format
 
-Choose the ADR directory from the decision's scope. In a single-context repository, and for system-wide or cross-context decisions, use root `docs/adr/`. In a multi-context repository, use the owning context's `src/<context>/docs/adr/` for a decision confined to that context. ADRs use sequential numbering within the selected directory: `0001-slug.md`, `0002-slug.md`, etc.
+Choose the ADR directory from the decision's scope. In a single-context repository, and for system-wide or cross-context decisions, use root `docs/adr/`. In a multi-context repository, resolve the owning context's `CONTEXT.md` link from `CONTEXT-MAP.md` and use `docs/adr/` beneath that file's parent directory. The map link is authoritative: never reconstruct a path from the context name or assume it lives under `src/`. ADRs use sequential numbering within the selected directory: `0001-slug.md`, `0002-slug.md`, etc.
 
 Create the selected ADR directory lazily: only when its first ADR is needed.
 

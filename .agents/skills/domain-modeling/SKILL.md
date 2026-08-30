@@ -37,6 +37,8 @@ If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The ma
 │       └── docs/adr/
 ```
 
+The map link is authoritative even when a context lives under `packages/`, `apps/`, or another layout. Resolve that link, then place a context-scoped ADR under `docs/adr/` relative to the selected `CONTEXT.md` parent; never derive the directory from the context name or the illustrative `src/` layout above.
+
 Create files lazily: only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed.
 
 ## During the session

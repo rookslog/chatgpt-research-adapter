@@ -8,8 +8,9 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - The spec is `.scratch/<feature-slug>/spec.md`
 - Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
 - A ticket's canonical reference is its full path or `local:<feature-slug>/<NN>`; numbers are reused across feature directories and are never globally resolvable
+- Every general-triage request file carries `Created: <RFC 3339 timestamp>` and a plain `Status:` line near the top; a missing legacy timestamp never removes it from discovery
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
-- Comments and conversation history append to the bottom of the file under a `## Comments` heading
+- Comments and conversation history append to the bottom under `## Comments`. Each entry records `At: <RFC 3339 timestamp>` and `By: reporter | triage` before its body so `needs-info` activity is recoverable.
 
 ## When a skill says "publish to the issue tracker"
 
@@ -18,6 +19,12 @@ Create a new file under `.scratch/<feature-slug>/` (creating the directory if ne
 ## When a skill says "fetch the relevant ticket"
 
 Require the full path or an effort-qualified `local:<feature-slug>/<NN>` reference and resolve it inside that feature directory. Reject a bare number as ambiguous.
+
+## General triage operations
+
+- **Complete inventory**: scan every `.scratch/<feature>/spec.md` and `.scratch/<feature>/issues/*.md`. Exclude `.scratch/<effort>/map.md` and any child file whose `Type:` is `research`, `prototype`, `grilling`, or `task`; Wayfinder owns those planning artifacts. Include every remaining request whose `Status:` is absent or is one of the configured five triage states. Do not use a bounded directory sample or infer absence from one feature directory.
+- **Oldest-first order**: sort by the explicit `Created:` timestamp, then canonical path. Put legacy files with no valid `Created:` first, ordered by canonical path, and report the missing metadata instead of omitting them.
+- **Reporter activity after `needs-info`**: compare structured comment entries and include the request when the newest `By: reporter` timestamp is later than the newest `By: triage` timestamp. Conservatively include a legacy `needs-info` file with unstructured or invalid comment metadata as activity-unknown; never classify it as inactive from missing evidence.
 
 ## Wayfinding operations
 

@@ -73,7 +73,8 @@ Every claimed lane declares, before launch:
   with deterministic and live claims kept distinct.
 - **Review trigger:** the concrete uncertainty or consequence that requires an
   independent reviewer, or `none` with a reason.
-- **Integration:** how root will inspect, reconcile, and verify the result.
+- **Integration:** how root will import, durably publish and verify any primary
+  artifact, inspect and reconcile the result, and close the ticket.
 - **Route fit:** role, model, effort, control surface, reason, and falsifier.
 
 If a lane discovers a contract-bearing decision, overlapping ownership, or a
@@ -96,10 +97,13 @@ Delegated research must expose a resumable task/return locator after dispatch.
 Root uses a supported waiter/wakeup when available or reconciles every assigned
 and pre-dispatch record before selecting new work in the next session. A ticket
 remains claimed while its run is confirmed in progress; completed output is
-validated and moved directly into a root-owned closure queue while it remains
-assigned. Root reconciles the finding, publishes the ticket answer, updates the
-map and dependencies, and closes the child last before selecting new work. A
-completed result never returns to selection or resubmission. A known-unsent
+validated, published to its authorized durable destination, verified there,
+and moved directly into a root-owned closure queue while it remains assigned.
+Root reconciles the finding, publishes the ticket answer, updates the map and
+dependencies, and closes the child last before selecting new work. Missing
+artifact-publication authority or an incomplete publication keeps the ticket
+assigned and open. A completed result never returns to selection or
+resubmission. A known-unsent
 failure is dispositioned and unassigned, and a possibly-dispatched or lost run
 remains held for explicit investigation without automatic resubmission.
 

@@ -73,6 +73,8 @@ Do NOT close or modify any parent issue.
 
 # <NN>: <Ticket title>
 
+Created: <current RFC 3339 timestamp>
+
 Status: ready-for-agent
 
 <complete canonical Agent Brief, including Category and Execution contract>

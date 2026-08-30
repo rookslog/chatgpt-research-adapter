@@ -74,7 +74,7 @@ Be specific about edge cases and error conditions.
 - **Deterministic verification:** focused checks, full repository gate, and expected results
 - **External/live boundary:** separately authorized or manual operations, or `none`
 - **Review declaration:** `review: required — <trigger and reviewer class>` or `review: none — <reason>`
-- **Root integration:** inspection, reconciliation, and issue-closing evidence
+- **Root integration:** inspection, reconciliation, durable publication and verification of any primary artifact, and issue-closing evidence
 - **Route fit:** role, model, effort, control surface, rationale, and falsifier; or `unassigned — root must record before launch`
 ```
 

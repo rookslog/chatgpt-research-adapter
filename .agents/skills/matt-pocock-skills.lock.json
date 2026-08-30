@@ -22,6 +22,7 @@
     {
       "paths": [
         ".agents/skills/setup-matt-pocock-skills/SKILL.md",
+        ".agents/skills/setup-matt-pocock-skills/domain.md",
         ".agents/skills/wayfinder/SKILL.md",
         ".agents/skills/to-spec/SKILL.md",
         ".agents/skills/to-tickets/SKILL.md",
@@ -45,6 +46,8 @@
         ".agents/skills/setup-matt-pocock-skills/orchestration.md",
         ".agents/skills/setup-matt-pocock-skills/triage-labels.md",
         ".agents/skills/domain-modeling/ADR-FORMAT.md",
+        ".agents/skills/domain-modeling/CONTEXT-FORMAT.md",
+        ".agents/skills/domain-modeling/SKILL.md",
         ".agents/skills/grilling/SKILL.md",
         ".agents/skills/prototype/LOGIC.md",
         ".agents/skills/prototype/SKILL.md",
@@ -56,7 +59,7 @@
         ".agents/skills/triage/SKILL.md",
         ".agents/skills/wayfinder/SKILL.md"
       ],
-      "reason": "Apply PR #41 review hardening: verify complete built-in and custom issue-tracker capabilities including recoverable child attachment, category representation, and state labels for every consuming skill, avoid truncated or schema-mismatched queries, qualify local ticket identity, initialize local ticket and map state, seed the complete execution and orchestration contracts, publish Agent Briefs at each tracker's authoritative location, publish producer categories through the configured durable triage record, preserve ready-for-human as unfinished human work, require repository publication before closing against an out-of-scope record, derive readiness and review declarations from that contract with exact research output ownership, separate resumable HITL claims from recoverable delegated pre-dispatch claims, collect asynchronous research including no-locator claims, move validated results directly through root closure, validate named-ticket eligibility, centralize child/map completion and fallback indexing in Wayfinder, keep every prototype branch and render path inside the planning boundary, invoke installed skills through harness-supported mechanisms, keep untrusted contributor code out of routine triage execution, preserve custom setup content while replacing a switched tracker backend, configure confirmed active-agent instruction files, persist selected multi-context layout, keep deterministic fact checks with root, scope ADR storage correctly, and explicitly separate Wayfinder planning artifacts from triage intake."
+      "reason": "Apply PR #41 review hardening: verify complete built-in and custom issue-tracker capabilities including recoverable child attachment, exhaustive local triage discovery, category representation, and state labels for every consuming skill, avoid truncated or schema-mismatched queries, qualify local ticket identity, initialize local ticket and map state, seed the complete execution and orchestration contracts, publish Agent Briefs at each tracker's authoritative location, publish producer categories through the configured durable triage record, preserve ready-for-human as unfinished human work, require durable primary-artifact and out-of-scope-record publication before closure, derive readiness and review declarations from that contract with exact research output ownership, separate resumable HITL claims from recoverable delegated pre-dispatch claims, collect asynchronous research including no-locator claims, move validated results directly through root closure, validate named-ticket eligibility, centralize child/map completion and fallback indexing in Wayfinder, keep every prototype branch and render path inside the planning boundary, invoke installed skills through harness-supported mechanisms, keep untrusted contributor code out of routine triage execution, preserve custom setup content while replacing a switched tracker backend, configure confirmed active-agent instruction files, persist selected multi-context layout, derive context ADR paths from authoritative map links, keep deterministic fact checks with root, and explicitly separate Wayfinder planning artifacts from triage intake."
     }
   ]
 }
