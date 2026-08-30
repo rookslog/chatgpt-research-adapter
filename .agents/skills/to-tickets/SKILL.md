@@ -15,6 +15,8 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 Work from whatever is already in the conversation context. If the user passes a reference (a spec path, an issue number or URL) as an argument, fetch it and read its full body and comments.
 
+Determine the durable `bug` or `enhancement` category from that source. Every published implementation ticket must carry that category and the canonical agent brief; a source whose category remains ambiguous is not ready to decompose into runnable tickets.
+
 ### 2. Explore the codebase (optional)
 
 If you have not already explored the codebase, do so to understand the current state of the code. Ticket titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
@@ -61,7 +63,7 @@ Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock
 - **Local files** → write one file per ticket under `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below: one ticket per file, never a single combined file.
 - **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues.
 
-Before marking any published ticket `ready-for-agent`, populate the repository's complete ticket execution contract. At minimum record the closure target, starting revision/evidence cutoff and dependencies, owned write/output set and non-goals, deterministic verification, separately gated external operations, review trigger, root integration check, and route fit (or state that the ticket is root/script-owned and not delegated). If a field is still undecided, leave the ticket non-runnable and route it for human clarification instead of applying `ready-for-agent`.
+Before marking any published ticket `ready-for-agent`, use the authoritative [agent-brief template](../triage/AGENT-BRIEF.md), including its complete execution contract, and add the parent/blocking relationship. Do not maintain a second reduced brief schema here. If any required field is undecided, leave the ticket non-runnable and route it for human clarification instead of applying `ready-for-agent`.
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 
@@ -71,22 +73,11 @@ Do NOT close or modify any parent issue.
 
 # <NN>: <Ticket title>
 
-**What to build:** the end-to-end behaviour this ticket makes work, from the user's perspective, not a layer-by-layer implementation list.
+<complete canonical Agent Brief, including Category and Execution contract>
 
 **Blocked by:** the numbers/titles of the tickets that gate this one, or "None (can start immediately)".
 
-**Start:** exact revision or evidence cutoff.
-
-**Ownership:** owned write/output set and explicit non-goals.
-
-**Verification:** focused checks, full gate, external/live boundary, and root integration check.
-
-**Review and route:** review trigger; role/model/effort/control-surface fit, or "root/script-owned; not delegated".
-
 **Status:** ready-for-agent
-
-- [ ] Acceptance criterion 1
-- [ ] Acceptance criterion 2
 
 </local-ticket-template>
 
@@ -96,26 +87,11 @@ Do NOT close or modify any parent issue.
 
 A reference to the parent issue on the tracker (if the source was an existing issue, otherwise omit this section).
 
-## What to build
-
-The end-to-end behaviour this ticket makes work, from the user's perspective, not layer-by-layer implementation.
-
-## Acceptance criteria
-
-- [ ] Criterion 1
-- [ ] Criterion 2
+<complete canonical Agent Brief, including Category and Execution contract>
 
 ## Blocked by
 
 - A reference to each blocking ticket, or "None (can start immediately)".
-
-## Execution contract
-
-- **Start:** exact revision or evidence cutoff.
-- **Ownership:** owned write/output set and explicit non-goals.
-- **Verification:** focused checks, full gate, external/live boundary, and root integration check.
-- **Review trigger:** the uncertainty or consequence that warrants independent review, or `none` with a reason.
-- **Route fit:** role, model, effort, and control surface with a fit rationale, or `root/script-owned; not delegated`.
 
 </issue-template>
 

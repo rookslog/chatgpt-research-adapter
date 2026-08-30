@@ -59,6 +59,12 @@ Each ticket is a **child issue** of the map; the tracker's issue id is its ident
 ## Question
 
 <the decision or investigation this ticket resolves>
+
+## Execution contract
+
+**Contract status:** complete / needs-clarification
+
+<the repository-required execution contract; a needs-clarification child is not on the frontier>
 ```
 
 Each ticket carries a `wayfinder:<type>` label, one of `research`, `prototype`, `grilling`, `task` (see [Ticket Types](#ticket-types)).
@@ -110,7 +116,7 @@ User invokes with a loose idea.
 1. **Name the destination.** Call the Skill tool twice, for "grilling" and "domain-modeling", to pin down what this map is finding its way to: the spec, decision, or change. The destination fixes the scope, so it's settled first.
 2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** (the way to the destination is already clear, the whole journey small enough for one session), you don't need a map. Stop and ask the user how they'd like to proceed.
 3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
-4. **Create the tickets you can specify now** as child issues of the map. Populate the repository's complete ticket execution contract on every ticket at creation, regardless of type; for HITL work, record the human/root route explicitly rather than inventing an agent route. If a contract field cannot yet be supplied, mark the child non-runnable through the configured clarification state and exclude it from the frontier until the contract is completed. Then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Wiring sorts contract-complete children into the frontier and the blocked; everything you can't yet specify stays in the fog: the **Not yet specified** section.
+4. **Create the tickets you can specify now** as child issues of the map. Populate the repository's complete ticket execution contract on every ticket at creation, regardless of type; for HITL work, record the human/root route explicitly rather than inventing an agent route. If a contract field cannot yet be supplied, set `Contract status: needs-clarification` and exclude the child from the frontier until the contract is completed. Then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Wiring sorts contract-complete children into the frontier and the blocked; everything you can't yet specify stays in the fog: the **Not yet specified** section.
 5. **Launch the research frontier.** The root claim authority re-reads the wired dependency state and selects only open, unassigned `research` tickets with no open blocker. Launch no more than the remaining wave capacity. Before each launch, add or verify the repository's ticket execution contract, including one owned output path and the route fit; then claim and verify the ticket, record a stable run ID plus task/return locator in the claim comment, and only then dispatch. The subagent calls the Skill tool with "research" and works only in its isolated owned branch/worktree and output path. Blocked, contract-incomplete, or unverifiably claimed tickets remain unlaunched.
 6. **Register collection.** Every launched run must have a supported return path: use the harness's task waiter/wakeup when available, or persist a resumable task locator that a later Wayfinder session can inspect. A later session first collects completed research, validates the ticket-owned artifact, and reconciles the map; in-progress work stays claimed, and failed or lost work gets an explicit disposition from the root. Never abandon an assigned research ticket merely because charting stops.
 7. Stop: charting is one session's work; it hand-resolves nothing unless a launched research result has returned and passed collection.

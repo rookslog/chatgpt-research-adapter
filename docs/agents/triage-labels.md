@@ -31,10 +31,17 @@ classification. Do not retroactively classify historical M006 issues merely to
 populate this scheme.
 
 An issue with none of these five workflow-state labels is untriaged even when
-it carries unrelated labels such as legacy `bug`, `enhancement`, or
-`wayfinder:*`. Attention queries must compute that missing-state set rather
-than relying on GitHub's `no:label` filter.
+it carries unrelated legacy labels such as `bug` or `enhancement`. Attention
+queries must compute that missing-state set rather than relying on GitHub's
+`no:label` filter.
+
+Wayfinder maps and child decision tickets are explicit planning artifacts, not
+triage intake. Exclude issues carrying `wayfinder:*` from the five-state
+attention buckets; Wayfinder owns their type, dependency, assignment, contract,
+and closure lifecycle. A later implementation ticket derived from a resolved
+map re-enters the normal triage contract.
 
 Applying `ready-for-agent` requires both the durable category field and an
-agent-ready brief. A maintainer quick override skips the grilling interview,
-not those records; if either remains unavailable, keep the issue non-runnable.
+agent-ready brief containing the complete execution contract. A maintainer
+quick override skips the grilling interview, not those records; if either
+remains unavailable, keep the issue non-runnable.

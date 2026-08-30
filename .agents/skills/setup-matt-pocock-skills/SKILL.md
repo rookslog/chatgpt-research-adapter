@@ -80,7 +80,7 @@ For a real tracker, include a tracker-mutation preview: every required triage an
 
 Never create `AGENTS.md` when `CLAUDE.md` already exists (or vice versa); always edit the one that's already there.
 
-If an `## Agent skills` block already exists in the chosen file, update its contents in-place rather than appending a duplicate. Don't overwrite user edits to the surrounding sections.
+If an `## Agent skills` block already exists in the chosen file, update only the setup-owned `### Issue tracker`, `### Triage labels`, and `### Domain docs` subsections in place. Preserve every unknown or custom subsection, including orchestration, routing, verification, or repository-specific additions, and never replace the whole block from the fixed template. Don't overwrite user edits to the surrounding sections.
 
 The block:
 

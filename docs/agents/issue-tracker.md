@@ -24,7 +24,8 @@ GitHub Issues at `rookslog/chatgpt-research-adapter`. Use the `gh` CLI and pass
 - **Blocking:** use GitHub's native issue-dependency endpoint. Supply the
   blocker's numeric database `id`, not its issue number or GraphQL node ID.
 - **Frontier:** enumerate every map child through the paginated sub-issues API,
-  then keep open children with no open blocker and no assignee. Default
+  then keep open children with no open blocker, no assignee, and a complete
+  execution contract. Exclude `Contract status: needs-clarification`. Default
   30-item CLI results are not evidence of a complete frontier.
 - **Claim:** one root orchestrator is the serialized claim authority for a map.
   It re-reads eligibility and the execution contract, assigns the issue,
@@ -42,6 +43,13 @@ When an authorized operation is not expressible through `gh issue`, use the
 documented `gh api` REST endpoint and inspect the resulting relationship.
 
 ## Ticket execution contract
+
+`ready-for-agent` is a derived publication state, never a producer default. It
+requires a durable category plus the authoritative Agent Brief in
+`.agents/skills/triage/AGENT-BRIEF.md`, including every execution-contract
+field below. A spec without that brief stays `needs-triage`; a producer with a
+missing field routes the issue to clarification. Producer skills reference
+this contract rather than defining smaller runnable schemas.
 
 Before implementation or delegated investigation begins, the issue body or a
 claim comment must state:

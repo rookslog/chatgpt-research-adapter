@@ -65,6 +65,16 @@ Be specific about edge cases and error conditions.
 **Out of scope:**
 - Thing that should NOT be changed or addressed in this issue
 - Adjacent feature that might seem related but is separate
+
+**Execution contract:**
+- **Closure target:** observable deliverable that closes the ticket
+- **Start and dependencies:** exact revision or evidence cutoff and blocker state
+- **Ownership:** owned write/output set and explicit non-goals
+- **Deterministic verification:** focused checks, full repository gate, and expected results
+- **External/live boundary:** separately authorized or manual operations, or `none`
+- **Review declaration:** `review: required — <trigger and reviewer class>` or `review: none — <reason>`
+- **Root integration:** inspection, reconciliation, and issue-closing evidence
+- **Route fit:** role, model, effort, control surface, rationale, and falsifier; or `unassigned — root must record before launch`
 ```
 
 ## Examples
@@ -102,6 +112,16 @@ and append "..." to indicate truncation.
 **Out of scope:**
 - Changing the 1024 char limit itself
 - Multi-line description support
+
+**Execution contract:**
+- **Closure target:** word-boundary truncation and its deterministic regression
+- **Start and dependencies:** exact claim-time revision; no open blocker
+- **Ownership:** truncation behavior and focused tests; no metadata-schema changes
+- **Deterministic verification:** focused truncation tests plus the full repository gate
+- **External/live boundary:** none
+- **Review declaration:** `review: none — localized behavior has a direct deterministic oracle`
+- **Root integration:** inspect the diff and run the full gate before closure
+- **Route fit:** unassigned — root must record the implementation route before launch
 ```
 
 ### Good agent brief (enhancement)
@@ -143,6 +163,16 @@ checked for matches.
 - Automated matching (human confirms the match)
 - Reopening previously rejected features
 - Bug reports (only enhancement rejections go to `.out-of-scope/`)
+
+**Execution contract:**
+- **Closure target:** durable rejected-enhancement records and triage lookup behavior
+- **Start and dependencies:** exact claim-time revision; no open blocker
+- **Ownership:** out-of-scope record behavior and tests; no automated similarity system
+- **Deterministic verification:** focused create/update/lookup tests plus the full repository gate
+- **External/live boundary:** none
+- **Review declaration:** `review: required — durable triage-policy change requires an independent contract review`
+- **Root integration:** inspect records, reconcile documentation, and run the full gate
+- **Route fit:** unassigned — root must select and record a policy-capable implementation route
 ```
 
 ### Good agent brief (PR)
@@ -180,6 +210,16 @@ is untouched when the flag is absent.
 **Out of scope:**
 - Adding `--json` to any other command
 - Changing the JSON shape of the success payload the PR already defined
+
+**Execution contract:**
+- **Closure target:** complete JSON success/error behavior on the existing PR diff
+- **Start and dependencies:** exact PR head at claim; no open blocker
+- **Ownership:** remaining JSON error path and tests; preserve unrelated contributor changes
+- **Deterministic verification:** focused CLI tests plus the full repository gate
+- **External/live boundary:** none
+- **Review declaration:** `review: required — contributor diff requires exact-head review after repair`
+- **Root integration:** inspect the final PR diff, run the gate, and disposition review findings
+- **Route fit:** unassigned — root must record the PR-repair route before launch
 ```
 
 ### Bad agent brief

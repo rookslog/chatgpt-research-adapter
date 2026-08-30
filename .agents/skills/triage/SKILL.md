@@ -62,7 +62,7 @@ The maintainer invokes `/triage` and describes what they want in natural languag
 
 Query the issue tracker and present three buckets, oldest first:
 
-1. **No state label**: never triaged. Compute this as the set of issues lacking every configured state label, not as issues with no labels at all; legacy, category, Wayfinder, or other unrelated labels do not remove an issue from this bucket.
+1. **No state label**: never triaged. Compute this as the set of issues lacking every configured state label, not as issues with no labels at all. Unrelated labels do not remove an issue from this bucket, except for planning-artifact labels that the configured triage contract explicitly exempts (such as this repository's `wayfinder:*` map and decision tickets).
 2. **`needs-triage`**: evaluation in progress.
 3. **`needs-info` with reporter activity since the last triage notes**: needs re-evaluation.
 
@@ -83,7 +83,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 5. **Apply the outcome:**
    - `ready-for-agent`: post an agent brief comment ([AGENT-BRIEF.md](AGENT-BRIEF.md)).
    - `ready-for-human`: same structure as an agent brief, but note why it can't be delegated (judgment calls, external access, design decisions, manual testing).
-   - `needs-info`: post triage notes (template below).
+- `needs-info`: post triage notes (template below).
    - For `wontfix`, close the issue, with the comment depending on *why*:
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
      - **Rejected (bug)**: give a polite explanation, then close.
@@ -98,6 +98,8 @@ If the maintainer says "move #42 to ready-for-agent", trust the requested target
 
 ```markdown
 ## Triage Notes
+
+**Category:** bug / enhancement
 
 **What we've established so far:**
 
