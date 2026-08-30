@@ -54,6 +54,26 @@ test('Wayfinder blocks when the tracker contract is missing', async () => {
   assert.match(wayfinder, /do not default to Local Markdown/i);
 });
 
+test('Local Markdown needs-info notes do not duplicate the canonical category', async () => {
+  const triage = await text('.agents/skills/triage/SKILL.md');
+
+  assert.match(triage, /For Local Markdown, retain the standalone canonical category/i);
+  assert.match(triage, /omit the `\*\*Category:\*\*` line from the appended needs-info notes/i);
+});
+
+test('the GitLab tracker offers only the fully defined issue-map contract', async () => {
+  const tracker = await text('.agents/skills/setup-matt-pocock-skills/issue-tracker-gitlab.md');
+
+  assert.doesNotMatch(tracker, /epic may hold the map/i);
+  assert.match(tracker, /map is always an issue/i);
+});
+
+test('the GitHub issue reader selects JSON fields before jq filtering', async () => {
+  const tracker = await text('.agents/skills/setup-matt-pocock-skills/issue-tracker-github.md');
+
+  assert.match(tracker, /gh issue view <number> --json [^\n]*comments[^\n]*labels[^\n]* --jq/i);
+});
+
 test('ready-for-human uses the same authoritative brief source as ready-for-agent', async () => {
   const [brief, policy] = await Promise.all([
     text('.agents/skills/triage/AGENT-BRIEF.md'),

@@ -5,7 +5,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
+- **Read an issue**: `gh issue view <number> --json number,title,body,author,createdAt,updatedAt,state,comments,labels,url --jq '.'`. Select JSON fields before any `--jq` filter; do not filter the human-formatted `--comments` view.
 - **List issues**: for an exhaustive inventory, use a paginated API query such as `gh api --paginate 'repos/<owner>/<repo>/issues?state=open&per_page=100'` and exclude entries containing `pull_request`; fetch full comments only for selected issues. A bounded `gh issue list --limit <N>` is acceptable only when the scope has a proven upper bound below `N`. Never infer absence or a complete frontier from the default 30-item result.
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
@@ -19,7 +19,7 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 When set to `yes`, PRs run through the same labels and states as issues, using the `gh pr` equivalents:
 
-- **Read a PR**: `gh pr view <number> --comments` and `gh pr diff <number>` for the diff.
+- **Read a PR**: `gh pr view <number> --json number,title,body,author,createdAt,updatedAt,state,comments,labels,url --jq '.'` and `gh pr diff <number>` for the diff.
 - **List external PRs for triage**: use a paginated REST API query and keep `.author_association` values `CONTRIBUTOR`, `FIRST_TIMER`, `FIRST_TIME_CONTRIBUTOR`, `MANNEQUIN`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`). If using GraphQL instead, use its camelCase `authorAssociation` field explicitly. Do not mix the two schemas or use the default 30-item `gh pr list` result for an exhaustive triage claim.
 - **Comment / label / close**: `gh pr comment`, `gh pr edit --add-label`/`--remove-label`, `gh pr close`.
 
@@ -31,7 +31,7 @@ Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments`.
+Run `gh issue view <number> --json number,title,body,author,createdAt,updatedAt,state,comments,labels,url --jq '.'`.
 
 ## Wayfinding operations
 

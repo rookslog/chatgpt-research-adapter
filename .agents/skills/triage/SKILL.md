@@ -87,7 +87,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
    Every outcome uses the configured state-replacement operation. On a real tracker, re-read the item, remove every configured workflow-state label currently present, apply exactly the selected target label, then re-read and verify that the target is the only configured workflow-state label. On Local Markdown, replace the one plain `Status:` field with the selected role, then re-read and verify exactly one `Status:` field with that value. A custom tracker uses its verified equivalent. Perform this transition for `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`; closing a `wontfix` item happens only after the singleton state is verified. If replacement or verification is partial or ambiguous, stop without claiming the outcome and reconcile the observed tracker state before another mutation.
    - `ready-for-agent`: publish the canonical agent brief through the configured tracker operation ([AGENT-BRIEF.md](AGENT-BRIEF.md)). On a real tracker, post and verify the separate comment or note. On local Markdown, embed and verify the brief directly below the ticket's plain `Status:` field rather than appending it under `## Comments`. Apply the ready state only after the authoritative record is present.
    - `ready-for-human`: publish and verify a canonical work brief through the same tracker-configured authoritative location and schema as an Agent Brief, but name the human work still required (judgment calls, external access, design decisions, manual testing) and record the review declaration there. This state does not itself mean merge-ready.
-   - `needs-info`: post triage notes (template below).
+   - `needs-info`: post triage notes (template below). For Local Markdown, retain the standalone canonical category beside `Status:` and omit the `**Category:**` line from the appended needs-info notes. On a real tracker, keep the category in the durable triage note because that note is the canonical record.
    - For `wontfix`, close the issue, with the comment depending on *why*:
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
      - **Rejected (bug)**: give a polite explanation, then close.
@@ -99,6 +99,10 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 If the maintainer says "move #42 to ready-for-agent", trust the requested target state and skip grilling, but preserve the state invariant: record exactly one category and publish the required agent brief at the configured authoritative location before applying `ready-for-agent`. Draft the brief from the gathered evidence and ask only for information that is still load-bearing. If the category or minimum runnable brief cannot be established, do not apply the ready label; route the issue through the configured clarification state and state what is missing. Confirm the resulting record, role changes, authoritative brief location, and close behavior before acting.
 
 ## Needs-info template
+
+Use the `**Category:**` field below only when the configured tracker makes this
+note the canonical category record. Local Markdown omits that line as described
+above.
 
 ```markdown
 ## Triage Notes
