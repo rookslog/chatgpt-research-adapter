@@ -38,7 +38,7 @@ ChatGPT-adapter addition can activate connectors first, verify the full set,
 then reuse the same prompt-insertion/send transaction. That premise has not yet
 been observed and is the smallest discriminating gate.
 
-Current evidence therefore supports an exact-source compatibility patch and an
+Current evidence therefore supports a pinned-anchor compatibility patch and an
 eventual upstream contribution as the preferred route, subject to the no-submit
 probe below. It does not justify an OpenCLI fork.
 
@@ -152,6 +152,13 @@ the existing forced-Web postcondition in addition to connector postconditions.
 `mode=deep` plus connectors remains unsupported until a current no-submit probe
 shows the UI can represent both states simultaneously.
 
+Connector order is not a caller-controlled semantic dimension. The wrapper
+must reject duplicate IDs, normalize the remaining canonical IDs into one
+documented lexical order, and record both the requested set and canonical
+activation sequence. Reversing the input list therefore cannot produce a
+different UI transaction. Supporting an exceptional connector-specific order
+would require new evidence and a versioned contract change.
+
 The initial contract should not add a speculative `web=off` switch. No current
 source or observation establishes that the ordinary UI offers or honors a
 reliable disable-Web control.
@@ -202,26 +209,41 @@ receipt.
 acquire the conversation tab/send lease
   -> open a fresh /new composer
   -> verify zero message nodes and blank editable text
-  -> discover each requested connector on the current visible surface
-  -> fail known-unsent on any connection/authorization requirement
-  -> activate connector 1
-  -> verify exact connector-1 selected state
-  -> reopen current surface and activate connector 2
-  -> verify the complete ordered/set-equivalent connector state
+  -> inventory every existing noneditable composer node
+  -> reject any state-bearing or unclassified pre-existing node
+  -> canonicalize the requested connector set
+  -> discover each canonical connector on the current visible surface
+  -> activate connector 1 and branch on selected, connection-required, or neither
+  -> continue only after exact connector-1 selected state
+  -> reopen current surface and activate connector 2 through the same branch
+  -> verify the complete canonical connector state
   -> select and verify forced Web/Deep mode, if requested
   -> atomically recheck every connector plus tool state
   -> fill prompt while preserving only the verified noneditable state
   -> recheck connector/tool state and exact prompt text
   -> publish selection receipt
   -> publish dispatch intent bound to the selection receipt
-  -> submit exactly once
+  -> recheck the exact connector/tool/prompt state adjacent to submission
+  -> on mismatch, leave send authorization absent and record known-unsent state change
+  -> on match, durably publish send authorization bound to the observed state
+  -> execute one compare-and-submit operation against that authorized state
 ```
 
+A fresh route and empty editable text do not prove an empty state. The baseline
+inventory must classify every visible `contenteditable=false` descendant of the
+active composer. It may explicitly account for inert structural nodes, but any
+selected tool, connector, attachment, stale pill, or unclassified noneditable
+node makes the composer nonblank and the operation fails known-unsent. Prompt
+fill may preserve only nodes bound to that accepted baseline plus the newly
+verified requested state.
+
 The order between connector activation and forced Web/Deep selection is not yet
-settled. The no-submit probe must test both transitions because either action
-may replace or hide the other's chip. Production should adopt the order whose
-final atomic recheck proves the complete requested state; it must not assume
-that visually disappearing state remains active.
+settled. The no-submit probe must test both connector/tool transitions because
+either action may replace or hide the other's chip. This is distinct from
+caller connector-list order, which is canonicalized above. Production should
+adopt the connector/tool transition whose final atomic recheck proves the
+complete requested state; it must not assume that visually disappearing state
+remains active.
 
 If only one connector is available or already connected, single-connector
 activation can be qualified while multi-connector composition remains an
@@ -242,6 +264,16 @@ MFA, passkey, challenge, or account-choice UI:
 Connection/authorization is a separate owner-controlled operation, not an
 automatic fallback inside a research job.
 
+This branch is required both during discovery and immediately after each
+activation attempt. A connector row can reveal authorization UI only after it
+is clicked. After a bounded click, the wrapper must observe exactly one of:
+
+1. the exact selected connector state;
+2. recognized connection/authorization UI, producing `connection_required`;
+3. neither state, producing `ambiguous` with the prompt known unsent.
+
+It must not collapse cases 2 and 3 into a generic selector failure.
+
 ## Connector selection receipt
 
 Publish an immutable receipt before dispatch intent:
@@ -251,6 +283,7 @@ schema
 job_id
 turn_id
 requested_connectors[]
+canonical_connectors[]
 discovered_connectors[]
 activated_connectors[]
 activation_strategy[]
@@ -258,6 +291,8 @@ connection_state[]
 requested_mode
 resolved_tool_state
 composer_blank_before
+baseline_noneditable_nodes[]
+baseline_state_hash
 connector_state_hash
 prompt_sha256
 prompt_preserved_after_fill
@@ -277,23 +312,64 @@ provider_submission:
 ```
 
 Only the later handoff/result can establish provider acceptance. If the full
-requested connector/tool state cannot be atomically verified immediately
-before send, the prompt remains known unsent.
+requested connector/tool state cannot be verified immediately before send, the
+prompt remains unsent. The post-intent recheck is mandatory: immutable intent
+records planned dispatch, not proof that the previously receipted UI state
+survived until submission.
+
+That recheck introduces a second durable commit point. Provider mutation is
+forbidden until an immutable send-authorization receipt exists with:
+
+```text
+schema
+job_id
+turn_id
+selection_receipt_sha256
+intent_sha256
+pre_submit_state_hash
+prompt_sha256
+authorized_at
+provider_submission: false
+```
+
+On a mismatch, do not publish send authorization and do not call send. Publish
+`pre_submit_disposition=state_changed_before_submit` when possible. If the
+process stops before that terminal outcome is durable, recovery treats an
+intent with no send authorization as known unsent and may durably finalize the
+same disposition; it must not leave the job in an intent-only non-retry state.
+
+On a match, durably publish send authorization and run exactly one bounded
+compare-and-submit operation. That operation compares the current state to
+`pre_submit_state_hash` and invokes send only on an exact match. A lost outcome
+after send authorization is necessarily ambiguous: recovery must not retry,
+because the durable authorization proves that provider mutation was permitted
+but cannot prove whether it occurred. This is the explicit local/provider
+uncertainty boundary; selection receipt or intent alone is not that boundary.
+
+This requires a versioned connector-dispatch schema and corresponding recovery
+reader. It must not reinterpret an existing M003/M004 intent-only job as known
+unsent: those schemas permit provider mutation immediately after intent. The
+absence of send authorization proves no mutation only for a schema whose send
+path is structurally gated on that artifact.
 
 ## Smallest no-submit probe
 
 This probe requires separate owner authorization. It uses external Chrome and
 the exact installed OpenCLI/Bridge path, but submits zero prompts.
 
-1. Start from a separate fresh `/new` blank composer for every scenario.
-2. Capture the minimal sanitized visible connector row/suggestion structure.
+1. Start from a separate fresh `/new` composer for every scenario. Inventory
+   every visible noneditable composer node before treating it as blank.
+2. Capture the minimal sanitized visible connector row/suggestion structure and
+   record whether every baseline node is inert, state-bearing, or unclassified.
 3. Activate GitHub once through the plus-menu route; record the first result and
    selected representation.
 4. On a new blank composer, activate GitHub once through the `@` suggestion
    route; verify conversion from text to selected state.
 5. If a second already-connected connector is available without authorization,
-   add GitHub then that connector and record whether both remain selected. Do
-   not connect a new service merely to run the probe.
+   activate the two connectors once in canonical ID order and record whether
+   both remain selected. Reverse caller input is an offline normalization case,
+   not a second live activation order. Do not connect a new service merely to
+   run the probe.
 6. On separate blank composers, test GitHub -> Web Search and Web Search ->
    GitHub, recording the complete state after each transition.
 7. Fill a harmless unsent sentinel after the selected state, verify chips and
@@ -308,34 +384,48 @@ transition as a reliability estimate.
 1. omitted connectors preserve the exact current request, argv, prompt, and
    receipts;
 2. connector identifiers use a closed canonical registry and reject duplicate,
-   unknown, or label-like free text;
-3. discovery is limited to current visible connector surfaces and excludes
+   unknown, or label-like free text; reversed input produces the same canonical
+   activation sequence and receipt identity;
+3. a fresh route with empty editable text rejects any state-bearing or
+   unclassified pre-existing noneditable composer node;
+4. discovery is limited to current visible connector surfaces and excludes
    hidden/stale menus and unrelated navigation/sidebar rows;
-4. raw `@name` text without exact suggestion selection fails known-unsent;
-5. connection-required UI fails before prompt fill or provider submission;
-6. activating a second connector must preserve and reverify the first, or fail
+5. raw `@name` text without exact suggestion selection fails known-unsent;
+6. each activation attempt distinguishes exact selected state,
+   connection-required UI revealed after the click, and ambiguous neither-state
+   before prompt fill or provider submission;
+7. activating a second connector must preserve and reverify the first, or fail
    with multi-connector unsupported;
-7. connector -> tool and tool -> connector transitions recheck the complete
+8. connector -> tool and tool -> connector transitions recheck the complete
    requested state and detect replacement;
-8. prompt fill preserves exactly the verified connector/tool chips and inserts
+9. prompt fill preserves exactly the verified connector/tool chips and inserts
    text after them;
-9. stale/foreign `contenteditable=false` nodes cannot satisfy a connector
+10. stale/foreign `contenteditable=false` nodes cannot satisfy a connector
    postcondition merely because `fillChatGPTMessage()` would preserve them;
-10. failed or ambiguous selection never calls send and never auto-retries;
-11. selection receipt hash is required by dispatch intent, handoff, result, and
-   Deep completion event where applicable;
-12. exact pinned-source drift fails before any connector activation.
+11. a connector/tool/prompt change after dispatch intent but before send records
+    `state_changed_before_submit`, leaves send authorization absent, and never
+    calls send;
+12. a crash after intent but before send authorization recovers as known unsent,
+    including a crash while publishing the mismatch outcome;
+13. send authorization binds the selection receipt, intent, prompt, and current
+    state hashes and is durable before the compare-and-submit operation;
+14. a compare-and-submit mismatch never calls send; loss of its outcome after
+    authorization is ambiguous and never auto-retries;
+15. failed or ambiguous selection never calls send and never auto-retries;
+16. selection receipt hash is required by dispatch intent, send authorization,
+    handoff, result, and Deep completion event where applicable;
+17. required pinned source-anchor drift fails before any connector activation.
 
-These scenarios test distinct mechanisms. Connector-name and ordering
-permutations should not be expanded beyond surfaces observed by the bounded
-probe.
+These scenarios test distinct mechanisms. Connector-name permutations should
+not be expanded beyond surfaces observed by the bounded probe; canonical order
+removes caller-order permutations from the live matrix.
 
 ## Ownership and architecture
 
 ### Near term
 
 Keep the connector request/receipt contract in the wrapper. Add a narrow
-exact-source ChatGPT compatibility helper near `selectChatGPTTool()` and
+pinned-anchor ChatGPT compatibility helper near `selectChatGPTTool()` and
 `fillChatGPTMessage()` only after the no-submit probe establishes the current
 selected representation and composition rules.
 
@@ -357,7 +447,7 @@ Invoke #29 without automatically choosing a fork if:
 - multiple connector/tool state cannot be verified on the same page before
   send;
 - a Bridge/daemon public-contract change becomes necessary;
-- connector support pushes the combined exact-source patch surface beyond the
+- connector support pushes the combined pinned-anchor patch surface beyond the
   agreed narrow compatibility budget.
 
 The present source evidence does not cross these gates.
@@ -367,15 +457,16 @@ The present source evidence does not cross these gates.
 - Treat connector connection, activation, preservation, use, and operation
   capability as separate states.
 - Start every connector transaction from a verified blank composer; activate
-  connectors before inserting prompt text.
+  connectors before inserting prompt text, and reject unrequested pre-existing
+  noneditable state.
 - Prefer the observed plus-menu route for the first probe; treat `@` suggestion
   selection as a second typed route, never a prompt convention.
 - Keep Web/Deep tool mode independent from connectors and verify the complete
-  combined state immediately before send.
+  combined state after durable intent and immediately before send.
 - Implement multi-connector support only if the current UI preserves two exact
   selected identities; otherwise declare it unsupported rather than simulating
   composition in prompt text.
-- Continue wrapper plus a narrow exact-source patch and upstream contribution;
+- Continue wrapper plus a narrow pinned-anchor patch and upstream contribution;
   use #29 as a re-evaluation gate, not an automatic fork switch.
 - Keep #28 open until the separately authorized zero-submit probe resolves the
   selected-chip, connection-state, multi-connector, and connector/Web ordering

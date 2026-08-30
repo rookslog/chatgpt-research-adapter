@@ -13,7 +13,7 @@
 ## Decision
 
 Keep the `chatgpt-research` wrapper as the product and protocol owner. Continue
-to use released OpenCLI behind it for the present baseline, with exact-source,
+to use released OpenCLI behind it for the present baseline, with pinned-anchor,
 temporary compatibility overlays only where an already qualified operation
 needs them. Pursue generic ChatGPT adapter improvements upstream as independent
 changes.
@@ -24,7 +24,8 @@ the review still favors the wrapper route because:
 
 1. all three current overlay families are isolated to
    `clis/chatgpt/utils.js`, applied only to a disposable package copy, pinned
-   against exact source, and covered by deterministic failures on drift;
+   to exact anchors or hashed caller bytes, and covered by deterministic
+   failures when those required regions drift;
 2. Standard and forced Web have bounded live observations through the wrapper;
 3. the investigated M007 capabilities mostly reuse existing OpenCLI/Bridge
    primitives, and no M007 implementation has yet demonstrated that another
@@ -61,20 +62,27 @@ browser surface the Codex-facing product API.
 All current overlays are implemented in
 `src/opencli-transport.js::withPatchedOpenCli()`. That function verifies the
 installed executable first, copies the package into a private temporary
-workspace, replaces exact source only in the copy, runs the bounded command,
-and removes the workspace. It never mutates `.runtime/opencli` or the installed
-package.
+workspace, replaces uniquely matching pinned source anchors only in the copy,
+runs the bounded command, and removes the workspace. It never mutates
+`.runtime/opencli` or the installed package.
 
 | Family | Exact production seam | Purpose | Evidence and present limit |
 |---|---|---|---|
-| Markdown fidelity | `patchOpenCliMarkdownSource()` over `clis/chatgpt/utils.js` | enable GFM tables and preserve readable claim IDs during assistant-message conversion | deterministic compatibility/fidelity tests and the closed #4 Standard observation; fails closed as `ERR_OPENCLI_MARKDOWN_COMPAT` on source drift |
-| Web/Deep tool activation | `patchOpenCliToolSelectorSource()` over the same file | exact visible option matching, fresh targets, bounded polling, native/DOM fallback, and selected-chip verification | deterministic selector/state-machine suite and the closed #2 forced-Web observation; live Deep qualification remains open in #3 |
-| Deep result extraction | `patchOpenCliDeepResearchResultSource()` over the same file | bind conversation/network payload extraction to the expected conversation and preserve current fallback behavior | deterministic extractor, identity, deadline, and cleanup tests; completed live Deep extraction remains open in #16 |
+| Markdown fidelity | `patchOpenCliMarkdownSource()` over `clis/chatgpt/utils.js` | enable GFM tables and preserve readable claim IDs during assistant-message conversion | deterministic compatibility/fidelity tests and the closed #4 Standard observation; fails closed as `ERR_OPENCLI_MARKDOWN_COMPAT` when either required converter anchor no longer matches uniquely |
+| Web/Deep tool activation | `patchOpenCliToolSelectorSource()` over the same file | exact visible option matching, fresh targets, bounded polling, native/DOM fallback, and selected-chip verification | deterministic selector/state-machine suite and the closed #2 forced-Web observation; required selector anchors fail closed, while live Deep qualification remains open in #3 |
+| Deep result extraction | `patchOpenCliDeepResearchResultSource()` over the same file | bind conversation/network payload extraction to the expected conversation and preserve current fallback behavior | deterministic extractor, identity, deadline, and cleanup tests; required extractor anchors and the caller-region hash fail closed, while completed live Deep extraction remains open in #16 |
 
 This is three independent compatibility families and one shared temporary-copy
 mechanism. The selector replacement is a substantial state machine, not a
 one-line shim. Its size and review history are why this architecture review is
 required even though the installed package remains untouched.
+
+These runtime guards do **not** detect arbitrary changes elsewhere in
+`utils.js`. They establish pinned-anchor and caller-region compatibility, not a
+full-file identity guarantee. Full-file blob comparison and semantic diff are
+upgrade/requalification gates below. A release can preserve every required
+anchor while changing interacting code elsewhere, so an anchor match alone is
+never sufficient upgrade evidence.
 
 No compatibility code currently implements model/effort selection,
 conversation attachments, assistant-generated artifact enumeration, or
@@ -115,8 +123,8 @@ unbounded inline replacement. Pause new capability implementation and reopen
 this decision when **any** of these gates is crossed:
 
 1. **Fourth-family gate:** a feature proposes another independent long-lived
-   exact-source replacement rather than extending one of the three current
-   contracts.
+   pinned-anchor source replacement rather than extending one of the three
+   current contracts.
 2. **Boundary gate:** correct behavior requires changing the Browser Bridge,
    daemon, extension, or another OpenCLI public contract instead of only the
    ChatGPT adapter seam.
@@ -160,8 +168,8 @@ For each candidate release:
 
 1. record tag, source SHA, package/tarball identity, extension/Bridge identity,
    lifecycle scripts, and release notes before installation;
-2. diff the exact ChatGPT adapter plus every Bridge/daemon/extension seam used
-   by the wrapper;
+2. compare full-file blob identities and semantically diff the complete
+   ChatGPT adapter plus every Bridge/daemon/extension seam used by the wrapper;
 3. apply each compatibility family independently against the candidate source;
    any missing or multiply matching anchor is a typed offline failure;
 4. run the complete deterministic wrapper suite, authority/requirement/syntax
@@ -201,7 +209,7 @@ the backend distribution and source-ownership boundary only.
 - The cumulative patch surface triggered and completed this architecture
   review.
 - The selected route remains released OpenCLI behind the wrapper, with the
-  existing three temporary exact-source overlay families.
+  existing three temporary pinned-anchor overlay families.
 - Do not add a fourth family without reopening this decision. Prefer extending
   an existing coherent family only when its contract and requalification
   surface remain the same.
