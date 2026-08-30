@@ -224,8 +224,9 @@ acquire the conversation tab/send lease
   -> publish selection receipt
   -> publish dispatch intent bound to the selection receipt
   -> recheck the exact connector/tool/prompt state adjacent to submission
-  -> record known-unsent state-changed outcome instead of sending on mismatch
-  -> submit exactly once
+  -> on mismatch, leave send authorization absent and record known-unsent state change
+  -> on match, durably publish send authorization bound to the observed state
+  -> execute one compare-and-submit operation against that authorized state
 ```
 
 A fresh route and empty editable text do not prove an empty state. The baseline
@@ -311,17 +312,45 @@ provider_submission:
 ```
 
 Only the later handoff/result can establish provider acceptance. If the full
-requested connector/tool state cannot be atomically verified immediately
-before send, the prompt remains known unsent. The post-intent recheck is
-mandatory: immutable intent records planned dispatch, not proof that the
-previously receipted UI state survived until submission.
+requested connector/tool state cannot be verified immediately before send, the
+prompt remains unsent. The post-intent recheck is mandatory: immutable intent
+records planned dispatch, not proof that the previously receipted UI state
+survived until submission.
 
-The post-intent observation cannot be added to the already immutable selection
-receipt. Keep its `pre_submit_state_hash` in memory and submit immediately when
-it matches. Bind that hash into the later handoff/result. On mismatch, publish a
-terminal known-unsent dispatch outcome with
-`pre_submit_disposition=state_changed_before_submit` and
-`provider_submission=false`, without calling send.
+That recheck introduces a second durable commit point. Provider mutation is
+forbidden until an immutable send-authorization receipt exists with:
+
+```text
+schema
+job_id
+turn_id
+selection_receipt_sha256
+intent_sha256
+pre_submit_state_hash
+prompt_sha256
+authorized_at
+provider_submission: false
+```
+
+On a mismatch, do not publish send authorization and do not call send. Publish
+`pre_submit_disposition=state_changed_before_submit` when possible. If the
+process stops before that terminal outcome is durable, recovery treats an
+intent with no send authorization as known unsent and may durably finalize the
+same disposition; it must not leave the job in an intent-only non-retry state.
+
+On a match, durably publish send authorization and run exactly one bounded
+compare-and-submit operation. That operation compares the current state to
+`pre_submit_state_hash` and invokes send only on an exact match. A lost outcome
+after send authorization is necessarily ambiguous: recovery must not retry,
+because the durable authorization proves that provider mutation was permitted
+but cannot prove whether it occurred. This is the explicit local/provider
+uncertainty boundary; selection receipt or intent alone is not that boundary.
+
+This requires a versioned connector-dispatch schema and corresponding recovery
+reader. It must not reinterpret an existing M003/M004 intent-only job as known
+unsent: those schemas permit provider mutation immediately after intent. The
+absence of send authorization proves no mutation only for a schema whose send
+path is structurally gated on that artifact.
 
 ## Smallest no-submit probe
 
@@ -374,11 +403,18 @@ transition as a reliability estimate.
 10. stale/foreign `contenteditable=false` nodes cannot satisfy a connector
    postcondition merely because `fillChatGPTMessage()` would preserve them;
 11. a connector/tool/prompt change after dispatch intent but before send records
-    `state_changed_before_submit` and never calls send;
-12. failed or ambiguous selection never calls send and never auto-retries;
-13. selection receipt hash is required by dispatch intent, handoff, result, and
-   Deep completion event where applicable;
-14. required pinned source-anchor drift fails before any connector activation.
+    `state_changed_before_submit`, leaves send authorization absent, and never
+    calls send;
+12. a crash after intent but before send authorization recovers as known unsent,
+    including a crash while publishing the mismatch outcome;
+13. send authorization binds the selection receipt, intent, prompt, and current
+    state hashes and is durable before the compare-and-submit operation;
+14. a compare-and-submit mismatch never calls send; loss of its outcome after
+    authorization is ambiguous and never auto-retries;
+15. failed or ambiguous selection never calls send and never auto-retries;
+16. selection receipt hash is required by dispatch intent, send authorization,
+    handoff, result, and Deep completion event where applicable;
+17. required pinned source-anchor drift fails before any connector activation.
 
 These scenarios test distinct mechanisms. Connector-name permutations should
 not be expanded beyond surfaces observed by the bounded probe; canonical order
