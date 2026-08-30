@@ -46,7 +46,7 @@
         ".agents/skills/triage/SKILL.md",
         ".agents/skills/wayfinder/SKILL.md"
       ],
-      "reason": "Apply PR #41 review hardening: provision required labels, avoid truncated exhaustive queries, initialize local ticket state, require the execution contract before readiness, serialize claims through root, collect asynchronous research, validate named-ticket eligibility, close only after map reconciliation, preserve triage records during overrides, and discover issues by missing workflow state rather than missing all labels."
+      "reason": "Apply PR #41 review hardening: provision required labels, avoid truncated exhaustive queries, initialize local ticket state, require the execution contract before readiness, serialize claims through root, collect asynchronous research, validate named-ticket eligibility, centralize reconciliation-before-closure in Wayfinder, preserve triage records during overrides, and discover issues by missing workflow state rather than missing all labels."
     }
   ]
 }

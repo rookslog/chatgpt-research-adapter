@@ -27,4 +27,4 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
 - **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
 - **Claim**: one root orchestrator serializes claims for the map. Re-read that the child is `open`, unblocked, and contract-complete; set `Status: claimed`, verify the saved state, record the run ID, and only then dispatch. Workers never self-claim.
-- **Resolve**: while the child remains `claimed`, reconcile newly surfaced/invalidated tickets and fog, append the answer, and update the map context pointer. Set `Status: resolved` last because that transition can unblock dependants.
+- **Resolve**: follow Wayfinder's canonical tracker-independent reconciliation-before-closure transition. Append the answer under `## Answer` and use `Status: resolved` only for its final close operation; this tracker configuration does not redefine their order.

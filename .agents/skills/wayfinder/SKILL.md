@@ -125,4 +125,6 @@ User invokes with a map (URL or number). A ticket is **optional**: without one, 
 4. **Reconcile while the ticket is still open.** Add newly surfaced tickets (create-then-wire), graduate any fog the answer has made specifiable, clear each graduated patch from **Not yet specified**, and update or close invalidated tickets. If the answer places work beyond the destination, rule it out of scope rather than recording it as a route decision.
 5. **Publish closure last.** Post the answer as a resolution comment, append its context pointer to the map's Decisions-so-far, re-read the affected dependency/frontier state, and only then close the resolved ticket. Closing is the final publication step because it can unblock dependants.
 
+Steps 4–5 are the canonical tracker-independent resolution state transition. Tracker configuration supplies the concrete comment, map-edit, and close commands; it must not redefine or reorder this transition.
+
 The user may run unblocked tickets in parallel through the single root claim authority, so expect workers to edit disjoint artifacts concurrently while root retains claim, reconciliation, and closure writes.
