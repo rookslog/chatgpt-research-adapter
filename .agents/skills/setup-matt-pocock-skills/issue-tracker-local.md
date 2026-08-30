@@ -10,7 +10,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - A ticket's canonical reference is its full path or `local:<feature-slug>/<NN>`; numbers are reused across feature directories and are never globally resolvable
 - Every general-triage request file carries `Created: <RFC 3339 timestamp>` and a plain `Status:` line near the top; a missing legacy timestamp never removes it from discovery
 - Before a canonical Agent Brief exists, the canonical pre-brief category is exactly one standalone `**Category:** bug | enhancement` line immediately after the plain `Status:` field. The spec body does not repeat it. When triage embeds a canonical Agent Brief, remove the standalone pre-brief field because the brief's category becomes authoritative; never retain both category slots.
-- Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
+- Triage state is recorded as exactly one `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings). A state transition replaces the plain `Status:` field atomically enough for the filesystem, then re-reads it and verifies exactly one field with the selected value; it never runs label operations.
 - Comments and conversation history append to the bottom under `## Comments`. Each entry records `At: <RFC 3339 timestamp>` and `By: reporter | triage` before its body so `needs-info` activity is recoverable.
 
 ## When a skill says "publish to the issue tracker"

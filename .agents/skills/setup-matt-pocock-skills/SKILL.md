@@ -58,7 +58,7 @@ When Section B runs, ask exactly one question:
 
 > Do you want to keep the default triage metadata? (recommended: **yes**)
 
-The default category representation is one durable field in the latest triage record or Agent Brief: `**Category:** bug` or `**Category:** enhancement`. The five workflow-state labels each use their canonical name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. Every generated tracker contract must define workflow mutation as replacement of all configured state labels followed by application and verification of exactly one target. For Local Markdown before a brief exists, define one standalone category slot immediately after `Status:`; embedding the canonical brief removes that standalone field and makes the brief's category authoritative. On **yes**, write both mappings as-is. Only if the user says no, collect the category representation and state-label overrides together so `triage` can record exactly one category and apply existing workflow labels without creating duplicates.
+The default category representation is one durable field in the latest triage record or Agent Brief: `**Category:** bug` or `**Category:** enhancement`. The five workflow-state roles each use their canonical name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. Every generated tracker contract must define a verified replacement operation: real trackers replace all configured state labels and verify exactly one target; Local Markdown replaces and verifies its one plain `Status:` field; a custom tracker defines its equivalent. For Local Markdown before a brief exists, define one standalone category slot immediately after `Status:`; embedding the canonical brief removes that standalone field and makes the brief's category authoritative. On **yes**, write both mappings as-is. Only if the user says no, collect the category representation and state-role overrides together so `triage` can record exactly one category and apply the configured state without duplicates.
 
 **Section C: Domain docs.** Default to **single-context** (one `CONTEXT.md` + `docs/adr/` at the repo root). This fits almost every repo; write it without asking.
 
@@ -91,7 +91,7 @@ For a real tracker, include a tracker-mutation preview: every required triage an
 
 Do not create a missing counterpart when one instruction file already exists. When both exist and the user approves both, merge the same setup-owned subsections into each while preserving their distinct custom content.
 
-If an `## Agent skills` block already exists in a chosen file, update only the setup-owned `### Issue tracker`, `### Triage labels`, `### Domain docs`, and `### Orchestration` pointer subsections in place. Preserve every unknown or custom subsection, including routing, verification, or repository-specific additions, and never replace the whole block from the fixed template. Preserve an existing orchestration contract that satisfies Section D rather than replacing its policy with the seed. Don't overwrite user edits to the surrounding sections.
+If an `## Agent skills` block already exists in a chosen file, update only the setup-owned `### Issue tracker`, `### Triage metadata`, `### Domain docs`, and `### Orchestration` pointer subsections in place. Recognize both `### Triage metadata` and the legacy `### Triage labels` as the same setup-owned subsection, update it in place, and emit `### Triage metadata` for new blocks. Preserve every unknown or custom subsection, including routing, verification, or repository-specific additions, and never replace the whole block from the fixed template. Preserve an existing orchestration contract that satisfies Section D rather than replacing its policy with the seed. Don't overwrite user edits to the surrounding sections.
 
 The block:
 
@@ -102,7 +102,7 @@ The block:
 
 [one-line summary of where issues are tracked]. See `docs/agents/issue-tracker.md`.
 
-### Triage labels
+### Triage metadata
 
 [one-line summary of the label vocabulary]. See `docs/agents/triage-labels.md`.
 
@@ -115,7 +115,7 @@ The block:
 Read `docs/agents/orchestration.md` before claiming work, delegating, launching parallel lanes, or defining a verification/review gate.
 ```
 
-Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, whenever Section B ran for any state-consuming or state-producing skill. When it did not run, both are omitted.
+Include the `### Triage metadata` sub-block, and write `docs/agents/triage-labels.md`, whenever Section B ran for any state-consuming or state-producing skill. When it did not run, both are omitted.
 
 Then write the docs files using the seed templates in this skill folder as a starting point. For a missing file, create it from the selected seed. For an existing `docs/agents/*.md`, merge only the setup-owned tracker choice, triage mapping, or domain-layout sections approved in step 3. Preserve unknown headings, backend-neutral boundaries, execution contracts, run records, required context sources, and other custom content. When the tracker changes, replace the old backend-specific commands, endpoints, relationship operations, and query fields with the selected seed's backend; do not preserve commands that still target the previous tracker. Never replace an existing document wholesale from a seed template.
 

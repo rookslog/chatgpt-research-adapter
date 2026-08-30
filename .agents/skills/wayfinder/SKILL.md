@@ -25,7 +25,7 @@ The map is an **index**, not a store. It lists the decisions made and points at 
 
 Child publication is a recoverable state transition, not a single create call. Write the tracker-defined durable parent marker or canonical local placement when the child is created, then attach it through the native relationship or fallback index and verify that relationship. If the second step fails, the marker or placement is recovery evidence: before deriving a frontier or closing a map, enumerate those candidates and repair or explicitly disposition every child missing from the canonical inventory. Never infer a complete frontier or completed map while that reconciliation is incomplete.
 
-**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`. Consult the tracker doc's "Wayfinding operations" section for how _this_ repo expresses them. If no tracker has been provided, default to the local-markdown tracker.
+**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** The issue tracker must have been provided to you. A missing tracker contract is a blocking prerequisite: tell the user to run `/setup-matt-pocock-skills` and stop before creating or mutating a map. Consult the configured tracker doc's "Wayfinding operations" section for how _this_ repo expresses them. Do not default to Local Markdown; that backend must be an explicit configured choice.
 
 ### The map body
 

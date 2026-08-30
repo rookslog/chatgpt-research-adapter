@@ -29,11 +29,29 @@ test('custom tracker setup requires every exhaustive triage query', async () => 
 });
 
 test('every triage outcome replaces and verifies the workflow state', async () => {
-  const triage = await text('.agents/skills/triage/SKILL.md');
+  const [triage, localTracker] = await Promise.all([
+    text('.agents/skills/triage/SKILL.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-local.md'),
+  ]);
 
-  assert.match(triage, /remove every configured workflow-state label/i);
-  assert.match(triage, /apply exactly the selected target label/i);
-  assert.match(triage, /verify that the target is the only configured workflow-state label/i);
+  assert.match(triage, /configured state-replacement operation/i);
+  assert.match(triage, /real tracker[\s\S]*remove every configured workflow-state label/i);
+  assert.match(localTracker, /replaces? the plain `Status:` field/i);
+  assert.match(localTracker, /re-reads? it and verifies?/i);
+});
+
+test('setup reruns recognize the canonical and legacy triage headings', async () => {
+  const setup = await text('.agents/skills/setup-matt-pocock-skills/SKILL.md');
+
+  assert.match(setup, /recognize both `### Triage metadata` and the legacy `### Triage labels`/i);
+  assert.match(setup, /emit `### Triage metadata` for new blocks/i);
+});
+
+test('Wayfinder blocks when the tracker contract is missing', async () => {
+  const wayfinder = await text('.agents/skills/wayfinder/SKILL.md');
+
+  assert.match(wayfinder, /missing tracker contract is a blocking prerequisite/i);
+  assert.match(wayfinder, /do not default to Local Markdown/i);
 });
 
 test('ready-for-human uses the same authoritative brief source as ready-for-agent', async () => {
