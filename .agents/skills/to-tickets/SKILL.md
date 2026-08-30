@@ -63,7 +63,7 @@ Publish the approved tickets. **How** depends on the tracker `/setup-matt-pocock
 - **Local files** → write one file per ticket under `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` in dependency order (blockers first). Each file's "Blocked by" lists the numbers/titles it depends on. Use the per-ticket file template below: one ticket per file, never a single combined file.
 - **A real issue tracker (GitHub, Linear, …)** → publish one issue per ticket in dependency order (blockers first) so each ticket's blocking edges can reference real identifiers. Use the platform's native blocking / sub-issue relationship where it has one; otherwise set each ticket's "Blocked by" to the blocking issues.
 
-Before marking any published ticket `ready-for-agent`, use the authoritative [agent-brief template](../triage/AGENT-BRIEF.md), including its complete execution contract, and add the parent/blocking relationship. Do not maintain a second reduced brief schema here. If any required field is undecided, leave the ticket non-runnable and route it for human clarification instead of applying `ready-for-agent`.
+Before marking any published ticket `ready-for-agent`, use the authoritative [agent-brief template](../triage/AGENT-BRIEF.md), including its complete execution contract, and add the parent/blocking relationship. On a real tracker, create the issue body with its parent and blocker metadata, then post the complete Agent Brief as a separate comment; do not embed the authoritative brief only in the description. Apply the ready state only after that comment is visible. For local Markdown, keep the complete brief in the ticket file. Do not maintain a second reduced brief schema here. If any required field is undecided, leave the ticket non-runnable and route it for human clarification instead of applying `ready-for-agent`.
 
 Work the **frontier**: any ticket whose blockers are all done. For a purely linear chain that means top to bottom.
 
@@ -73,11 +73,11 @@ Do NOT close or modify any parent issue.
 
 # <NN>: <Ticket title>
 
+Status: ready-for-agent
+
 <complete canonical Agent Brief, including Category and Execution contract>
 
 **Blocked by:** the numbers/titles of the tickets that gate this one, or "None (can start immediately)".
-
-**Status:** ready-for-agent
 
 </local-ticket-template>
 
@@ -87,12 +87,14 @@ Do NOT close or modify any parent issue.
 
 A reference to the parent issue on the tracker (if the source was an existing issue, otherwise omit this section).
 
-<complete canonical Agent Brief, including Category and Execution contract>
-
 ## Blocked by
 
 - A reference to each blocking ticket, or "None (can start immediately)".
 
 </issue-template>
+
+After creating each real-tracker issue from that body, post one separate
+comment containing the complete canonical Agent Brief, including Category and
+Execution contract, then verify the comment before applying `ready-for-agent`.
 
 In either form, avoid specific file paths or code snippets: they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
