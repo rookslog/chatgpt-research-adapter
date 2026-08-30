@@ -31,6 +31,11 @@ apply the selected target, then re-read the item and verify the target is the
 only workflow-state label present. A partial or ambiguous mutation is not a
 completed triage outcome.
 
+For `needs-info`, publish and verify the exact reporter questions through the
+trusted triage producer before applying the visible state. Attention discovery
+retains any `needs-info` item without that verified durable question record as
+recoverable partial state, even when the reporter has not replied.
+
 The latest triage record plus the current state label form the issue's triage
 classification. Do not retroactively classify historical M006 issues merely to
 populate this scheme.

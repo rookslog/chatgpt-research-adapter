@@ -57,12 +57,16 @@ authorizes another create.
 ## Wayfinding operations
 
 - **Recover map publication:** every map body carries
-  `Map publication key: <normalized-destination-digest>`. Before creation,
-  exhaustively search open and closed map issues for that exact key. Zero
-  matches permits one create; one match resumes the same map through
-  identity/state and child-publication reconciliation; multiple matches stop
-  for duplicate disposition. A failed post-create stage never authorizes a
-  replacement map.
+  `Map publication key: <effort-id>/<normalized-destination-digest>`. Before
+  creation, exhaustively search open and closed map issues by destination
+  digest and exact full key. Zero active matches with no closed candidate
+  permits one first-effort create; one active match resumes the same map through
+  identity/state and child-publication reconciliation; multiple active or
+  exact-key matches stop for duplicate disposition. No active match with a
+  closed candidate requires explicit resume-versus-new-effort disposition. For
+  a new effort, generate a fresh stable effort ID before creation while
+  retaining the destination digest. A failed post-create stage never
+  authorizes a replacement map.
 - **Map:** only after map-publication recovery permits creation, create one
   issue labelled `wayfinder:map` and assign it to the relevant milestone.
 - **Child:** create a separate issue with `Part of #<map>` at the top and one

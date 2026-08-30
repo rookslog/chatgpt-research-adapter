@@ -160,8 +160,22 @@ test('Wayfinder reconciles a keyed map before creation', async () => {
   const wayfinder = await text('.agents/skills/wayfinder/SKILL.md');
 
   assert.match(wayfinder, /Map publication key:/i);
-  assert.match(wayfinder, /zero matches[\s\S]*one match[\s\S]*multiple matches/i);
+  assert.match(wayfinder, /zero (?:active )?matches[\s\S]*one (?:active )?match[\s\S]*multiple (?:active )?matches/i);
   assert.match(wayfinder, /before (?:permitting )?(?:a )?map creat/i);
+});
+
+test('map keys distinguish a new effort for the same destination', async () => {
+  const wayfinder = await text('.agents/skills/wayfinder/SKILL.md');
+
+  assert.match(wayfinder, /Map publication key: <effort-id>\/<normalized-destination-digest>/i);
+  assert.match(wayfinder, /closed match[\s\S]*new effort[\s\S]*fresh stable effort ID[\s\S]*before[\s\S]*creat/i);
+});
+
+test('needs-info questions are durable before the visible state transition', async () => {
+  const triage = await text('.agents/skills/triage/SKILL.md');
+
+  assert.match(triage, /needs-info[\s\S]*publish and verify[\s\S]*questions[\s\S]*before[\s\S]*state-replacement/i);
+  assert.match(triage, /needs-info[\s\S]*without[\s\S]*verified[\s\S]*(?:questions|triage notes)[\s\S]*maintainer attention/i);
 });
 
 test('ticket publication permits only the approved parent relationship mutation', async () => {

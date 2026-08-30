@@ -38,6 +38,10 @@ Create a GitLab issue.
 
 Run `glab issue view <number> --comments`.
 
+## Needs-info publication
+
+Before applying `needs-info`, post the exact reporter questions through the trusted triage producer, fetch the note, and verify its author, immutable locator, and question content. Only then run the singleton state-replacement operation. Exhaustive attention discovery retains any `needs-info` issue lacking that verified question record as recoverable partial state even without reporter activity.
+
 ## Spec publication recovery
 
 Every `to-spec` issue description carries `Spec publication key: <source-identity>/<request-intent-digest>`, derived from the normalized user request and settled decisions rather than generated spec prose. Before creation, exhaustively search open and closed issues for that exact key. Zero matches permits one create; one match resumes that issue through trusted category-record publication and singleton `needs-triage` verification; multiple matches stop for explicit duplicate disposition. Never recreate merely because a later category or state transition failed.
@@ -54,7 +58,7 @@ An ordinary implementation ticket is unclaimed while open and unassigned, claime
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
 
-- **Map publication recovery**: every map description carries `Map publication key: <normalized-destination-digest>`. Before creation, exhaustively search open and closed map issues for that exact key. Zero matches permits one create; one match resumes the exact map through identity/state and child-publication reconciliation; multiple matches stop for explicit duplicate disposition. Never replace a map because creation succeeded but identity retention or child publication failed.
+- **Map publication recovery**: every map description carries `Map publication key: <effort-id>/<normalized-destination-digest>`. Before creation, exhaustively search open and closed map issues by destination digest and by exact full key. Zero active matches with no closed candidate permits one first-effort create; one active match resumes the exact map through identity/state and child-publication reconciliation; multiple active or exact-key matches stop for explicit duplicate disposition. No active match with a closed candidate requires explicit resume-versus-new-effort disposition. For a new effort, generate a fresh stable effort ID before creation while retaining the destination digest. Never replace a map because creation succeeded but identity retention or child publication failed.
 - **Map**: the map is always an issue. After publication recovery permits creation, create it with label `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body through `glab issue create --label wayfinder:map`. This contract does not use epics because every identity, child, recovery, update, and closure operation below is issue-specific.
 - **Child ticket**: create an issue carrying `Part of #<map>` at the top of its description, then add it in full under the map's `## Child tickets (fallback only)` section and verify the index update. Label it `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
 - **Blocking**: GitLab's **native blocking link**, the canonical, UI-visible representation. Add it with the `/blocked_by #<n>` quick action, posted as a note (`glab issue note <child> --message "/blocked_by #<blocker>"`). Native blocking links are a Premium/Ultimate feature; on the free tier (or where unavailable) fall back to a `Blocked by: #<n>, #<n>` line at the top of the description. A ticket is unblocked when every blocker is closed.
