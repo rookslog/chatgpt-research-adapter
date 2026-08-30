@@ -14,6 +14,8 @@ OpenCLI carries disclosed authority that the wrapper does not normally need. Its
 
 M001 tested a stricter deletion-only fork at release `v1.8.7`, commit `87b60a36590c3e2a466c37266c3348d73d7f68fe`. A small authenticated seam was feasible, while ordinary `chatgpt ask` reaches OpenCLI's generic `exec` and `navigate`; Deep Research adds network capture, frames, and CDP. That falsifies capability minimization through a small fork. It does not falsify responsible use of the maintained upstream through an allowlisted wrapper.
 
+`[M007 DECISION — 2026-08-30]` The three current fail-closed compatibility families are enough to trigger an architecture review, but not an automatic fork. Continue the wrapper plus the existing temporary exact-source overlays; do not add a fourth compatibility family without comparing that route against an integration-focused internal fork and an alternate controller. OpenCLI `v1.8.8` is now released, but the installed pin remains `v1.8.7`; its ChatGPT `utils.js` and `ask.js` blobs are unchanged in `v1.8.8` and current upstream `main`, while the complete newer package is not qualified. See [M007 dependency ownership](docs/research/M007-DEPENDENCY-OWNERSHIP.md).
+
 ## Codex interface direction
 
 `[OWNER DECISION — 2026-08-24]` The Codex-facing product is a custom `chatgpt-research` skill over pinned OpenCLI. The skill directs agents through an allowlisted research protocol; it does not expose or instruct use of OpenCLI's generic browser skill, unrelated adapters, cookie commands, tab binding, or remote orchestration. This is a supported-workflow boundary, not a claim that the underlying OpenCLI installation lacks other capabilities.
@@ -51,6 +53,8 @@ Official MCP/plugin documentation describes the supported direction as ChatGPT d
 - [Minimal local production path](docs/M004-PLAN.md)
 - [Epistemic rigor profiles](docs/M005-PLAN.md)
 - [M006 production-usability milestone](docs/M006-PLAN.md)
+- [M007 capability inventory](docs/research/M007-CAPABILITY-INVENTORY.md)
+- [M007 dependency ownership and architecture gates](docs/research/M007-DEPENDENCY-OWNERSHIP.md)
 
 ## Offline wrapper foundation
 
