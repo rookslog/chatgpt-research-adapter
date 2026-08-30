@@ -29,3 +29,12 @@ Apply exactly one state label:
 The latest triage record plus the current state label form the issue's triage
 classification. Do not retroactively classify historical M006 issues merely to
 populate this scheme.
+
+An issue with none of these five workflow-state labels is untriaged even when
+it carries unrelated labels such as legacy `bug`, `enhancement`, or
+`wayfinder:*`. Attention queries must compute that missing-state set rather
+than relying on GitHub's `no:label` filter.
+
+Applying `ready-for-agent` requires both the durable category field and an
+agent-ready brief. A maintainer quick override skips the grilling interview,
+not those records; if either remains unavailable, keep the issue non-runnable.

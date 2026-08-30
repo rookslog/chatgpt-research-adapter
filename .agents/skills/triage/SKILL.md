@@ -47,7 +47,7 @@ These are canonical role names. Category representation and state-label strings
 may differ by tracker. The mapping should have been provided to you. If not,
 tell the user to run `/setup-matt-pocock-skills`.
 
-State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time; flag transitions that look unusual and ask before proceeding.
+State transitions: an issue carrying none of the configured state labels normally goes to `needs-triage` first, even when it already has unrelated labels; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time; flag transitions that look unusual and ask before proceeding.
 
 ## Invocation
 
@@ -62,7 +62,7 @@ The maintainer invokes `/triage` and describes what they want in natural languag
 
 Query the issue tracker and present three buckets, oldest first:
 
-1. **Unlabeled**: never triaged.
+1. **No state label**: never triaged. Compute this as the set of issues lacking every configured state label, not as issues with no labels at all; legacy, category, Wayfinder, or other unrelated labels do not remove an issue from this bucket.
 2. **`needs-triage`**: evaluation in progress.
 3. **`needs-info` with reporter activity since the last triage notes**: needs re-evaluation.
 
@@ -92,7 +92,7 @@ Show counts and a one-line summary per item. Let the maintainer pick.
 
 ## Quick state override
 
-If the maintainer says "move #42 to ready-for-agent", trust them and apply the role directly. Confirm what you're about to do (role changes, comment, close), then act. Skip grilling. If moving to `ready-for-agent` without a grilling session, ask whether they want to write an agent brief.
+If the maintainer says "move #42 to ready-for-agent", trust the requested target state and skip grilling, but preserve the state invariant: record exactly one category and post the required agent brief before applying `ready-for-agent`. Draft the brief from the gathered evidence and ask only for information that is still load-bearing. If the category or minimum runnable brief cannot be established, do not apply the ready label; route the issue through the configured clarification state and state what is missing. Confirm the resulting record, role changes, comment, and close behavior before acting.
 
 ## Needs-info template
 
