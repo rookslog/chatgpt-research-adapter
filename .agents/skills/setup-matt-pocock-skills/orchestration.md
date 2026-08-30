@@ -6,9 +6,10 @@ Exactly one root orchestrator owns frontier selection, claims, shared decisions,
 integration, and closure. Workers receive already-claimed tickets and never
 self-select or self-assign.
 
-The default maximum is three active lanes, including root-owned work. Increase
-it only through an explicit repository decision after verifying disjoint output
-ownership and available integration capacity.
+The repository's explicit maximum is three active lanes, including root-owned
+work. Do not increase it ad hoc. Any change requires owner approval and a
+durable repository decision that replaces this exact maximum after verifying
+disjoint output ownership and available integration capacity.
 
 ## Ticket execution contract
 

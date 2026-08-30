@@ -99,11 +99,12 @@ Parallelize only independent information channels or disjoint implementation
 slices. Fixed transformations and deterministic checks remain scripts or root
 commands.
 
-The initial operating cap is three active lanes, including root-owned work.
-Increase it only when outputs are disjoint, integration capacity is available,
-and the wider wave has a stated benefit. A later wave begins only after root
-has reconciled the prior wave's artifacts and refreshed the dependency
-frontier.
+The repository's current explicit maximum is three active lanes, including
+root-owned work. Do not increase it ad hoc. Any change requires owner approval
+and a durable repository decision that replaces this exact maximum after
+verifying disjoint output ownership, available integration capacity, and the
+wider wave's stated benefit. A later wave begins only after root has reconciled
+the prior wave's artifacts and refreshed the dependency frontier.
 
 Delegated research must expose a resumable task/return locator after dispatch.
 Root uses a supported waiter/wakeup when available or reconciles every assigned

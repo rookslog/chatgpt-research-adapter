@@ -62,12 +62,13 @@ The maintainer invokes `/triage` and describes what they want in natural languag
 
 ## Show what needs attention
 
-Query the issue tracker and present four buckets, oldest first:
+Query the issue tracker and present five buckets, oldest first:
 
 1. **No state label**: never triaged. Compute this as the set of issues lacking every configured state label, not as issues with no labels at all. Unrelated labels do not remove an issue from this bucket, except for planning-artifact labels that the configured triage contract explicitly exempts (such as this repository's `wayfinder:*` map and decision tickets).
 2. **`needs-triage`**: evaluation in progress.
 3. **`needs-info` with reporter activity since the last triage notes, or without a verified durable question record**: needs re-evaluation. A visible `needs-info` state with missing/unverified triage questions is recoverable partial state and remains in maintainer attention even without reporter activity.
 4. **`ready-for-human`**: human implementation, judgment, access, or verification is still required.
+5. **Open `wontfix` after attempted terminal closure**: closure is incomplete. This is recoverable partial terminal state; finish and verify the tracker-specific close instead of treating the label as completion.
 
 When PRs are in scope, include external PRs in these buckets and tag each line `[PR]` or `[issue]`. Discovery surfaces only *external* PRs (the tracker config defines who counts as external), so a collaborator's in-flight PR is not triage work. This filter is discovery-only; an explicitly named PR is always triaged regardless of author.
 
@@ -94,6 +95,12 @@ Show counts and a one-line summary per item. Let the maintainer pick.
      - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
      - **Rejected (bug)**: give a polite explanation, then close.
      - **Rejected (enhancement)**: write to `.out-of-scope/`, complete and verify its repository-publication prerequisite, link the published record from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
+     Re-read the tracker state after closing. If close fails or the item remains
+     open, preserve its singleton `wontfix` state, record the observed failure,
+     and keep it in maintainer attention until closure is verified. Do not remove
+     the state, repeat prerequisite publications, or claim a completed outcome.
+     On Local Markdown, the verified `Status: wontfix` replacement is itself the
+     terminal operation, so this separate-close recovery step is not applicable.
    - `needs-triage`: after the required category record above is verified, apply the role. Additional partial-progress content is optional; the category record is not.
 
 ## Quick state override

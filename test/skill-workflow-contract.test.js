@@ -213,3 +213,55 @@ test('direct research establishes a root-owned output without inventing a ticket
   assert.match(research, /docs\/research\/<YYYY-MM-DD>-<slug>\.md/i);
   assert.match(research, /do not invent a ticket/i);
 });
+
+test('the repository enforces one explicit active-lane maximum', async () => {
+  const [orchestration, seed] = await Promise.all([
+    text('docs/agents/orchestration.md'),
+    text('.agents/skills/setup-matt-pocock-skills/orchestration.md'),
+  ]);
+
+  for (const contract of [orchestration, seed]) {
+    assert.match(contract, /explicit maximum is three active lanes/i);
+    assert.match(contract, /owner approval[\s\S]*durable repository decision/i);
+  }
+});
+
+test('resuming a closed map requires a verified tracker-specific reopen', async () => {
+  const [wayfinder, setup, github, gitlab, local] = await Promise.all([
+    text('.agents/skills/wayfinder/SKILL.md'),
+    text('.agents/skills/setup-matt-pocock-skills/SKILL.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-github.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-gitlab.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-local.md'),
+  ]);
+
+  assert.match(wayfinder, /resume[^.]*closed map[\s\S]*reopen[\s\S]*verify[^.]*open/i);
+  assert.match(setup, /map reopen[\s\S]*verify[^.]*active|reopen[\s\S]*map[\s\S]*verify[^.]*active/i);
+  assert.match(github, /gh issue reopen[\s\S]*verify[^.]*OPEN/i);
+  assert.match(gitlab, /glab issue reopen[\s\S]*verify[^.]*opened/i);
+  assert.match(local, /Status: open[\s\S]*verify exactly one/i);
+});
+
+test('ticket publication rejects cyclic blocking graphs before tracker writes', async () => {
+  const tickets = await text('.agents/skills/to-tickets/SKILL.md');
+
+  assert.match(tickets, /before any tracker write[\s\S]*reject[^.]*self[- ](?:edge|dependenc)/i);
+  assert.match(tickets, /topological[\s\S]*cycle[\s\S]*stop[\s\S]*user/i);
+});
+
+test('open wontfix records remain in maintainer attention until closure succeeds', async () => {
+  const [triage, labels, github, gitlab, local] = await Promise.all([
+    text('.agents/skills/triage/SKILL.md'),
+    text('docs/agents/triage-labels.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-github.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-gitlab.md'),
+    text('.agents/skills/setup-matt-pocock-skills/issue-tracker-local.md'),
+  ]);
+
+  assert.match(triage, /5\. \*\*Open `wontfix`/i);
+  assert.match(triage, /close fails[\s\S]*maintainer attention/i);
+  assert.match(labels, /open\s+`wontfix`[\s\S]*recoverable partial/i);
+  assert.match(github, /open `wontfix`[\s\S]*attention/i);
+  assert.match(gitlab, /open `wontfix`[\s\S]*attention/i);
+  assert.match(local, /`wontfix`[\s\S]*terminal/i);
+});

@@ -22,6 +22,11 @@ that identity and its immutable comment ID and URL were captured and verified
 after publication. Contributor-authored comments remain request context even
 when they copy the canonical heading or schema.
 
+After applying and verifying singleton `wontfix`, perform every branch-specific
+comment or publication prerequisite, close the issue, and re-read its state. An
+open `wontfix` issue is recoverable partial terminal state and remains in
+maintainer attention until closure is verified.
+
 ## Implementation-ticket publication recovery
 
 Every `to-tickets` issue body carries one exact `Ticket publication key:`
@@ -63,10 +68,13 @@ authorizes another create.
   permits one first-effort create; one active match resumes the same map through
   identity/state and child-publication reconciliation; multiple active or
   exact-key matches stop for duplicate disposition. No active match with a
-  closed candidate requires explicit resume-versus-new-effort disposition. For
-  a new effort, generate a fresh stable effort ID before creation while
-  retaining the destination digest. A failed post-create stage never
-  authorizes a replacement map.
+  closed candidate requires explicit resume-versus-new-effort disposition. To
+  resume the closed candidate, run `gh issue reopen <n> -R
+  rookslog/chatgpt-research-adapter`, then fetch its state and verify exactly
+  `OPEN` before changing its body, children, or dependencies. For a new effort,
+  generate a fresh stable effort ID before creation while retaining the
+  destination digest. A failed post-create stage never authorizes a replacement
+  map.
 - **Map:** only after map-publication recovery permits creation, create one
   issue labelled `wayfinder:map` and assign it to the relevant milestone.
 - **Child:** create a separate issue with `Part of #<map>` at the top and one

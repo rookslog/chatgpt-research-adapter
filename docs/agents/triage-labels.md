@@ -36,6 +36,11 @@ trusted triage producer before applying the visible state. Attention discovery
 retains any `needs-info` item without that verified durable question record as
 recoverable partial state, even when the reporter has not replied.
 
+For `wontfix`, the label transition precedes the terminal close. An open
+`wontfix` item is recoverable partial terminal state, not a completed outcome;
+maintainer-attention queries retain it in an oldest-first recovery bucket until
+GitHub closure is verified.
+
 The latest triage record plus the current state label form the issue's triage
 classification. Do not retroactively classify historical M006 issues merely to
 populate this scheme.
