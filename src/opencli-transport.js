@@ -257,8 +257,40 @@ const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    const deepResea
             sessionId: 'target',
             targetUrl: exactTargetIframe.src,
         };
+        const observeExactTargetGeneration = async () => {
+            try {
+                const value = await isGenerating(page);
+                if (value === false) return { state: 'inactive', error: '' };
+                if (value === true) return { state: 'active', error: '' };
+                return { state: 'unknown', error: '' };
+            } catch (error) {
+                return { state: 'unknown', error: String(error?.message || error) };
+            }
+        };
+        const exactTargetNonterminal = (generationState) => {
+            if (progressCandidate) {
+                return {
+                    ...progressCandidate,
+                    url: iframeState.url,
+                    diagnostics,
+                };
+            }
+            return {
+                status: generationState === 'active' ? 'running' : 'unavailable',
+                report: '',
+                html: '',
+                url: iframeState.url,
+                method: 'cross-origin-iframe-detected',
+                sources: [],
+                diagnostics,
+            };
+        };
         try {
             await withTimeout(page.@PROTOCOL@('Accessibility.enable', exactTarget), 5000, 'Accessibility.enable exact target');
+            const preGeneration = await observeExactTargetGeneration();
+            diagnostics.exactTargetPreGenerationState = preGeneration.state;
+            if (preGeneration.error) diagnostics.exactTargetPreGenerationError = preGeneration.error;
+            if (preGeneration.state !== 'inactive') return exactTargetNonterminal(preGeneration.state);
             const tree = await withTimeout(page.@PROTOCOL@('Accessibility.getFullAXTree', exactTarget), 5000, 'Accessibility.getFullAXTree exact target');
             const nodes = Array.isArray(tree?.nodes) ? tree.nodes : [];
             const nodeById = new Map(nodes
@@ -335,16 +367,10 @@ const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    const deepResea
             if (rootWebAreas.length === 1) visitSources(rootWebAreas[0]);
             const text = normalizeDeepResearchText(projectedLines.join('\n'));
             if (looksLikeDeepResearchReport(text)) {
-                let exactTargetGenerationState = 'unknown';
-                try {
-                    const finalGenerating = await isGenerating(page);
-                    if (finalGenerating === false) exactTargetGenerationState = 'inactive';
-                    else if (finalGenerating === true) exactTargetGenerationState = 'active';
-                } catch (error) {
-                    diagnostics.exactTargetGenerationError = String(error?.message || error);
-                }
-                diagnostics.exactTargetGenerationState = exactTargetGenerationState;
-                if (exactTargetGenerationState === 'inactive') {
+                const postGeneration = await observeExactTargetGeneration();
+                diagnostics.exactTargetPostGenerationState = postGeneration.state;
+                if (postGeneration.error) diagnostics.exactTargetPostGenerationError = postGeneration.error;
+                if (postGeneration.state === 'inactive') {
                     return {
                         status: 'completed',
                         report: text,
@@ -355,22 +381,7 @@ const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    const deepResea
                         diagnostics,
                     };
                 }
-                if (progressCandidate) {
-                    return {
-                        ...progressCandidate,
-                        url: iframeState.url,
-                        diagnostics,
-                    };
-                }
-                return {
-                    status: exactTargetGenerationState === 'active' ? 'running' : 'unavailable',
-                    report: '',
-                    html: '',
-                    url: iframeState.url,
-                    method: 'cross-origin-iframe-detected',
-                    sources: [],
-                    diagnostics,
-                };
+                return exactTargetNonterminal(postGeneration.state);
             }
         } catch (error) {
             diagnostics.@PROTOCOL@ExactTargetError = String(error?.message || error);

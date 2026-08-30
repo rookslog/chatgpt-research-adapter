@@ -62,7 +62,7 @@
     }
   ],
   "browser_frames": [],
-  "generation_probe_outcomes": [false, false],
+  "generation_probe_outcomes": [false, false, false],
   "frame_tree": {
     "frameTree": {
       "frame": {

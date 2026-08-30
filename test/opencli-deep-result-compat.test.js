@@ -176,6 +176,7 @@ const readerFixture = ${JSON.stringify(readerFixture)};
 let fallbackCalls = 0;
 let generationProbeCalls = 0;
 const cdpCalls = [];
+const eventLog = [];
 const page = {
   async nextGenerationProbe() {
     const outcomes = Array.isArray(readerFixture?.generation_probe_outcomes)
@@ -183,6 +184,7 @@ const page = {
       : [readerFixture?.generating === true];
     const outcome = outcomes[Math.min(generationProbeCalls, outcomes.length - 1)];
     generationProbeCalls += 1;
+    eventLog.push('generation:' + outcome);
     if (outcome === 'throw') throw new Error('synthetic generation probe failure');
     return outcome;
   },
@@ -194,6 +196,7 @@ const page = {
   async evaluateInFrame() { throw new Error('frame omitted from browser frame list'); },
   async cdp(method, params = {}) {
     cdpCalls.push({ method, params });
+    if (method === 'Accessibility.enable' || method === 'Accessibility.getFullAXTree') eventLog.push(method);
     if (method === 'Page.getFrameTree') return readerFixture?.frame_tree || {};
     if (method === 'Accessibility.getFullAXTree' && readerFixture?.exact_target_ax_trees?.[params.targetUrl]) return readerFixture.exact_target_ax_trees[params.targetUrl];
     if (method === 'Accessibility.getFullAXTree' && params.targetUrl === readerFixture?.iframe_state?.deepResearchIframe?.src) return readerFixture.exact_target_ax_tree;
@@ -221,7 +224,7 @@ if (process.argv[2] === '--version') {
       const extracted = network?.status === 'completed' ? network : extractDeepResearchFromConversationPayload(payload, { expectedConversationId: conversationId });
       result = extracted || await page.existingFallback();
     }
-    writeFileSync(capturePath, JSON.stringify({ args: process.argv.slice(2), executable: process.argv[1], fallbackCalls, generationProbeCalls, cdpCalls, result, environment: { HOME: process.env.HOME, OPENCLI_CONFIG_DIR: process.env.OPENCLI_CONFIG_DIR } }));
+    writeFileSync(capturePath, JSON.stringify({ args: process.argv.slice(2), executable: process.argv[1], fallbackCalls, generationProbeCalls, eventLog, cdpCalls, result, environment: { HOME: process.env.HOME, OPENCLI_CONFIG_DIR: process.env.OPENCLI_CONFIG_DIR } }));
     console.log(JSON.stringify([{ conversationId: process.argv[4], ...result }]));
   } catch (error) {
     writeFileSync(capturePath, JSON.stringify({ args: process.argv.slice(2), executable: process.argv[1], fallbackCalls, error: error?.message || String(error) }));
@@ -247,7 +250,14 @@ test('deep reader addresses the observed cross-origin iframe by exact URL when t
   assert.ok(exactTargetCalls.every((call) => call.params.sessionId === 'target'));
   assert.ok(exactTargetCalls.every((call) => /^opencli-deep-exact-target-[0-9a-f]+-\d+$/.test(call.params.frameId)));
   assert.ok(exactTargetCalls.every((call) => !call.params.frameId.includes(currentDeepUiFixture.iframe_state.deepResearchIframe.src)));
-  assert.equal(observed.generationProbeCalls, 2);
+  assert.equal(observed.generationProbeCalls, 3);
+  assert.deepEqual(observed.eventLog, [
+    'generation:false',
+    'Accessibility.enable',
+    'generation:false',
+    'Accessibility.getFullAXTree',
+    'generation:false',
+  ]);
 }, {
   payload: currentDeepUiFixture.payload,
   networkEntries: currentDeepUiFixture.network_entries,
@@ -256,30 +266,62 @@ test('deep reader addresses the observed cross-origin iframe by exact URL when t
 
 test('deep reader does not finalize a report-like exact-target surface while generation remains active', async () => {
   const readerFixture = structuredClone(currentDeepUiFixture);
-  readerFixture.generation_probe_outcomes = [false, true];
+  readerFixture.generation_probe_outcomes = [false, false, true];
   await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
     const identity = await preflightOpenCli({ executablePath });
     await assert.rejects(runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 }), { code: 'ERR_OPENCLI_OUTPUT' });
     const observed = JSON.parse(await readFile(capturePath, 'utf8'));
     assert.equal(observed.result.status, 'running');
     assert.equal(observed.result.method, 'cross-origin-iframe-detected');
-    assert.equal(observed.generationProbeCalls, 2);
+    assert.equal(observed.generationProbeCalls, 3);
   }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
 });
 
 test('deep reader does not finalize a report-like exact target when the generation probe fails', async () => {
   const readerFixture = structuredClone(currentDeepUiFixture);
-  readerFixture.generation_probe_outcomes = [false, 'throw'];
-  const body = readerFixture.exact_target_ax_tree.nodes.find((node) => node.nodeId === 'body');
-  const bodyText = readerFixture.exact_target_ax_tree.nodes.find((node) => node.nodeId === 'body-static');
-  body.name = structuredClone(bodyText.name);
+  readerFixture.generation_probe_outcomes = [false, false, 'throw'];
   await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
     const identity = await preflightOpenCli({ executablePath });
     await assert.rejects(runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 }), { code: 'ERR_OPENCLI_OUTPUT' });
     const observed = JSON.parse(await readFile(capturePath, 'utf8'));
     assert.equal(observed.result.status, 'unavailable');
     assert.notEqual(observed.result.status, 'completed');
-    assert.equal(observed.generationProbeCalls, 2);
+    assert.equal(observed.generationProbeCalls, 3);
+  }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
+});
+
+test('deep reader fetches AX only after a fresh inactive probe when cached generation was active', async () => {
+  const readerFixture = structuredClone(currentDeepUiFixture);
+  readerFixture.generation_probe_outcomes = [true, false, false];
+  await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    const result = await runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 });
+    const observed = JSON.parse(await readFile(capturePath, 'utf8'));
+    assert.equal(result.report, readerFixture.expected_report);
+    assert.deepEqual(observed.eventLog, [
+      'generation:true',
+      'Accessibility.enable',
+      'generation:false',
+      'Accessibility.getFullAXTree',
+      'generation:false',
+    ]);
+  }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
+});
+
+test('deep reader does not fetch AX when the explicit pre-snapshot probe is active', async () => {
+  const readerFixture = structuredClone(currentDeepUiFixture);
+  readerFixture.generation_probe_outcomes = [false, true];
+  await withDeepResultOpenCli(async ({ executablePath, capturePath }) => {
+    const identity = await preflightOpenCli({ executablePath });
+    await assert.rejects(runOpenCliDeepResearchResult({ executablePath, identity, conversationId: readerFixture.conversation_id, timeoutSeconds: 60 }), { code: 'ERR_OPENCLI_OUTPUT' });
+    const observed = JSON.parse(await readFile(capturePath, 'utf8'));
+    assert.equal(observed.result.status, 'running');
+    assert.deepEqual(observed.eventLog, [
+      'generation:false',
+      'Accessibility.enable',
+      'generation:true',
+    ]);
+    assert.equal(observed.cdpCalls.filter((call) => call.method === 'Accessibility.getFullAXTree').length, 0);
   }, { payload: readerFixture.payload, networkEntries: readerFixture.network_entries, readerFixture });
 });
 
