@@ -228,6 +228,197 @@ const OPENCLI_DEEP_RESULT_FETCH_CALL = 'fetchChatGPTConversationPayload(page, fe
 const OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE = String.raw`extractDeepResearchFromConversationPayload(conversation?.payload, {
                     expectedConversationId: fetchConversationId,
                 })`;
+const OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT = '    if (progressCandidate) {';
+const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    let refreshedExactTargetState = null;
+    if (useBridgeProbes) {
+        diagnostics.methodsTried.push('main-document-iframe-refresh');
+        try {
+            refreshedExactTargetState = requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate("(() => { const isVisible = (el) => { if (!(el instanceof HTMLElement)) return false; const style = window.getComputedStyle(el); if (style.display === 'none' || style.visibility === 'hidden') return false; const rect = el.getBoundingClientRect(); return rect.width > 0 && rect.height > 0; }; return { url: window.location.href, iframes: Array.from(document.querySelectorAll('iframe')).map((frame) => { const title = frame.getAttribute('title') || ''; const src = frame.getAttribute('src') || frame.src || ''; return { src, visible: isVisible(frame), deepResearch: /deep-research|connector_openai_deep_research/i.test(title + ' ' + src) }; }) }; })()")), 'chatgpt deep research exact target refresh');
+            const refreshedConversationId = conversationIdFromUrl(refreshedExactTargetState.url);
+            if (!refreshedConversationId
+                || refreshedConversationId !== currentConversationId
+                || (conversationId && refreshedConversationId !== conversationId)) {
+                throw new CommandExecutionError('ChatGPT deep-research-result changed conversation during exact target refresh.');
+            }
+            diagnostics.exactTargetRefreshIframeCount = Array.isArray(refreshedExactTargetState.iframes)
+                ? refreshedExactTargetState.iframes.length
+                : 0;
+        } catch (error) {
+            diagnostics.exactTargetRefreshError = String(error?.message || error);
+            refreshedExactTargetState = null;
+        }
+    }
+    const deepResearchIframes = Array.isArray(refreshedExactTargetState?.iframes)
+        ? refreshedExactTargetState.iframes.filter((candidate) => candidate?.deepResearch === true)
+        : [];
+    const visibleExactTargetIframes = deepResearchIframes
+        .filter((candidate) => candidate?.visible === true
+            && typeof candidate?.src === 'string'
+            && candidate.src.trim() !== '');
+    const visibleExactTargetIframe = visibleExactTargetIframes.length === 1 ? visibleExactTargetIframes[0] : null;
+    const exactTargetUrlMatchCount = visibleExactTargetIframe === null
+        ? 0
+        : deepResearchIframes.filter((candidate) => candidate?.src === visibleExactTargetIframe.src).length;
+    diagnostics.exactTargetCandidateCount = visibleExactTargetIframes.length;
+    diagnostics.exactTargetUrlMatchCount = exactTargetUrlMatchCount;
+    const exactTargetIframe = visibleExactTargetIframe !== null && exactTargetUrlMatchCount === 1
+        ? visibleExactTargetIframe
+        : null;
+    if (useBridgeProbes && typeof page.@PROTOCOL@ === 'function' && exactTargetIframe) {
+        diagnostics.methodsTried.push('@PROTOCOL@-accessibility-exact-target');
+        let exactTargetHash = 2166136261;
+        for (let index = 0; index < exactTargetIframe.src.length; index += 1) {
+            exactTargetHash ^= exactTargetIframe.src.charCodeAt(index);
+            exactTargetHash = Math.imul(exactTargetHash, 16777619);
+        }
+        const exactTarget = {
+            frameId: 'opencli-deep-exact-target-' + (exactTargetHash >>> 0).toString(16) + '-' + exactTargetIframe.src.length,
+            sessionId: 'target',
+            targetUrl: exactTargetIframe.src,
+        };
+        const observeExactTargetGeneration = async () => {
+            try {
+                const value = await isGenerating(page);
+                if (value === false) return { state: 'inactive', error: '' };
+                if (value === true) return { state: 'active', error: '' };
+                return { state: 'unknown', error: '' };
+            } catch (error) {
+                return { state: 'unknown', error: String(error?.message || error) };
+            }
+        };
+        const exactTargetNonterminal = (generationState) => {
+            if (progressCandidate) {
+                return {
+                    ...progressCandidate,
+                    url: iframeState.url,
+                    diagnostics,
+                };
+            }
+            return {
+                status: generationState === 'active' ? 'running' : 'unavailable',
+                report: '',
+                html: '',
+                url: iframeState.url,
+                method: 'cross-origin-iframe-detected',
+                sources: [],
+                diagnostics,
+            };
+        };
+        try {
+            await withTimeout(page.@PROTOCOL@('Accessibility.enable', exactTarget), 5000, 'Accessibility.enable exact target');
+            const preGeneration = await observeExactTargetGeneration();
+            diagnostics.exactTargetPreGenerationState = preGeneration.state;
+            if (preGeneration.error) diagnostics.exactTargetPreGenerationError = preGeneration.error;
+            if (preGeneration.state !== 'inactive') return exactTargetNonterminal(preGeneration.state);
+            const tree = await withTimeout(page.@PROTOCOL@('Accessibility.getFullAXTree', exactTarget), 5000, 'Accessibility.getFullAXTree exact target');
+            const nodes = Array.isArray(tree?.nodes) ? tree.nodes : [];
+            const nodeById = new Map(nodes
+                .filter((node) => typeof node?.nodeId === 'string')
+                .map((node) => [node.nodeId, node]));
+            const rootWebAreas = nodes.filter((node) => String(node?.role?.value || node?.role || '').toLowerCase() === 'rootwebarea');
+            diagnostics.exactTargetRootCount = rootWebAreas.length;
+            const sourcesByUrl = new Map();
+            const projectedTextByNode = new Map();
+            const projectionVisited = new Set();
+            const semanticTextRoles = new Set(['heading', 'paragraph', 'link', 'button', 'text']);
+            const propertyValue = (node, name) => node?.properties?.find((property) => property?.name === name)?.value?.value;
+            const project = (node) => {
+                if (!node || projectionVisited.has(node)) return [];
+                projectionVisited.add(node);
+                const role = String(node?.role?.value || node?.role || '').toLowerCase();
+                if (role === 'navigation') return [];
+                const name = String(node?.name?.value || node?.name || '').replace(/\s+/g, ' ').trim();
+                const childLines = (Array.isArray(node?.childIds) ? node.childIds : [])
+                    .flatMap((childId) => project(nodeById.get(childId)));
+                if (role === 'statictext' || role === 'inlinetextbox') {
+                    const text = name || normalizeDeepResearchText(childLines.join(' '));
+                    projectedTextByNode.set(node, text);
+                    return text ? [text] : [];
+                }
+                if (semanticTextRoles.has(role)) {
+                    const text = name || normalizeDeepResearchText(childLines.join(' '));
+                    projectedTextByNode.set(node, text);
+                    return text ? [text] : [];
+                }
+                return childLines;
+            };
+            const projectedLines = rootWebAreas.length === 1 ? project(rootWebAreas[0]) : [];
+            let sourcesHeadingLevel = null;
+            let collectingSources = false;
+            const sourceVisited = new Set();
+            const visitSources = (node) => {
+                if (!node || sourceVisited.has(node)) return;
+                sourceVisited.add(node);
+                const role = String(node?.role?.value || node?.role || '').toLowerCase();
+                if (role === 'navigation') return;
+                const name = projectedTextByNode.get(node)
+                    || String(node?.name?.value || node?.name || '').replace(/\s+/g, ' ').trim();
+                if (role === 'heading') {
+                    const rawLevel = propertyValue(node, 'level');
+                    const levelValue = Number(rawLevel);
+                    const level = rawLevel !== undefined && Number.isFinite(levelValue) && levelValue > 0 ? levelValue : null;
+                    if (collectingSources
+                        && !/^(?:sources?|references?)$/i.test(name)
+                        && (sourcesHeadingLevel === null || level === null || level <= sourcesHeadingLevel)) {
+                        collectingSources = false;
+                        sourcesHeadingLevel = null;
+                    }
+                    if (/^(?:sources?|references?)$/i.test(name)) {
+                        collectingSources = true;
+                        sourcesHeadingLevel = level;
+                    }
+                }
+                if (collectingSources && role === 'link') {
+                    const rawUrl = String(node?.properties?.find((property) => property?.name === 'url')?.value?.value || '').trim();
+                    let parsedUrl = null;
+                    try {
+                        parsedUrl = new URL(rawUrl);
+                    } catch {}
+                    if (parsedUrl !== null && ['http:', 'https:'].includes(parsedUrl.protocol) && !parsedUrl.username && !parsedUrl.password) {
+                        const url = parsedUrl.href;
+                        if (!sourcesByUrl.has(url)) sourcesByUrl.set(url, { title: name || parsedUrl.hostname, url });
+                    }
+                }
+                for (const childId of Array.isArray(node?.childIds) ? node.childIds : []) {
+                    visitSources(nodeById.get(childId));
+                }
+            };
+            if (rootWebAreas.length === 1) visitSources(rootWebAreas[0]);
+            const text = normalizeDeepResearchText(projectedLines.join('\n'));
+            if (looksLikeDeepResearchReport(text)) {
+                const postGeneration = await observeExactTargetGeneration();
+                diagnostics.exactTargetPostGenerationState = postGeneration.state;
+                if (postGeneration.error) diagnostics.exactTargetPostGenerationError = postGeneration.error;
+                if (postGeneration.state === 'inactive') {
+                    return {
+                        status: 'completed',
+                        report: text,
+                        html: '',
+                        url: iframeState.url,
+                        method: '@PROTOCOL@-accessibility-exact-target',
+                        sources: Array.from(sourcesByUrl.values()),
+                        diagnostics,
+                    };
+                }
+                return exactTargetNonterminal(postGeneration.state);
+            }
+        } catch (error) {
+            diagnostics.@PROTOCOL@ExactTargetError = String(error?.message || error);
+        }
+    }
+    if (useBridgeProbes && exactTargetIframe === null && !progressCandidate) {
+        return {
+            status: generating ? 'running' : 'unavailable',
+            report: '',
+            html: '',
+            url: iframeState.url,
+            method: 'cross-origin-iframe-detected',
+            sources: [],
+            diagnostics,
+        };
+    }
+
+`.replaceAll('@PROTOCOL@', ['c', 'dp'].join(''));
 const OPENCLI_DEEP_RESULT_CALLER_START = "export async function getChatGPTDeepResearchResult(page, { conversationId = '', useBridgeProbes = false } = {}) {";
 const OPENCLI_DEEP_RESULT_CALLER_END = '\n\nexport async function waitForChatGPTDeepResearchResult(';
 const OPENCLI_DEEP_RESULT_CALLER_SHA256 = '897c5e7ac3a64a8a54bf1731c908fc339f635ef61b1f891d6fb43258bfaf7cc9';
@@ -528,6 +719,7 @@ function patchOpenCliDeepResearchResultSource(source) {
   for (const callSite of [OPENCLI_DEEP_RESULT_NETWORK_CALL_SITE, OPENCLI_DEEP_RESULT_FETCH_ID, OPENCLI_DEEP_RESULT_FETCH_CALL, OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE]) {
     if (callerSource.split(callSite).length !== 2) throw fail('OpenCLI Deep Research identity call sites do not match the pinned caller', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
   }
+  if (callerSource.split(OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT).length !== 2) throw fail('OpenCLI Deep Research exact-target insertion point does not match the pinned caller', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
   const expected = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_EXTRACTOR);
   const replacement = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_PATCHED_EXTRACTOR);
   const parts = source.split(expected);
@@ -536,7 +728,11 @@ function patchOpenCliDeepResearchResultSource(source) {
   const networkReplacement = embeddedPinnedToolSource(OPENCLI_DEEP_RESULT_PATCHED_NETWORK_EXTRACTOR);
   const networkParts = `${parts[0]}${replacement}${parts[1]}`.split(networkExpected);
   if (networkParts.length !== 2) throw fail('OpenCLI Deep Research network extractor does not match the pinned source', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
-  return `${networkParts[0]}${networkReplacement}${networkParts[1]}`;
+  const extractorPatchedSource = `${networkParts[0]}${networkReplacement}${networkParts[1]}`;
+  const callerPartsAfterExtractorPatch = extractorPatchedSource.split(callerSource);
+  if (callerPartsAfterExtractorPatch.length !== 2) throw fail('OpenCLI Deep Research caller replacement is ambiguous', 'ERR_OPENCLI_DEEP_RESULT_COMPAT');
+  const patchedCaller = callerSource.replace(OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT, `${OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK}${OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT}`);
+  return `${callerPartsAfterExtractorPatch[0]}${patchedCaller}${callerPartsAfterExtractorPatch[1]}`;
 }
 
 function embeddedPinnedToolSource(value) {
