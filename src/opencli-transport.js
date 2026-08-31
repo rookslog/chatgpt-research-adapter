@@ -229,8 +229,27 @@ const OPENCLI_DEEP_RESULT_PAYLOAD_CALL_SITE = String.raw`extractDeepResearchFrom
                     expectedConversationId: fetchConversationId,
                 })`;
 const OPENCLI_DEEP_RESULT_EXACT_TARGET_INSERTION_POINT = '    if (progressCandidate) {';
-const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    const deepResearchIframes = Array.isArray(iframeState.iframes)
-        ? iframeState.iframes.filter((candidate) => candidate?.deepResearch === true)
+const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    let refreshedExactTargetState = null;
+    if (useBridgeProbes) {
+        diagnostics.methodsTried.push('main-document-iframe-refresh');
+        try {
+            refreshedExactTargetState = requireObjectEvaluateResult(unwrapEvaluateResult(await page.evaluate("(() => { const isVisible = (el) => { if (!(el instanceof HTMLElement)) return false; const style = window.getComputedStyle(el); if (style.display === 'none' || style.visibility === 'hidden') return false; const rect = el.getBoundingClientRect(); return rect.width > 0 && rect.height > 0; }; return { url: window.location.href, iframes: Array.from(document.querySelectorAll('iframe')).map((frame) => { const title = frame.getAttribute('title') || ''; const src = frame.getAttribute('src') || frame.src || ''; return { src, visible: isVisible(frame), deepResearch: /deep-research|connector_openai_deep_research/i.test(title + ' ' + src) }; }) }; })()")), 'chatgpt deep research exact target refresh');
+            const refreshedConversationId = conversationIdFromUrl(refreshedExactTargetState.url);
+            if (!refreshedConversationId
+                || refreshedConversationId !== currentConversationId
+                || (conversationId && refreshedConversationId !== conversationId)) {
+                throw new CommandExecutionError('ChatGPT deep-research-result changed conversation during exact target refresh.');
+            }
+            diagnostics.exactTargetRefreshIframeCount = Array.isArray(refreshedExactTargetState.iframes)
+                ? refreshedExactTargetState.iframes.length
+                : 0;
+        } catch (error) {
+            diagnostics.exactTargetRefreshError = String(error?.message || error);
+            refreshedExactTargetState = null;
+        }
+    }
+    const deepResearchIframes = Array.isArray(refreshedExactTargetState?.iframes)
+        ? refreshedExactTargetState.iframes.filter((candidate) => candidate?.deepResearch === true)
         : [];
     const visibleExactTargetIframes = deepResearchIframes
         .filter((candidate) => candidate?.visible === true
@@ -387,7 +406,7 @@ const OPENCLI_DEEP_RESULT_EXACT_TARGET_FALLBACK = String.raw`    const deepResea
             diagnostics.@PROTOCOL@ExactTargetError = String(error?.message || error);
         }
     }
-    if (useBridgeProbes && deepResearchIframes.length > 0 && exactTargetIframe === null && !progressCandidate) {
+    if (useBridgeProbes && exactTargetIframe === null && !progressCandidate) {
         return {
             status: generating ? 'running' : 'unavailable',
             report: '',
