@@ -1,0 +1,449 @@
+{
+  "status": "pass",
+  "kind": "offline-source-characterization",
+  "node": "v26.5.0",
+  "opencli": "1.8.7",
+  "executedModules": [
+    "clis/chatgpt/deep-research-result.js",
+    "dist/src/registry-api.js",
+    "dist/src/registry.js",
+    "dist/src/hooks.js",
+    "dist/src/errors.js",
+    "dist/src/session-lease.js"
+  ],
+  "extractions": {
+    "sessionHelpers": {
+      "file": "dist/src/execution.js",
+      "start": "function normalizeSiteSession(raw)",
+      "end": "function normalizeBooleanOption(",
+      "sha256": "c3d83c5c618b09c26705d81d73f0072325b931d2d5bca880fd12814338a5e000"
+    },
+    "leaseRun": {
+      "file": "dist/src/execution.js",
+      "start": "            const leaseRun =",
+      "end": "            if (leaseRun)",
+      "sha256": "7eb4cfdb2e48484343a5f2072b4a5c9abaee06f360dbc36515b67e8f68006a0f"
+    },
+    "arbitration": {
+      "file": "dist/src/daemon.js",
+      "start": "            let leaseKey;",
+      "end": "            // Absolute deadline",
+      "sha256": "a905c709fb2194d65539d58f27ef7341d7a24572b71f482e1840a3f847e02122"
+    }
+  },
+  "simulatedBoundaries": [
+    "page/target identity and effects",
+    "utils.js helpers and results",
+    "writer verification/input and barrier",
+    "context routing and clock",
+    "daemon request wrapper, logging and response"
+  ],
+  "daemonTopLevelExecuted": false,
+  "servedModel": "unknown",
+  "violations": [],
+  "cases": [
+    {
+      "kind": "shared-target",
+      "sameInitialUrl": false,
+      "collectorMetadata": {
+        "access": "read",
+        "siteSession": "persistent",
+        "session": "site:chatgpt",
+        "leaseRun": null
+      },
+      "navigationEffects": 1,
+      "writerTarget": {
+        "id": "target-writer",
+        "url": "https://chatgpt.com/c/synthetic-reader",
+        "navigations": 1,
+        "inputs": 1
+      },
+      "readerTarget": {
+        "id": "target-writer",
+        "url": "https://chatgpt.com/c/synthetic-reader",
+        "navigations": 1,
+        "inputs": 1
+      },
+      "leaseHolderAfterCollector": "run_101_writer",
+      "events": [
+        {
+          "type": "arbitration",
+          "request": {
+            "action": "exec",
+            "command": "chatgpt/synthetic-writer",
+            "surface": "adapter",
+            "access": "write",
+            "session": "site:chatgpt",
+            "siteSession": "persistent",
+            "runId": "run_101_writer"
+          },
+          "eligible": true,
+          "dispatched": true
+        },
+        {
+          "type": "writer-verification",
+          "target": "target-writer",
+          "expectedUrl": "https://chatgpt.com/c/synthetic-writer"
+        },
+        {
+          "type": "writer-held-before-input"
+        },
+        {
+          "type": "busy-log",
+          "message": "[daemon] Session synthetic-context␟adapter␟site%3Achatgpt busy — rejected chatgpt/synthetic-writer (runId=run_202_second_writer); held by chatgpt/synthetic-writer (runId=run_101_writer)"
+        },
+        {
+          "type": "arbitration",
+          "request": {
+            "action": "exec",
+            "command": "chatgpt/synthetic-writer",
+            "surface": "adapter",
+            "access": "write",
+            "session": "site:chatgpt",
+            "siteSession": "persistent",
+            "runId": "run_202_second_writer"
+          },
+          "eligible": true,
+          "dispatched": false,
+          "rejection": {
+            "status": 409,
+            "ok": false,
+            "errorCode": "session_busy",
+            "error": "Session \"site:chatgpt\" is busy: chatgpt/synthetic-writer (pid 101) has been driving it for 0s.",
+            "errorHint": "Wait for it to finish, or stop it with `kill 101` if it is stuck. Read-only commands are not blocked."
+          }
+        },
+        {
+          "type": "read-network-capture",
+          "target": "target-writer"
+        },
+        {
+          "type": "read-url",
+          "target": "target-writer",
+          "url": "https://chatgpt.com/c/synthetic-writer"
+        },
+        {
+          "type": "start-network-capture",
+          "target": "target-writer",
+          "filter": "/backend-api/conversation/"
+        },
+        {
+          "type": "arbitration",
+          "request": {
+            "action": "exec",
+            "command": "chatgpt/deep-research-result",
+            "surface": "adapter",
+            "access": "read",
+            "session": "site:chatgpt",
+            "siteSession": "persistent"
+          },
+          "eligible": false,
+          "dispatched": true
+        },
+        {
+          "type": "navigation-effect",
+          "target": "target-writer",
+          "url": "https://chatgpt.com/c/synthetic-reader",
+          "navigationEffects": 1,
+          "writerHeld": true,
+          "writerInputs": 0
+        },
+        {
+          "type": "synthetic-sleep",
+          "seconds": 3
+        },
+        {
+          "type": "synthetic-login",
+          "target": "target-writer"
+        },
+        {
+          "type": "synthetic-result",
+          "target": "target-writer"
+        },
+        {
+          "type": "synthetic-writer-input",
+          "expectedUrl": "https://chatgpt.com/c/synthetic-writer",
+          "actualUrl": "https://chatgpt.com/c/synthetic-reader",
+          "target": "target-writer"
+        }
+      ]
+    },
+    {
+      "kind": "disjoint-target",
+      "sameInitialUrl": false,
+      "collectorMetadata": {
+        "access": "read",
+        "siteSession": "persistent",
+        "session": "site:chatgpt",
+        "leaseRun": null
+      },
+      "navigationEffects": 1,
+      "writerTarget": {
+        "id": "target-writer",
+        "url": "https://chatgpt.com/c/synthetic-writer",
+        "navigations": 0,
+        "inputs": 1
+      },
+      "readerTarget": {
+        "id": "target-reader",
+        "url": "https://chatgpt.com/c/synthetic-reader",
+        "navigations": 1,
+        "inputs": 0
+      },
+      "leaseHolderAfterCollector": "run_101_writer",
+      "events": [
+        {
+          "type": "arbitration",
+          "request": {
+            "action": "exec",
+            "command": "chatgpt/synthetic-writer",
+            "surface": "adapter",
+            "access": "write",
+            "session": "site:chatgpt",
+            "siteSession": "persistent",
+            "runId": "run_101_writer"
+          },
+          "eligible": true,
+          "dispatched": true
+        },
+        {
+          "type": "writer-verification",
+          "target": "target-writer",
+          "expectedUrl": "https://chatgpt.com/c/synthetic-writer"
+        },
+        {
+          "type": "writer-held-before-input"
+        },
+        {
+          "type": "busy-log",
+          "message": "[daemon] Session synthetic-context␟adapter␟site%3Achatgpt busy — rejected chatgpt/synthetic-writer (runId=run_202_second_writer); held by chatgpt/synthetic-writer (runId=run_101_writer)"
+        },
+        {
+          "type": "arbitration",
+          "request": {
+            "action": "exec",
+            "command": "chatgpt/synthetic-writer",
+            "surface": "adapter",
+            "access": "write",
+            "session": "site:chatgpt",
+            "siteSession": "persistent",
+            "runId": "run_202_second_writer"
+          },
+          "eligible": true,
+          "dispatched": false,
+          "rejection": {
+            "status": 409,
+            "ok": false,
+            "errorCode": "session_busy",
+            "error": "Session \"site:chatgpt\" is busy: chatgpt/synthetic-writer (pid 101) has been driving it for 0s.",
+            "errorHint": "Wait for it to finish, or stop it with `kill 101` if it is stuck. Read-only commands are not blocked."
+          }
+        },
+        {
+          "type": "read-network-capture",
+          "target": "target-reader"
+        },
+        {
+          "type": "read-url",
+          "target": "target-reader",
+          "url": "https://chatgpt.com/c/synthetic-other"
+        },
+        {
+          "type": "start-network-capture",
+          "target": "target-reader",
+          "filter": "/backend-api/conversation/"
+        },
+        {
+          "type": "arbitration",
+          "request": {
+            "action": "exec",
+            "command": "chatgpt/deep-research-result",
+            "surface": "adapter",
+            "access": "read",
+            "session": "site:chatgpt",
+            "siteSession": "persistent"
+          },
+          "eligible": false,
+          "dispatched": true
+        },
+        {
+          "type": "navigation-effect",
+          "target": "target-reader",
+          "url": "https://chatgpt.com/c/synthetic-reader",
+          "navigationEffects": 1,
+          "writerHeld": true,
+          "writerInputs": 0
+        },
+        {
+          "type": "synthetic-sleep",
+          "seconds": 3
+        },
+        {
+          "type": "synthetic-login",
+          "target": "target-reader"
+        },
+        {
+          "type": "synthetic-result",
+          "target": "target-reader"
+        },
+        {
+          "type": "synthetic-writer-input",
+          "expectedUrl": "https://chatgpt.com/c/synthetic-writer",
+          "actualUrl": "https://chatgpt.com/c/synthetic-writer",
+          "target": "target-writer"
+        }
+      ]
+    },
+    {
+      "kind": "shared-target",
+      "sameInitialUrl": true,
+      "collectorMetadata": {
+        "access": "read",
+        "siteSession": "persistent",
+        "session": "site:chatgpt",
+        "leaseRun": null
+      },
+      "navigationEffects": 2,
+      "writerTarget": {
+        "id": "target-writer",
+        "url": "https://chatgpt.com/c/synthetic-reader",
+        "navigations": 2,
+        "inputs": 1
+      },
+      "readerTarget": {
+        "id": "target-writer",
+        "url": "https://chatgpt.com/c/synthetic-reader",
+        "navigations": 2,
+        "inputs": 1
+      },
+      "leaseHolderAfterCollector": "run_101_writer",
+      "events": [
+        {
+          "type": "arbitration",
+          "request": {
+            "action": "exec",
+            "command": "chatgpt/synthetic-writer",
+            "surface": "adapter",
+            "access": "write",
+            "session": "site:chatgpt",
+            "siteSession": "persistent",
+            "runId": "run_101_writer"
+          },
+          "eligible": true,
+          "dispatched": true
+        },
+        {
+          "type": "writer-verification",
+          "target": "target-writer",
+          "expectedUrl": "https://chatgpt.com/c/synthetic-reader"
+        },
+        {
+          "type": "writer-held-before-input"
+        },
+        {
+          "type": "busy-log",
+          "message": "[daemon] Session synthetic-context␟adapter␟site%3Achatgpt busy — rejected chatgpt/synthetic-writer (runId=run_202_second_writer); held by chatgpt/synthetic-writer (runId=run_101_writer)"
+        },
+        {
+          "type": "arbitration",
+          "request": {
+            "action": "exec",
+            "command": "chatgpt/synthetic-writer",
+            "surface": "adapter",
+            "access": "write",
+            "session": "site:chatgpt",
+            "siteSession": "persistent",
+            "runId": "run_202_second_writer"
+          },
+          "eligible": true,
+          "dispatched": false,
+          "rejection": {
+            "status": 409,
+            "ok": false,
+            "errorCode": "session_busy",
+            "error": "Session \"site:chatgpt\" is busy: chatgpt/synthetic-writer (pid 101) has been driving it for 0s.",
+            "errorHint": "Wait for it to finish, or stop it with `kill 101` if it is stuck. Read-only commands are not blocked."
+          }
+        },
+        {
+          "type": "read-network-capture",
+          "target": "target-writer"
+        },
+        {
+          "type": "read-url",
+          "target": "target-writer",
+          "url": "https://chatgpt.com/c/synthetic-reader"
+        },
+        {
+          "type": "arbitration",
+          "request": {
+            "action": "exec",
+            "command": "chatgpt/deep-research-result",
+            "surface": "adapter",
+            "access": "read",
+            "session": "site:chatgpt",
+            "siteSession": "persistent"
+          },
+          "eligible": false,
+          "dispatched": true
+        },
+        {
+          "type": "navigation-effect",
+          "target": "target-writer",
+          "url": "https://chatgpt.com/?opencli_dr_result=1000",
+          "navigationEffects": 1,
+          "writerHeld": true,
+          "writerInputs": 0
+        },
+        {
+          "type": "synthetic-wait",
+          "seconds": 1
+        },
+        {
+          "type": "start-network-capture",
+          "target": "target-writer",
+          "filter": "/backend-api/conversation/"
+        },
+        {
+          "type": "arbitration",
+          "request": {
+            "action": "exec",
+            "command": "chatgpt/deep-research-result",
+            "surface": "adapter",
+            "access": "read",
+            "session": "site:chatgpt",
+            "siteSession": "persistent"
+          },
+          "eligible": false,
+          "dispatched": true
+        },
+        {
+          "type": "navigation-effect",
+          "target": "target-writer",
+          "url": "https://chatgpt.com/c/synthetic-reader",
+          "navigationEffects": 2,
+          "writerHeld": true,
+          "writerInputs": 0
+        },
+        {
+          "type": "synthetic-sleep",
+          "seconds": 3
+        },
+        {
+          "type": "synthetic-login",
+          "target": "target-writer"
+        },
+        {
+          "type": "synthetic-result",
+          "target": "target-writer"
+        },
+        {
+          "type": "synthetic-writer-input",
+          "expectedUrl": "https://chatgpt.com/c/synthetic-reader",
+          "actualUrl": "https://chatgpt.com/c/synthetic-reader",
+          "target": "target-writer"
+        }
+      ]
+    }
+  ]
+}
