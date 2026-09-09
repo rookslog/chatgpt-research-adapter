@@ -24,37 +24,22 @@ async function withOutputRoot(run) {
   try { return await run(outputRoot); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
-test('prepares the versioned default question, dispatches once, and returns its result and job path', async () => withOutputRoot(async (outputRoot) => {
-  const completed = Object.freeze({ status: 'completed', job_id: 'job_default' });
-  const calls = [];
-  const outcome = await directAsk({
+test('omitted Standard direct API intent refuses before output or submit', async () => withOutputRoot(async (parentRoot) => {
+  const outputRoot = join(parentRoot, 'must-not-exist');
+  let submitCalls = 0;
+  await assert.rejects(directAsk({
     question: 'What changed?', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
-    clock: () => preparedAt, newJobId: () => 'job_default', newTurnId: () => 'turn_default',
-    submit: async (options) => { calls.push(options); return completed; }
-  });
-
-  const jobPath = join(outputRoot, 'jobs', 'job_default');
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].mode, 'standard');
-  assert.equal(calls[0].jobId, 'job_default');
-  assert.equal(calls[0].jobPath, jobPath);
-  assert.equal(calls[0].openCliPath, '/tmp/opencli');
-  assert.equal(outcome.result, completed);
-  assert.equal(outcome.jobPath, jobPath);
-  assert.equal(outcome.job.mode, 'standard');
-  assert.deepEqual(JSON.parse(await readFile(join(jobPath, 'current.json'), 'utf8')).job, {
-    audit_appendix: false, caller: 'codex', citation_level: 'principal', created_at: preparedAt, job_id: 'job_default', mode: 'standard', mode_reason: 'default',
-    pacing_decision: 'not_applicable_pre_dispatch', state: 'prepared', template_body_sha256: 'dea7e330736babc68f4039926fb867b4782e9e67e2700ff7a062b05fcf5e129d',
-    rigor_profile_id: 'standard', rigor_profile_sha256: '3ac667a01fadbb23a139ab0f45adb70c996f79adc389ee8183c6c7daac29a031', rigor_profile_version: '1.0.0',
-    rigor_protocol_id: 'chatgpt-research-epistemic', rigor_protocol_version: '1.0.0',
-    template_id: 'research-question', template_sha256: '3b56a8140a82615a3064213abefb4a776234b50ae0403c7648626572d1cb38b3', template_version: '1.0.0'
-  });
+    submit: async () => { submitCalls += 1; return { status: 'completed' }; }
+  }), { code: 'ERR_STANDARD_INTENT_REQUIRED' });
+  assert.equal(submitCalls, 0);
+  await assert.rejects(stat(outputRoot), { code: 'ENOENT' });
 }));
 
-test('creates the requested output root for one-command use', async () => {
+
+test('Web direct ask creates the requested output root for one-command use', async () => {
   const root = await mkdtemp(join(tmpdir(), 'direct-ask-root-')); const outputRoot = join(root, 'created');
   try {
-    await directAsk({ question: 'Create output', outputRoot, openCliPath: '/tmp/opencli', templatesRoot, clock: () => preparedAt, newJobId: () => 'job_created', newTurnId: () => 'turn_created', submit: async () => ({ status: 'completed' }) });
+    await directAsk({ mode: 'web', question: 'Create output', outputRoot, openCliPath: '/tmp/opencli', templatesRoot, clock: () => preparedAt, newJobId: () => 'job_created', newTurnId: () => 'turn_created', submit: async () => ({ status: 'completed' }) });
     assert.equal((await stat(outputRoot)).isDirectory(), true);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -74,9 +59,9 @@ test('forwards explicit web and deep modes through the injected submit seam', as
   ]);
 }));
 
-test('direct ask forwards explicit rigor controls into the prepared prompt and receipt', async () => withOutputRoot(async (outputRoot) => {
+test('Web direct ask forwards explicit rigor controls into the prepared prompt and receipt', async () => withOutputRoot(async (outputRoot) => {
   const outcome = await directAsk({
-    question: 'Audit the warrant', rigorProfile: 'strict', citationLevel: 'expanded', auditAppendix: true,
+    mode: 'web', question: 'Audit the warrant', rigorProfile: 'strict', citationLevel: 'expanded', auditAppendix: true,
     outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
     clock: () => preparedAt, newJobId: () => 'job_rigor', newTurnId: () => 'turn_rigor', submit: async () => ({ status: 'completed' })
   });
@@ -90,24 +75,17 @@ test('direct ask forwards explicit rigor controls into the prepared prompt and r
   assert.equal(current.job.audit_appendix, true);
 }));
 
-test('persists a standard answer from one mode-aware OpenCLI ask', async () => withOutputRoot(async (outputRoot) => {
-  await directAsk({
-    question: 'What changed?', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
-    clock: () => preparedAt, newJobId: () => 'job_live', newTurnId: () => 'turn_live',
-    submit: (options) => submitDirectPreparedJob({
-      ...options,
-      preflight: async () => ({ version: '1.8.7' }),
-      ask: async () => ({ conversationId: 'live-1', conversationUrl: 'https://chatgpt.com/c/live-1', tool: '', response: '' }),
-      readDetail: async ({ timeoutSeconds }) => ({ response: `standard:${timeoutSeconds}:answer` })
-    })
-  });
-  const responseRoot = join(outputRoot, 'jobs', 'job_live', 'response');
-  assert.equal(await readFile(join(responseRoot, 'answer.md'), 'utf8'), 'standard:600:answer');
-  const result = JSON.parse(await readFile(join(responseRoot, 'result.json'), 'utf8'));
-  assert.equal(result.status, 'completed');
-  assert.equal(result.mode, 'standard');
-  assert.equal(result.conversation_url, 'https://chatgpt.com/c/live-1');
+test('explicit Standard direct API intent refuses unqualified before output or provider callbacks', async () => withOutputRoot(async (parentRoot) => {
+  const outputRoot = join(parentRoot, 'must-not-exist');
+  let submitCalls = 0;
+  await assert.rejects(directAsk({
+    modelFamily: 'gpt-5.6-pro', effort: 'standard', question: 'What changed?', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    submit: async () => { submitCalls += 1; return { status: 'completed' }; }
+  }), { code: 'ERR_STANDARD_DRIVER_UNQUALIFIED' });
+  assert.equal(submitCalls, 0);
+  await assert.rejects(stat(outputRoot), { code: 'ENOENT' });
 }));
+
 
 test('persists a Web answer only after the same conversation repeats its grown final content', async () => withOutputRoot(async (outputRoot) => {
   const responses = ['partial answer', 'complete answer\n\n## Claim ledger\n\n## Audit appendix', 'complete answer\n\n## Claim ledger\n\n## Audit appendix'];
@@ -891,37 +869,41 @@ test('propagates non-ENOENT completion-event lookup errors', async () => withOut
   await assert.rejects(getDeepPreparedJobStatus({ outputRoot, jobId: 'job_event_lookup', receiptTestSeam: { completionEventLstat: async () => { throw error; } } }), { code: 'ERR_DIRECT_RECEIPT' });
 }));
 
-test('treats post-commit staging cleanup failure as committed success', async () => withOutputRoot(async (outputRoot) => {
+test('Web treats post-commit staging cleanup failure as committed success', async () => withOutputRoot(async (outputRoot) => {
+  let detailCalls = 0;
   const stagingError = Object.assign(new Error('injected staging unlink failure'), { code: 'EIO' });
   const outcome = await directAsk({
-    question: 'commit rollback durability', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    mode: 'web', question: 'commit rollback durability', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
     clock: () => preparedAt, newJobId: () => 'job_commit_rollback', newTurnId: () => 'turn_commit_rollback',
     submit: (options) => submitDirectPreparedJob({
       ...options,
       receiptTestSeam: { unlinkDirectResultStaging: async () => { throw stagingError; } },
       preflight: async () => ({ version: '1.8.7' }),
-      ask: async () => ({ conversationId: 'commit-rollback-1', conversationUrl: 'https://chatgpt.com/c/commit-rollback-1', tool: '', response: '' }),
-      readDetail: async () => ({ response: 'committed answer' })
+      ask: async () => ({ conversationId: 'commit-rollback-1', conversationUrl: 'https://chatgpt.com/c/commit-rollback-1', tool: 'Web Search', response: '' }),
+      readDetail: async () => { detailCalls += 1; return { response: 'committed answer' }; }
     })
   });
   assert.equal(outcome.result.status, 'completed');
+  assert.equal(detailCalls, 3);
   const responseRoot = join(outputRoot, 'jobs', 'job_commit_rollback', 'response');
   assert.ok((await readFile(join(responseRoot, 'result.json'))).length > 0);
   assert.ok((await readFile(join(responseRoot, 'result.committed.json'))).length > 0);
 }));
 
-test('preserves the result-marker pair when commit directory durability is uncertain', async () => withOutputRoot(async (outputRoot) => {
+test('Web preserves the result-marker pair when commit directory durability is uncertain', async () => withOutputRoot(async (outputRoot) => {
+  let detailCalls = 0;
   await assert.rejects(directAsk({
-    question: 'commit sync uncertainty', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
+    mode: 'web', question: 'commit sync uncertainty', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
     clock: () => preparedAt, newJobId: () => 'job_commit_sync_uncertain', newTurnId: () => 'turn_commit_sync_uncertain',
     submit: (options) => submitDirectPreparedJob({
       ...options,
       receiptTestSeam: { failAt: 'after-direct-result-commit-publish' },
       preflight: async () => ({ version: '1.8.7' }),
-      ask: async () => ({ conversationId: 'commit-sync-uncertain-1', conversationUrl: 'https://chatgpt.com/c/commit-sync-uncertain-1', tool: '', response: '' }),
-      readDetail: async () => ({ response: 'uncertain but paired answer' })
+      ask: async () => ({ conversationId: 'commit-sync-uncertain-1', conversationUrl: 'https://chatgpt.com/c/commit-sync-uncertain-1', tool: 'Web Search', response: '' }),
+      readDetail: async () => { detailCalls += 1; return { response: 'uncertain but paired answer' }; }
     })
   }), { code: 'ERR_INJECTED_FAULT' });
+  assert.equal(detailCalls, 3);
   const responseRoot = join(outputRoot, 'jobs', 'job_commit_sync_uncertain', 'response');
   const result = JSON.parse(await readFile(join(responseRoot, 'result.json'), 'utf8'));
   assert.equal(result.status, 'completed');
@@ -951,15 +933,21 @@ test('validates an existing completion event without staging replacement bytes',
   assert.deepEqual(await collectDeepPreparedJob({ ...base, receiptTestSeam: { failAt: 'after-completion-event-write' }, preflight: async () => assert.fail('completed job must not preflight'), readStatus: async () => assert.fail('completed job must not read') }), completed);
 }));
 
-test('rolls back only its post-link result before publishing Standard recovery', async () => withOutputRoot(async (outputRoot) => {
-  await assert.rejects(directAsk({
-    question: 'recover result publish', outputRoot, openCliPath: '/tmp/opencli', templatesRoot,
-    clock: () => preparedAt, newJobId: () => 'job_result_rollback', newTurnId: () => 'turn_result_rollback',
-    submit: (options) => submitDirectPreparedJob({ ...options, receiptTestSeam: { failAt: 'after-direct-result-publish' }, preflight: async () => ({ version: '1.8.7' }), ask: async () => ({ conversationId: 'rollback-1', conversationUrl: 'https://chatgpt.com/c/rollback-1', tool: '', response: '' }), readDetail: async () => ({ response: 'answer' }) })
-  }), { code: 'ERR_INJECTED_FAULT' });
-  const result = JSON.parse(await readFile(join(outputRoot, 'jobs', 'job_result_rollback', 'response', 'result.json'), 'utf8'));
-  assert.equal(result.status, 'recovery_required');
+test('prior Standard response evidence refuses submission and remains immutable', async () => withOutputRoot(async (outputRoot) => {
+  const jobId = 'job_legacy_standard';
+  const jobPath = join(outputRoot, 'jobs', jobId);
+  await mkdir(join(jobPath, 'response'), { recursive: true });
+  for (const name of ['current.json', 'events.jsonl', 'prompt.txt']) await writeFile(join(jobPath, name), await readFile(new URL(`./fixtures/standard-prepared-v1/${name}`, import.meta.url)));
+  const path = join(jobPath, 'response', 'intent.json');
+  const historical = Buffer.from('{"historical_synthetic_intent":true,"outcome":"unknown"}\n');
+  await writeFile(path, historical);
+  let preflightCalls = 0;
+  await assert.rejects(submitDirectPreparedJob({ mode: 'standard', outputRoot, jobId, jobPath, openCliPath: '/tmp/opencli', preflight: async () => { preflightCalls += 1; throw new Error('must not preflight'); } }), { code: 'ERR_STANDARD_PRIOR_DISPATCH' });
+  assert.equal(preflightCalls, 0);
+  assert.deepEqual(await readFile(path), historical);
+  assert.deepEqual(await readdir(join(jobPath, 'response')), ['intent.json']);
 }));
+
 
 test('rolls back only its post-link result before publishing Web recovery', async () => withOutputRoot(async (outputRoot) => {
   await assert.rejects(directAsk({

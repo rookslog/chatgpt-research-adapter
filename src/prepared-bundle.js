@@ -53,18 +53,23 @@ function parseEvents(bytes) {
 
 function validateBundle(jobId, events, current, promptBytes, allowedModes) {
   const [created, prepared] = events;
-  if (!exactKeys(created, CREATED_KEYS) || !exactKeys(prepared, PREPARED_KEYS) || !exactKeys(current, CURRENT_KEYS) || !exactKeys(current.job, JOB_KEYS) || !exactKeys(current.turn, TURN_KEYS)) fail('prepared bundle schema is invalid');
-  const common = ['caller', 'job_id', 'mode', 'mode_reason', ...RIGOR_KEYS, 'template_body_sha256', 'template_id', 'template_sha256', 'template_version'];
+  const schema = created.schema;
+  if (!['m002.prepared.v1', 'standard.prepared.v2'].includes(schema)) fail('prepared bundle schema is invalid');
+  const intentKeys = schema === 'standard.prepared.v2' ? ['model_family', 'effort'] : [];
+  if (intentKeys.length && (created.mode !== 'standard' || created.model_family !== 'gpt-5.6-pro' || !['standard', 'extended'].includes(created.effort))) fail('prepared Standard intent is invalid');
+  if (!exactKeys(created, [...CREATED_KEYS, ...intentKeys]) || !exactKeys(prepared, [...PREPARED_KEYS, ...intentKeys]) || !exactKeys(current, CURRENT_KEYS) || !exactKeys(current.job, [...JOB_KEYS, ...intentKeys]) || !exactKeys(current.turn, TURN_KEYS)) fail('prepared bundle schema is invalid');
+  const common = [...intentKeys, 'caller', 'job_id', 'mode', 'mode_reason', ...RIGOR_KEYS, 'template_body_sha256', 'template_id', 'template_sha256', 'template_version'];
   if (!common.every((key) => equal(created[key], prepared[key])) || created.job_id !== jobId) fail('prepared event identity is inconsistent');
-  if (created.schema !== 'm002.prepared.v1' || created.type !== 'job_created' || created.sequence !== 1 || created.caller !== 'codex' || created.pacing_decision !== 'not_applicable_pre_dispatch' || created.state !== 'preparing') fail('job-created event is invalid');
-  if (prepared.schema !== 'm002.prepared.v1' || prepared.type !== 'turn_prepared' || prepared.sequence !== 2 || !ID.test(prepared.turn_id ?? '') || prepared.attempt !== 1 || prepared.prior_turn_id !== null || prepared.state !== 'prepared' || prepared.transport_status !== 'not_dispatched') fail('turn-prepared event is invalid');
+  if (created.type !== 'job_created' || created.sequence !== 1 || created.caller !== 'codex' || created.pacing_decision !== 'not_applicable_pre_dispatch' || created.state !== 'preparing') fail('job-created event is invalid');
+  if (prepared.schema !== schema || prepared.type !== 'turn_prepared' || prepared.sequence !== 2 || !ID.test(prepared.turn_id ?? '') || prepared.attempt !== 1 || prepared.prior_turn_id !== null || prepared.state !== 'prepared' || prepared.transport_status !== 'not_dispatched') fail('turn-prepared event is invalid');
   for (const key of ['conversation_reference', 'submitted_at', 'accepted_at', 'unknown_at', 'completed_at', 'answer_sha256', 'remote_effect']) if (prepared[key] !== null) fail('prepared event contains remote state');
   if (!allowedModes.includes(created.mode)) fail('prepared mode is not allowed for this dispatch', 'ERR_PREPARED_MODE');
   if (![created.template_sha256, created.template_body_sha256, created.rigor_profile_sha256, prepared.prompt_sha256].every((value) => HASH.test(value ?? '')) || hash(promptBytes) !== prepared.prompt_sha256) fail('prepared hashes are invalid');
   if (created.rigor_protocol_id !== 'chatgpt-research-epistemic' || created.rigor_protocol_version !== '1.0.0' || !['principal', 'expanded'].includes(created.citation_level) || typeof created.audit_appendix !== 'boolean') fail('prepared rigor identity is invalid');
-  if (!exactKeys(current, CURRENT_KEYS) || current.schema !== 'm002.prepared.v1') fail('current state is invalid');
+  if (!exactKeys(current, CURRENT_KEYS) || current.schema !== schema) fail('current state is invalid');
   const rigor = Object.fromEntries(RIGOR_KEYS.map((key) => [key, created[key]]));
-  const expectedJob = { job_id: created.job_id, caller: created.caller, template_id: created.template_id, template_version: created.template_version, template_sha256: created.template_sha256, template_body_sha256: created.template_body_sha256, mode: created.mode, mode_reason: created.mode_reason, ...rigor, state: 'prepared', pacing_decision: created.pacing_decision, created_at: created.time };
+  const intent = Object.fromEntries(intentKeys.map((key) => [key, created[key]]));
+  const expectedJob = { job_id: created.job_id, caller: created.caller, template_id: created.template_id, template_version: created.template_version, template_sha256: created.template_sha256, template_body_sha256: created.template_body_sha256, mode: created.mode, mode_reason: created.mode_reason, ...intent, ...rigor, state: 'prepared', pacing_decision: created.pacing_decision, created_at: created.time };
   const expectedTurn = { turn_id: prepared.turn_id, attempt: 1, prior_turn_id: null, prompt_sha256: prepared.prompt_sha256, state: 'prepared', transport_status: 'not_dispatched', conversation_reference: null, submitted_at: null, accepted_at: null, unknown_at: null, completed_at: null, answer_sha256: null, remote_effect: null, prepared_at: prepared.time };
   if (!equal(current.job, expectedJob) || !equal(current.turn, expectedTurn)) fail('current state disagrees with events');
   if (created.time !== prepared.time) fail('prepared event times disagree');
@@ -85,5 +90,6 @@ export async function loadPreparedBundle({ outputRoot, jobId, allowedModes = ['s
   let prompt;
   try { prompt = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(promptBytes); } catch { fail('prompt must be UTF-8'); }
   const rigor = Object.fromEntries(RIGOR_KEYS.map((key) => [key, current.job[key]]));
-  return deepFreeze({ job_id: jobId, turn_id: current.turn.turn_id, template_id: current.job.template_id, template_version: current.job.template_version, template_sha256: current.job.template_sha256, template_body_sha256: current.job.template_body_sha256, mode: current.job.mode, mode_reason: current.job.mode_reason, ...rigor, prompt_sha256: current.turn.prompt_sha256, prompt, events, current, job_root: jobRoot });
+  const intent = current.schema === 'standard.prepared.v2' ? { model_family: current.job.model_family, effort: current.job.effort } : {};
+  return deepFreeze({ ...intent, job_id: jobId, turn_id: current.turn.turn_id, template_id: current.job.template_id, template_version: current.job.template_version, template_sha256: current.job.template_sha256, template_body_sha256: current.job.template_body_sha256, mode: current.job.mode, mode_reason: current.job.mode_reason, ...rigor, prompt_sha256: current.turn.prompt_sha256, prompt, events, current, job_root: jobRoot });
 }

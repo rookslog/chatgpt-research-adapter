@@ -21,8 +21,11 @@ function disposition(error) {
 }
 
 async function requireUnusedDispatch(jobRoot) {
-  try { await lstat(join(jobRoot, 'dispatch')); fail('dispatch already exists', 'ERR_DISPATCH_EXISTS'); }
-  catch (error) { if (error?.code === 'ERR_DISPATCH_EXISTS') throw error; if (error?.code !== 'ENOENT') throw error; }
+  for (const name of ['dispatch', 'response', 'standard']) {
+    try { await lstat(join(jobRoot, name)); }
+    catch (error) { if (error?.code === 'ENOENT') continue; throw error; }
+    fail('prior dispatch evidence prevents submission; its outcome requires inspection', 'ERR_STANDARD_PRIOR_DISPATCH');
+  }
 }
 
 export async function submitPreparedJobOnce({ outputRoot, jobId, openCliPath, now = () => new Date().toISOString(), transportOptions, receiptTestSeam } = {}) {
@@ -30,6 +33,8 @@ export async function submitPreparedJobOnce({ outputRoot, jobId, openCliPath, no
   const runtimeOptions = submitTransportOptions(transportOptions);
   const bundle = await loadPreparedBundle({ outputRoot, jobId });
   await requireUnusedDispatch(bundle.job_root);
+  if (bundle.current.schema === 'standard.prepared.v2') fail('Standard driver is not qualified for this prepared bundle', 'ERR_STANDARD_DRIVER_UNQUALIFIED');
+  fail('prepare a new job with explicit Standard model family and effort', 'ERR_STANDARD_LEGACY_INTENT_REQUIRED');
   const executable = await preflightOpenCli({ ...runtimeOptions, executablePath: openCliPath });
   const intent = createDispatchIntent({ bundle, executable, now: now() });
   const saved = await persistDispatchIntent({ jobRoot: bundle.job_root, intent, testSeam: receiptTestSeam });

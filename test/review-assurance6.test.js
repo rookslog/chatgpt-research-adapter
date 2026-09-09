@@ -9,16 +9,18 @@ import { submitDirectPreparedJob } from '../src/direct-ask.js';
 import { preflightOpenCli } from '../src/opencli-transport.js';
 import { prepareResearchJob } from '../src/prepare.js';
 import { persistPreparedJob } from '../src/receipts.js';
-import { submitPreparedJobOnce } from '../src/submit-once.js';
+import { createDispatchIntent, persistDispatchIntent, persistDispatchHandoff, persistCompletedResult, persistRecoveryRequiredResult } from '../src/dispatch-receipts.js';
+import { loadPreparedBundle } from '../src/prepared-bundle.js';
+
 
 const templatesRoot = new URL('../templates/', import.meta.url).pathname;
 const sha = (value) => createHash('sha256').update(Buffer.from(value)).digest('hex');
 
-async function prepareStandard(root, jobId) {
+async function prepareWeb(root, jobId) {
   const outputRoot = join(root, 'output');
   await mkdir(outputRoot);
   await prepareResearchJob({
-    request: { question: 'assurance review', template_id: 'research-question', template_version: '1.0.0' },
+    request: { mode: 'web', mode_reason: 'explicit-web', question: 'assurance review', template_id: 'research-question', template_version: '1.0.0' },
     outputRoot,
     templatesRoot,
     now: '2026-08-26T23:54:00.000Z',
@@ -32,44 +34,47 @@ async function writeOpenCli(path, conversationId = 'assurance-1') {
   await writeFile(path, `#!/usr/bin/env node\nif (process.argv[2] === '--version') console.log('1.8.7');\nelse console.log(JSON.stringify([{conversationId:'${conversationId}',conversationUrl:'https://chatgpt.com/c/${conversationId}',tool:'',response:'durable answer'}]));\n`, { mode: 0o700 });
 }
 
-test('REQ-DISPATCH-003 submit-once recovers when completed result fails after result bytes are written', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'review-assurance6-result-'));
+test('REQ-DISPATCH-003 legacy receipt storage preserves accepted recovery after after-result-write fault', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'legacy-receipt-fault-'));
   try {
-    const { outputRoot, jobRoot } = await prepareStandard(root, 'job_assurance_result');
-    const opencli = join(root, 'opencli');
-    await writeOpenCli(opencli, 'assurance-result-1');
-    const result = await submitPreparedJobOnce({
-      outputRoot,
-      jobId: 'job_assurance_result',
-      openCliPath: opencli,
-      now: (() => { const values = ['2026-08-26T23:55:00.000Z', '2026-08-26T23:56:00.000Z', '2026-08-26T23:57:00.000Z', '2026-08-26T23:58:00.000Z']; return () => values.shift(); })(),
-      receiptTestSeam: { failAt: 'after-result-write' }
-    });
+    const { jobRoot, bundle, now, intent } = await historicalStorage(root);
+    const saved = await persistDispatchIntent({ jobRoot, intent });
+    const common = { jobRoot, bundle, now, intentSha256: saved.intent_sha256, conversationId: 'assurance-result-1', conversationUrl: 'https://chatgpt.com/c/assurance-result-1' };
+    const handoff = await persistDispatchHandoff({ ...common, tool: '' });
+    await assert.rejects(persistCompletedResult({ ...common, handoffSha256: handoff.handoff_sha256, answer: 'durable answer', testSeam: { failAt: 'after-result-write' } }), { code: 'ERR_INJECTED_FAULT' });
+    await assert.rejects(stat(join(jobRoot, 'dispatch', 'result.json')), { code: 'ENOENT' });
+    assert.equal(await readFile(join(jobRoot, 'dispatch', 'answer.md'), 'utf8'), 'durable answer');
+    const result = await persistRecoveryRequiredResult({ ...common, handoffSha256: handoff.handoff_sha256, disposition: 'ERR_INJECTED_FAULT' });
     assert.equal(result.status, 'recovery_required');
+    assert.equal(result.remote_effect, 'accepted');
     assert.equal(result.process_disposition, 'ERR_INJECTED_FAULT');
     assert.equal(result.conversation_id, 'assurance-result-1');
-    assert.equal(JSON.parse(await readFile(join(jobRoot, 'dispatch', 'result.json'), 'utf8')).status, 'recovery_required');
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
+    assert.equal(result.retry_decision, 'prohibited');
+    assert.equal(result.intent_sha256, saved.intent_sha256);
+    assert.equal(result.handoff_sha256, handoff.handoff_sha256);
+    assert.deepEqual(JSON.parse(await readFile(join(jobRoot, 'dispatch', 'result.json'), 'utf8')), result);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('REQ-DISPATCH-003 direct ask preserves recovery when completed result fails after result bytes are written', async () => {
+
+test('REQ-DISPATCH-003 Web direct ask preserves recovery when completed result fails after result bytes are written', async () => {
   const root = await mkdtemp(join(tmpdir(), 'review-assurance6-direct-result-'));
+  let detailCalls = 0;
   try {
-    const { outputRoot, jobRoot } = await prepareStandard(root, 'job_assurance_direct_result');
+    const { outputRoot, jobRoot } = await prepareWeb(root, 'job_assurance_direct_result');
     await assert.rejects(submitDirectPreparedJob({
-      mode: 'standard',
+      mode: 'web',
       outputRoot,
       jobId: 'job_assurance_direct_result',
       jobPath: jobRoot,
       openCliPath: '/tmp/opencli',
       now: () => '2026-08-26T23:59:00.000Z',
       preflight: async () => ({ version: '1.8.7' }),
-      ask: async () => ({ conversationId: 'assurance-direct-result-1', conversationUrl: 'https://chatgpt.com/c/assurance-direct-result-1', tool: '', response: '' }),
-      readDetail: async () => ({ response: 'durable direct answer' }),
+      ask: async () => ({ conversationId: 'assurance-direct-result-1', conversationUrl: 'https://chatgpt.com/c/assurance-direct-result-1', tool: 'Web Search', response: '' }),
+      readDetail: async () => { detailCalls += 1; return { response: 'durable direct answer' }; },
       receiptTestSeam: { failAt: 'after-direct-result-write' }
     }), { code: 'ERR_INJECTED_FAULT' });
+    assert.equal(detailCalls, 3);
     const result = JSON.parse(await readFile(join(jobRoot, 'response', 'result.json'), 'utf8'));
     assert.equal(result.status, 'recovery_required');
     assert.equal(result.process_disposition, 'ERR_INJECTED_FAULT');
@@ -79,34 +84,21 @@ test('REQ-DISPATCH-003 direct ask preserves recovery when completed result fails
   }
 });
 
-test('REQ-DISPATCH-004 post-rename intent failure does not wedge a known-unsent submit', async () => {
+test('REQ-DISPATCH-004 legacy intent storage removes failed publication and permits exclusive storage write', async () => {
   for (const failAt of ['after-dispatch-directory', 'after-dispatch-parent-sync']) {
-    const root = await mkdtemp(join(tmpdir(), 'review-assurance6-intent-'));
+    const root = await mkdtemp(join(tmpdir(), 'legacy-intent-storage-'));
     try {
-      const jobId = `job_${failAt.replaceAll('-', '_')}`;
-      const { outputRoot, jobRoot } = await prepareStandard(root, jobId);
-      const opencli = join(root, 'opencli');
-      await writeOpenCli(opencli, `assurance-${failAt.replaceAll('-', '_')}`);
-      await assert.rejects(submitPreparedJobOnce({
-        outputRoot,
-        jobId,
-        openCliPath: opencli,
-        now: () => '2026-08-27T00:00:00.000Z',
-        receiptTestSeam: { failAt }
-      }), { code: 'ERR_INJECTED_FAULT' });
+      const { jobRoot, intent } = await historicalStorage(root);
+      await assert.rejects(persistDispatchIntent({ jobRoot, intent, testSeam: { failAt } }), { code: 'ERR_INJECTED_FAULT' });
       await assert.rejects(stat(join(jobRoot, 'dispatch')), { code: 'ENOENT' });
-      const result = await submitPreparedJobOnce({
-        outputRoot,
-        jobId,
-        openCliPath: opencli,
-        now: (() => { const values = ['2026-08-27T00:01:00.000Z', '2026-08-27T00:02:00.000Z', '2026-08-27T00:03:00.000Z']; return () => values.shift(); })()
-      });
-      assert.equal(result.status, 'completed');
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
+      const saved = await persistDispatchIntent({ jobRoot, intent });
+      assert.equal(saved.intent_sha256, sha(await readFile(saved.intent_path)));
+      assert.deepEqual(JSON.parse(await readFile(saved.intent_path, 'utf8')), intent);
+      // This is an exclusive storage write, never authorization to retry a provider operation.
+    } finally { await rm(root, { recursive: true, force: true }); }
   }
 });
+
 
 test('REQ-PREPARED-001 syncs output root after first jobs directory publication', async () => {
   const root = await mkdtemp(join(tmpdir(), 'review-assurance6-jobs-root-'));
@@ -159,3 +151,16 @@ test('REQ-OPENCLI-002 rejects oversized executable bytes before reading the exec
     await rm(root, { recursive: true, force: true });
   }
 });
+
+// Synthetic historical receipt construction on exact frozen v1 preparation; no transport.
+async function historicalStorage(root) {
+  const outputRoot = join(root, 'historical');
+  const jobRoot = join(outputRoot, 'jobs', 'job_legacy_standard');
+  await mkdir(jobRoot, { recursive: true });
+  for (const name of ['current.json', 'events.jsonl', 'prompt.txt']) await writeFile(join(jobRoot, name), await readFile(new URL(`./fixtures/standard-prepared-v1/${name}`, import.meta.url)));
+  const bundle = await loadPreparedBundle({ outputRoot, jobId: 'job_legacy_standard' });
+  const now = '2026-08-26T23:10:00.000Z';
+  const executable = { supplied_path: '/tmp/historical-opencli', real_path: '/tmp/historical-opencli', sha256: 'e'.repeat(64), size: 123, device: '1', inode: '2', version: '1.8.7' };
+  const intent = createDispatchIntent({ bundle, executable, now });
+  return { jobRoot, bundle, now, intent };
+}

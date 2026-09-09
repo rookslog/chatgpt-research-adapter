@@ -22,13 +22,13 @@ test('REQ-RIGOR-001 rejects a symlinked built-in profiles container', async () =
   }
 });
 
-test('REQ-DISPATCH-007 rejects transport options that can replace authoritative dispatch inputs', async () => {
+test('REQ-DISPATCH-007 Web rejects transport options that can replace authoritative dispatch inputs', async () => {
   const root = await mkdtemp(join(tmpdir(), 'review-round2-transport-'));
   let askCalls = 0;
   try {
     await assert.rejects(
       directAsk({
-        question: 'preserve the prepared prompt',
+        mode: 'web', question: 'preserve the prepared prompt',
         outputRoot: join(root, 'output'),
         openCliPath: '/tmp/opencli',
         templatesRoot,
@@ -41,7 +41,7 @@ test('REQ-DISPATCH-007 rejects transport options that can replace authoritative 
           preflight: async () => ({ version: '1.8.7' }),
           ask: async () => {
             askCalls += 1;
-            return { conversationId: 'transport-1', conversationUrl: 'https://chatgpt.com/c/transport-1', tool: '', response: '' };
+            return { conversationId: 'transport-1', conversationUrl: 'https://chatgpt.com/c/transport-1', tool: 'Web Search', response: '' };
           },
           readDetail: async () => ({ response: 'answer' })
         })
@@ -54,10 +54,10 @@ test('REQ-DISPATCH-007 rejects transport options that can replace authoritative 
   }
 });
 
-test('REQ-DISPATCH-008 binds durable direct answer and report bytes into the completed result', async () => {
+test('REQ-DISPATCH-008 binds durable Web answer and Deep report bytes into the completed result', async () => {
   const root = await mkdtemp(join(tmpdir(), 'review-round2-output-hash-'));
   const cases = [
-    { kind: 'answer', mode: undefined, payload: 'standard bytes\n', conversationId: 'hash-standard-1', tool: '' },
+    { kind: 'answer', mode: 'web', payload: 'web bytes\n', conversationId: 'hash-web-1', tool: 'Web Search' },
     { kind: 'report', mode: 'deep', payload: '# report\n', conversationId: 'hash-deep-1', tool: 'Deep Research' }
   ];
   try {

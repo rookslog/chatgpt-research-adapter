@@ -19,7 +19,7 @@ async function preparedSubmitCase(run) {
   try {
     await mkdir(outputRoot);
     await prepareResearchJob({
-      request: { question: 'preserve provenance', template_id: 'research-question', template_version: '1.0.0' },
+      request: { model_family: 'gpt-5.6-pro', effort: 'standard', question: 'preserve provenance', template_id: 'research-question', template_version: '1.0.0' },
       outputRoot,
       templatesRoot,
       now: '2026-08-26T22:40:00.000Z',

@@ -7,10 +7,12 @@ import test from 'node:test';
 
 import { runCli } from '../src/cli.js';
 import { directAsk, submitDirectPreparedJob } from '../src/direct-ask.js';
-import { createDispatchIntent, persistDispatchIntent } from '../src/dispatch-receipts.js';
+import { createDispatchIntent, persistDispatchIntent, persistDispatchHandoff, persistCompletedResult, persistRecoveryRequiredResult } from '../src/dispatch-receipts.js';
+import { loadPreparedBundle } from '../src/prepared-bundle.js';
+
 import { prepareResearchJob } from '../src/prepare.js';
 import { persistPreparedJob } from '../src/receipts.js';
-import { submitPreparedJobOnce } from '../src/submit-once.js';
+
 
 const templatesRoot = new URL('../templates/', import.meta.url).pathname;
 const dispatchBundle = Object.freeze({
@@ -102,7 +104,7 @@ test('REQ-DISPATCH-004 failed intent publication does not publish or wedge the d
   }
 });
 
-test('REQ-DISPATCH-002 persists direct intent before ask and provider handoff before collection', async () => {
+test('REQ-DISPATCH-002 Web persists direct intent before ask and provider handoff before collection', async () => {
   const root = await mkdtemp(join(tmpdir(), 'review-hardening-handoff-'));
   const outputRoot = join(root, 'output');
   await mkdir(outputRoot);
@@ -111,7 +113,7 @@ test('REQ-DISPATCH-002 persists direct intent before ask and provider handoff be
   try {
     await assert.rejects(
       directAsk({
-        question: 'preserve handoff',
+        mode: 'web', question: 'preserve handoff',
         outputRoot,
         openCliPath: '/tmp/opencli',
         templatesRoot,
@@ -125,10 +127,10 @@ test('REQ-DISPATCH-002 persists direct intent before ask and provider handoff be
             askCalls += 1;
             const intent = JSON.parse(await readFile(join(jobPath, 'response', 'intent.json'), 'utf8'));
             assert.equal(intent.job_id, 'job_handoff');
-            assert.equal(intent.mode, 'standard');
-            return { conversationId: 'handoff-1', conversationUrl: 'https://chatgpt.com/c/handoff-1', tool: '', response: '' };
+            assert.equal(intent.mode, 'web');
+            return { conversationId: 'handoff-1', conversationUrl: 'https://chatgpt.com/c/handoff-1', tool: 'Web Search', response: '' };
           },
-          readDetail: async () => { const error = new Error('reader failed after provider handoff'); error.code = 'ERR_TEST_READ'; throw error; }
+          readDetail: async () => { const persisted = JSON.parse(await readFile(join(jobPath, 'response', 'handoff.json'), 'utf8')); assert.equal(persisted.status, 'accepted'); assert.equal(persisted.conversation_id, 'handoff-1'); const error = new Error('reader failed after provider handoff'); error.code = 'ERR_TEST_READ'; throw error; }
         })
       }),
       { code: 'ERR_TEST_READ' }
@@ -147,35 +149,27 @@ test('REQ-DISPATCH-002 persists direct intent before ask and provider handoff be
   }
 });
 
-test('REQ-DISPATCH-006 blank successful submit becomes durable recovery state instead of escaping unclassified', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'review-hardening-blank-'));
-  const outputRoot = join(root, 'output');
-  const opencli = join(root, 'opencli');
-  await mkdir(outputRoot);
-  await prepareResearchJob({
-    request: { question: 'blank answer', template_id: 'research-question', template_version: '1.0.0' },
-    outputRoot,
-    templatesRoot,
-    now: '2026-08-26T17:33:00.000Z',
-    newJobId: () => 'job_blank',
-    newTurnId: () => 'turn_blank'
-  });
-  await writeFile(opencli, `#!/usr/bin/env node\nif (process.argv[2] === '--version') console.log('1.8.7');\nelse console.log(JSON.stringify([{conversationId:'blank-1',conversationUrl:'https://chatgpt.com/c/blank-1',tool:'',response:''}]));\n`, { mode: 0o700 });
-  const moments = ['2026-08-26T17:34:00.000Z', '2026-08-26T17:35:00.000Z', '2026-08-26T17:36:00.000Z'];
+test('REQ-DISPATCH-006 legacy receipt persistence links accepted handoff to recovery with prohibited retry', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'legacy-recovery-storage-'));
   try {
-    const result = await submitPreparedJobOnce({ outputRoot, jobId: 'job_blank', openCliPath: opencli, now: () => moments.shift() });
+    const { jobRoot, bundle, now, intent } = await historicalStorage(root);
+    const saved = await persistDispatchIntent({ jobRoot, intent });
+    const common = { jobRoot, bundle, now, intentSha256: saved.intent_sha256, conversationId: 'blank-1', conversationUrl: 'https://chatgpt.com/c/blank-1' };
+    const handoff = await persistDispatchHandoff({ ...common, tool: '' });
+    const result = await persistRecoveryRequiredResult({ ...common, handoffSha256: handoff.handoff_sha256, disposition: 'ERR_OPENCLI_OUTPUT' });
     assert.equal(result.status, 'recovery_required');
     assert.equal(result.process_disposition, 'ERR_OPENCLI_OUTPUT');
+    assert.equal(result.remote_effect, 'accepted');
     assert.equal(result.conversation_id, 'blank-1');
     assert.equal(result.retry_decision, 'prohibited');
-    const handoff = JSON.parse(await readFile(join(outputRoot, 'jobs', 'job_blank', 'dispatch', 'handoff.json'), 'utf8'));
-    assert.equal(handoff.conversation_id, 'blank-1');
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
+    assert.equal(result.intent_sha256, createHash('sha256').update(await readFile(saved.intent_path)).digest('hex'));
+    assert.equal(result.handoff_sha256, createHash('sha256').update(await readFile(handoff.handoff_path)).digest('hex'));
+    assert.deepEqual(JSON.parse(await readFile(join(jobRoot, 'dispatch', 'result.json'), 'utf8')), result);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('REQ-DISPATCH-006 direct ask failure after durable intent records ambiguous effect without retry', async () => {
+
+test('REQ-DISPATCH-006 Web direct ask failure after durable intent records ambiguous effect without retry', async () => {
   const root = await mkdtemp(join(tmpdir(), 'review-hardening-direct-ambiguous-'));
   const outputRoot = join(root, 'output');
   await mkdir(outputRoot);
@@ -183,7 +177,7 @@ test('REQ-DISPATCH-006 direct ask failure after durable intent records ambiguous
   let askCalls = 0;
   try {
     const outcome = await directAsk({
-      question: 'classify ambiguous send',
+      mode: 'web', question: 'classify ambiguous send',
       outputRoot,
       openCliPath: '/tmp/opencli',
       templatesRoot,
@@ -206,3 +200,16 @@ test('REQ-DISPATCH-006 direct ask failure after durable intent records ambiguous
     await rm(root, { recursive: true, force: true });
   }
 });
+
+// Synthetic historical receipt construction on exact frozen v1 preparation; no transport.
+async function historicalStorage(root) {
+  const outputRoot = join(root, 'historical');
+  const jobRoot = join(outputRoot, 'jobs', 'job_legacy_standard');
+  await mkdir(jobRoot, { recursive: true });
+  for (const name of ['current.json', 'events.jsonl', 'prompt.txt']) await writeFile(join(jobRoot, name), await readFile(new URL(`./fixtures/standard-prepared-v1/${name}`, import.meta.url)));
+  const bundle = await loadPreparedBundle({ outputRoot, jobId: 'job_legacy_standard' });
+  const now = '2026-08-26T23:10:00.000Z';
+  const executable = { supplied_path: '/tmp/historical-opencli', real_path: '/tmp/historical-opencli', sha256: 'e'.repeat(64), size: 123, device: '1', inode: '2', version: '1.8.7' };
+  const intent = createDispatchIntent({ bundle, executable, now });
+  return { jobRoot, bundle, now, intent };
+}

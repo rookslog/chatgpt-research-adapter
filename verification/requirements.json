@@ -5,42 +5,82 @@
       "id": "REQ-DISPATCH-001",
       "level": "hard",
       "external": false,
-      "statement": "No provider mutation may occur before a durable dispatch intent exists.",
+      "statement": "No provider mutation may occur before a durable dispatch intent exists. Current active orchestration binding is Web; the new Standard driver remains unqualified.",
       "bindings": [
-        { "type": "integration", "path": "test/submit-once.test.js", "test": "submits once only after intent and persists one validated completed answer" }
+        {
+          "type": "integration",
+          "path": "test/review-hardening.test.js",
+          "test": "REQ-DISPATCH-002 Web persists direct intent before ask and provider handoff before collection"
+        }
       ]
     },
     {
       "id": "REQ-DISPATCH-002",
       "level": "hard",
       "external": false,
-      "statement": "A valid provider conversation reference must become durable before subsequent collection work.",
+      "statement": "A valid provider conversation reference must become durable before subsequent collection work. Current active orchestration binding is Web; Standard recovery remains outstanding.",
       "bindings": [
-        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-002 persists direct intent before ask and provider handoff before collection" }
+        {
+          "type": "integration",
+          "path": "test/review-hardening.test.js",
+          "test": "REQ-DISPATCH-002 Web persists direct intent before ask and provider handoff before collection"
+        }
       ]
     },
     {
       "id": "REQ-DISPATCH-003",
       "level": "hard",
       "external": false,
-      "statement": "Failure after a durable provider handoff must preserve the handoff and prohibit automatic resubmission.",
+      "statement": "Failure after a durable provider handoff must preserve the handoff and prohibit automatic resubmission. Current bindings cover Web/Deep orchestration and explicitly named legacy receipt storage, not the new Standard driver.",
       "bindings": [
-        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-002 persists direct intent before ask and provider handoff before collection" },
-        { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-DISPATCH-003 records recovery when Deep Research result canonicalization fails after handoff" },
-        { "type": "integration", "path": "test/review-final6.test.js", "test": "REQ-DISPATCH-003 submit-once records recovery when completed-result persistence fails after handoff" },
-        { "type": "integration", "path": "test/review-assurance6.test.js", "test": "REQ-DISPATCH-003 submit-once recovers when completed result fails after result bytes are written" },
-        { "type": "integration", "path": "test/review-assurance6.test.js", "test": "REQ-DISPATCH-003 direct ask preserves recovery when completed result fails after result bytes are written" }
+        {
+          "type": "integration",
+          "path": "test/review-hardening.test.js",
+          "test": "REQ-DISPATCH-002 Web persists direct intent before ask and provider handoff before collection"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-round3.test.js",
+          "test": "REQ-DISPATCH-003 records recovery when Deep Research result canonicalization fails after handoff"
+        },
+        {
+          "type": "test",
+          "path": "test/review-final6.test.js",
+          "test": "REQ-DISPATCH-003 legacy receipt storage preserves accepted recovery after after-answer-directory-sync fault"
+        },
+        {
+          "type": "test",
+          "path": "test/review-assurance6.test.js",
+          "test": "REQ-DISPATCH-003 legacy receipt storage preserves accepted recovery after after-result-write fault"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-assurance6.test.js",
+          "test": "REQ-DISPATCH-003 Web direct ask preserves recovery when completed result fails after result bytes are written"
+        }
       ]
     },
     {
       "id": "REQ-DISPATCH-004",
       "level": "hard",
       "external": false,
-      "statement": "A known-unsent pre-intent or intent-publication failure must not permanently wedge the dispatch slot.",
+      "statement": "A known-unsent pre-intent or intent-publication failure must not permanently wedge the dispatch slot. Current bindings cover actual pre-input Web failures and legacy storage; storage retry is not provider retry permission and historical intent-only outcomes remain unknown.",
       "bindings": [
-        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-004 failed intent publication does not publish or wedge the dispatch slot" },
-        { "type": "integration", "path": "test/review-final6.test.js", "test": "REQ-DISPATCH-004 direct intent publication failure does not wedge a known-unsent job" },
-        { "type": "integration", "path": "test/review-assurance6.test.js", "test": "REQ-DISPATCH-004 post-rename intent failure does not wedge a known-unsent submit" }
+        {
+          "type": "integration",
+          "path": "test/review-hardening.test.js",
+          "test": "REQ-DISPATCH-004 failed intent publication does not publish or wedge the dispatch slot"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-final6.test.js",
+          "test": "REQ-DISPATCH-004 Web pre-input intent publication failure permits later completion"
+        },
+        {
+          "type": "test",
+          "path": "test/review-assurance6.test.js",
+          "test": "REQ-DISPATCH-004 legacy intent storage removes failed publication and permits exclusive storage write"
+        }
       ]
     },
     {
@@ -49,18 +89,34 @@
       "external": false,
       "statement": "Completed state may be published only after the required answer bytes are durable.",
       "bindings": [
-        { "type": "integration", "path": "test/dispatch-receipts.test.js", "test": "publishes exact answer before a completed result bound to its hashes" },
-        { "type": "integration", "path": "test/dispatch-receipts.test.js", "test": "faults cannot declare completion before a durable answer and existing bytes never change" }
+        {
+          "type": "integration",
+          "path": "test/dispatch-receipts.test.js",
+          "test": "publishes exact answer before a completed result bound to its hashes"
+        },
+        {
+          "type": "integration",
+          "path": "test/dispatch-receipts.test.js",
+          "test": "faults cannot declare completion before a durable answer and existing bytes never change"
+        }
       ]
     },
     {
       "id": "REQ-DISPATCH-006",
       "level": "hard",
       "external": false,
-      "statement": "Uncertain or incomplete post-intent outcomes must become durable non-retry states rather than escape unclassified.",
+      "statement": "Uncertain or incomplete post-intent outcomes must become durable non-retry states rather than escape unclassified. Current bindings cover Web orchestration and legacy receipt persistence; new Standard orchestration is outstanding.",
       "bindings": [
-        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-006 blank successful submit becomes durable recovery state instead of escaping unclassified" },
-        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-DISPATCH-006 direct ask failure after durable intent records ambiguous effect without retry" }
+        {
+          "type": "test",
+          "path": "test/review-hardening.test.js",
+          "test": "REQ-DISPATCH-006 legacy receipt persistence links accepted handoff to recovery with prohibited retry"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-hardening.test.js",
+          "test": "REQ-DISPATCH-006 Web direct ask failure after durable intent records ambiguous effect without retry"
+        }
       ]
     },
     {
@@ -69,17 +125,29 @@
       "external": false,
       "statement": "Transport tuning must not replace the prepared prompt, selected mode, or executable identity used for provider dispatch.",
       "bindings": [
-        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-DISPATCH-007 rejects transport options that can replace authoritative dispatch inputs" },
-        { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-DISPATCH-007 submit-once rejects transport options that can replace provenance-bound inputs" }
+        {
+          "type": "integration",
+          "path": "test/review-round2.test.js",
+          "test": "REQ-DISPATCH-007 Web rejects transport options that can replace authoritative dispatch inputs"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-round3.test.js",
+          "test": "REQ-DISPATCH-007 submit-once rejects transport options that can replace provenance-bound inputs"
+        }
       ]
     },
     {
       "id": "REQ-DISPATCH-008",
       "level": "hard",
       "external": false,
-      "statement": "Completed direct answer and report receipts must bind the exact durable artifact bytes with SHA-256 and byte count.",
+      "statement": "Completed direct answer and report receipts must bind the exact durable artifact bytes with SHA-256 and byte count. Current orchestration binding covers Web answers and Deep reports.",
       "bindings": [
-        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-DISPATCH-008 binds durable direct answer and report bytes into the completed result" }
+        {
+          "type": "integration",
+          "path": "test/review-round2.test.js",
+          "test": "REQ-DISPATCH-008 binds durable Web answer and Deep report bytes into the completed result"
+        }
       ]
     },
     {
@@ -88,7 +156,11 @@
       "external": false,
       "statement": "Semantically accepted ChatGPT conversation URLs must be canonicalized before durable handoff persistence.",
       "bindings": [
-        { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-DISPATCH-009 canonicalizes semantically accepted ChatGPT conversation URLs" }
+        {
+          "type": "integration",
+          "path": "test/review-round3.test.js",
+          "test": "REQ-DISPATCH-009 canonicalizes semantically accepted ChatGPT conversation URLs"
+        }
       ]
     },
     {
@@ -97,11 +169,31 @@
       "external": false,
       "statement": "Markdown compatibility detail reads must patch and clean up only a private copy, isolate disposable HOME/USERPROFILE-derived OpenCLI state, and preserve the caller's explicitly selected OpenCLI/XDG configuration.",
       "bindings": [
-        { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 patches a read-only converter only inside the private workspace" },
-        { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 isolates the copied OpenCLI user runtime from caller HOME" },
-        { "type": "integration", "path": "test/review-assurance7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 preserves caller OpenCLI and XDG config while isolating HOME" },
-        { "type": "integration", "path": "test/review-assurance7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 isolates Windows USERPROFILE with the disposable HOME" },
-        { "type": "integration", "path": "test/review-assurance7.test.js", "test": "REQ-OPENCLI-MARKDOWN-001 cleans up a compatibility copy whose source directories are read-only" }
+        {
+          "type": "integration",
+          "path": "test/review-final7.test.js",
+          "test": "REQ-OPENCLI-MARKDOWN-001 patches a read-only converter only inside the private workspace"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-final7.test.js",
+          "test": "REQ-OPENCLI-MARKDOWN-001 isolates the copied OpenCLI user runtime from caller HOME"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-assurance7.test.js",
+          "test": "REQ-OPENCLI-MARKDOWN-001 preserves caller OpenCLI and XDG config while isolating HOME"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-assurance7.test.js",
+          "test": "REQ-OPENCLI-MARKDOWN-001 isolates Windows USERPROFILE with the disposable HOME"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-assurance7.test.js",
+          "test": "REQ-OPENCLI-MARKDOWN-001 cleans up a compatibility copy whose source directories are read-only"
+        }
       ]
     },
     {
@@ -110,16 +202,29 @@
       "external": false,
       "statement": "Markdown compatibility detail reads must preserve access to both package-local and ancestor-hoisted OpenCLI dependencies.",
       "bindings": [
-        { "type": "integration", "path": "test/review-final7.test.js", "test": "REQ-OPENCLI-MARKDOWN-002 preserves package-local and ancestor-hoisted dependency resolution" }
+        {
+          "type": "integration",
+          "path": "test/review-final7.test.js",
+          "test": "REQ-OPENCLI-MARKDOWN-002 preserves package-local and ancestor-hoisted dependency resolution"
+        }
       ]
     },
     {
       "id": "REQ-OPENCLI-001",
       "level": "hard",
       "external": false,
-      "statement": "Provider subprocesses must execute the verified real OpenCLI path rather than reopening a mutable supplied alias after identity verification.",
+      "statement": "OpenCLI preflight executes the resolved executable identity. Compatibility submissions execute an adapter-owned copy derived from its resolved package root, with copied executable bytes and size checked against the accepted identity; execution must not reopen the supplied alias. Preflight and temporary-copy behavior have integration bindings; copied-identity rejection and alias-substitution regressions remain an explicit verification obligation.",
       "bindings": [
-        { "type": "integration", "path": "test/review-final6.test.js", "test": "REQ-OPENCLI-001 executes the verified real OpenCLI path rather than a mutable supplied alias" }
+        {
+          "type": "integration",
+          "path": "test/review-final6.test.js",
+          "test": "REQ-OPENCLI-001 preflight executes the resolved real OpenCLI path rather than a mutable supplied alias"
+        },
+        {
+          "type": "integration",
+          "path": "test/opencli-web-selector-compat.test.js",
+          "test": "web ask patches only a temporary pinned selector and preserves Browser Bridge routing environment"
+        }
       ]
     },
     {
@@ -128,7 +233,11 @@
       "external": false,
       "statement": "OpenCLI executable bytes must be size-bounded before the executable is read into memory for identity verification.",
       "bindings": [
-        { "type": "integration", "path": "test/review-assurance6.test.js", "test": "REQ-OPENCLI-002 rejects oversized executable bytes before reading the executable" }
+        {
+          "type": "integration",
+          "path": "test/review-assurance6.test.js",
+          "test": "REQ-OPENCLI-002 rejects oversized executable bytes before reading the executable"
+        }
       ]
     },
     {
@@ -137,7 +246,11 @@
       "external": false,
       "statement": "Prepare must reject a relative dispatchable output root at the CLI boundary.",
       "bindings": [
-        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-CLI-001 rejects a relative prepare output root at the CLI boundary" }
+        {
+          "type": "integration",
+          "path": "test/review-hardening.test.js",
+          "test": "REQ-CLI-001 rejects a relative prepare output root at the CLI boundary"
+        }
       ]
     },
     {
@@ -146,8 +259,16 @@
       "external": false,
       "statement": "Prepared-job publication must sync each newly created parent directory entry required to make the published job durable.",
       "bindings": [
-        { "type": "integration", "path": "test/review-hardening.test.js", "test": "REQ-PREPARED-001 syncs the jobs directory after publishing a prepared job" },
-        { "type": "integration", "path": "test/review-assurance6.test.js", "test": "REQ-PREPARED-001 syncs output root after first jobs directory publication" }
+        {
+          "type": "integration",
+          "path": "test/review-hardening.test.js",
+          "test": "REQ-PREPARED-001 syncs the jobs directory after publishing a prepared job"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-assurance6.test.js",
+          "test": "REQ-PREPARED-001 syncs output root after first jobs directory publication"
+        }
       ]
     },
     {
@@ -156,7 +277,11 @@
       "external": false,
       "statement": "Built-in rigor-profile lookup must not traverse a symlinked profiles container outside rigorRoot.",
       "bindings": [
-        { "type": "integration", "path": "test/review-round2.test.js", "test": "REQ-RIGOR-001 rejects a symlinked built-in profiles container" }
+        {
+          "type": "integration",
+          "path": "test/review-round2.test.js",
+          "test": "REQ-RIGOR-001 rejects a symlinked built-in profiles container"
+        }
       ]
     },
     {
@@ -165,8 +290,16 @@
       "external": false,
       "statement": "Template registry and manifest files must be size-bounded before their bytes are read into memory.",
       "bindings": [
-        { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-TEMPLATE-001 rejects an oversized template registry before reading it" },
-        { "type": "integration", "path": "test/review-round3.test.js", "test": "REQ-TEMPLATE-001 rejects an oversized template manifest before reading it" }
+        {
+          "type": "integration",
+          "path": "test/review-round3.test.js",
+          "test": "REQ-TEMPLATE-001 rejects an oversized template registry before reading it"
+        },
+        {
+          "type": "integration",
+          "path": "test/review-round3.test.js",
+          "test": "REQ-TEMPLATE-001 rejects an oversized template manifest before reading it"
+        }
       ]
     },
     {
@@ -175,7 +308,11 @@
       "external": false,
       "statement": "A duplicate submit must fail before another executable process can create a provider effect.",
       "bindings": [
-        { "type": "integration", "path": "test/submit-once.test.js", "test": "duplicate submit refuses before any executable process and preserves prior bytes" }
+        {
+          "type": "integration",
+          "path": "test/submit-once.test.js",
+          "test": "legacy submit-once refuses prior completed evidence and preserves every receipt byte"
+        }
       ]
     },
     {
@@ -184,9 +321,21 @@
       "external": false,
       "statement": "After an accepted Deep handoff, status, collect, and wait must not create another provider submission; the typed collector grammar must reject prompts and modes.",
       "bindings": [
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "returns an immutable Deep running receipt after one handoff without reading a result" },
-        { "type": "integration", "path": "test/ask-cli.test.js", "test": "routes typed Deep lifecycle commands without accepting prompts or modes" },
-        { "type": "integration", "path": "test/opencli-transport.test.js", "test": "uses a nonwaiting Deep observation and maps only exit 66 to not-ready" }
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "returns an immutable Deep running receipt after one handoff without reading a result"
+        },
+        {
+          "type": "integration",
+          "path": "test/ask-cli.test.js",
+          "test": "routes typed Deep lifecycle commands without accepting prompts or modes"
+        },
+        {
+          "type": "integration",
+          "path": "test/opencli-transport.test.js",
+          "test": "uses a nonwaiting Deep observation and maps only exit 66 to not-ready"
+        }
       ]
     },
     {
@@ -195,8 +344,16 @@
       "external": false,
       "statement": "A durable accepted Deep handoff must remain resumable across restart without automatic resubmission, while an intent without handoff remains an attention state.",
       "bindings": [
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "resumes a persisted Deep handoff through pending, collect, and wait without resubmitting" },
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "keeps accepted Deep collection failures nonterminal and does not resubmit" }
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "resumes a persisted Deep handoff through pending, collect, and wait without resubmitting"
+        },
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "keeps accepted Deep collection failures nonterminal and does not resubmit"
+        }
       ]
     },
     {
@@ -205,8 +362,16 @@
       "external": false,
       "statement": "A completed Deep observation must publish and bind the durable report and immutable terminal result before reporting completion.",
       "bindings": [
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "publishes one exact completion event only after the durable Deep result and report" },
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "never exposes a report after a staging crash and recovers a byte-identical published report" }
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "publishes one exact completion event only after the durable Deep result and report"
+        },
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "never exposes a report after a staging crash and recovers a byte-identical published report"
+        }
       ]
     },
     {
@@ -215,10 +380,26 @@
       "external": false,
       "statement": "Deep collection serialization must use immutable append-only generations: concurrent collectors share one terminal result, a dead owner may advance, and a live or stale owner cannot alter a newer generation.",
       "bindings": [
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "serializes concurrent Deep collectors onto one immutable completed result" },
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "advances beyond a provably dead immutable collector owner without deleting it" },
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "does not steal a live long-running collector owner" },
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "an ABA stale generation cannot affect a newer live collector" }
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "serializes concurrent Deep collectors onto one immutable completed result"
+        },
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "advances beyond a provably dead immutable collector owner without deleting it"
+        },
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "does not steal a live long-running collector owner"
+        },
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "an ABA stale generation cannot affect a newer live collector"
+        }
       ]
     },
     {
@@ -227,10 +408,26 @@
       "external": false,
       "statement": "The Deep completion event must be published after report and result bytes, and every collector that returns completed must finalize or validate that immutable event first.",
       "bindings": [
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "publishes one exact completion event only after the durable Deep result and report" },
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "a collector that waited for a terminal result finalizes its missing event without transport" },
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "a wait-null follower rereads and finalizes a result published in that gap" },
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "fails closed for malformed, symlinked, or different preexisting completion events" }
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "publishes one exact completion event only after the durable Deep result and report"
+        },
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "a collector that waited for a terminal result finalizes its missing event without transport"
+        },
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "a wait-null follower rereads and finalizes a result published in that gap"
+        },
+        {
+          "type": "integration",
+          "path": "test/direct-ask.test.js",
+          "test": "fails closed for malformed, symlinked, or different preexisting completion events"
+        }
       ]
     },
     {
@@ -239,17 +436,142 @@
       "external": false,
       "statement": "Production source and capability authority must remain pinned and fail closed on unapproved drift.",
       "bindings": [
-        { "type": "static-check", "path": "scripts/m002-authority-check.js" }
+        {
+          "type": "static-check",
+          "path": "scripts/m002-authority-check.js"
+        }
       ]
     },
     {
       "id": "REQ-PROVIDER-001",
       "level": "hard",
       "external": true,
-      "statement": "Claims about usable native ChatGPT provider behavior require bounded live qualification in addition to deterministic wrapper tests.",
+      "statement": "Claims about usable native ChatGPT provider behavior require bounded live qualification in addition to deterministic wrapper tests. Historical M004 live evidence does not qualify the new Standard driver; its current qualification gate remains unmet.",
       "bindings": [
-        { "type": "integration", "path": "test/direct-ask.test.js", "test": "persists a standard answer from one mode-aware OpenCLI ask" },
-        { "type": "live-qualification", "path": "docs/M004-PLAN.md" }
+        {
+          "type": "manual-gate",
+          "path": "docs/STANDARD-GROUNDWORK.md"
+        },
+        {
+          "type": "live-qualification",
+          "path": "docs/M004-PLAN.md"
+        }
+      ]
+    },
+    {
+      "id": "REQ-STANDARD-INTENT-001",
+      "level": "hard",
+      "external": false,
+      "statement": "The CLI must refuse a Standard ask with missing model-family and effort intent before output creation or OpenCLI invocation. This binding covers the CLI omission path only.",
+      "bindings": [
+        {
+          "type": "integration",
+          "path": "test/standard-intent-cli.test.js",
+          "test": "real CLI refuses Standard without model family and effort before filesystem or OpenCLI effects"
+        }
+      ]
+    },
+    {
+      "id": "REQ-STANDARD-INTENT-002",
+      "level": "hard",
+      "external": false,
+      "statement": "The CLI parses supported explicit Standard intent and refuses an unqualified driver before output creation or executable invocation. Intent vocabulary does not establish qualification.",
+      "bindings": [
+        {
+          "type": "integration",
+          "path": "test/standard-intent-flags-cli.test.js",
+          "test": "real CLI parses ${value} intent (${reverse ? 'effort first' : 'family first'}, ${explicitMode ? 'explicit' : 'default'} Standard) then refuses the unqualified driver"
+        }
+      ]
+    },
+    {
+      "id": "REQ-STANDARD-PREPARED-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Explicit Standard preparation persists a closed v2 artifact with consistent model/effort intent and unchanged prompt semantics; historical v1 loading must not invent intent.",
+      "bindings": [
+        {
+          "type": "integration",
+          "path": "test/standard-prepared.test.js",
+          "test": "standard prepare publishes an intent-bound v2 artifact through the real CLI"
+        },
+        {
+          "type": "integration",
+          "path": "test/standard-prepared.test.js",
+          "test": "historical v1 preparation remains readable without invented intent"
+        }
+      ]
+    },
+    {
+      "id": "REQ-STANDARD-PREPARED-002",
+      "level": "hard",
+      "external": false,
+      "statement": "Both legacy submission orchestrators must refuse new v2 Standard bundles before preflight or submission writes while the driver is unqualified.",
+      "bindings": [
+        {
+          "type": "integration",
+          "path": "test/standard-prepared.test.js",
+          "test": "v2 prepared artifacts cannot enter either legacy submission orchestrator"
+        }
+      ]
+    },
+    {
+      "id": "REQ-STANDARD-INTENT-003",
+      "level": "hard",
+      "external": false,
+      "statement": "Public Standard preparation and direct API admission require explicit intent before output mutation; accepted direct API intent remains refused until driver qualification.",
+      "bindings": [
+        {
+          "type": "integration",
+          "path": "test/standard-cutover.test.js",
+          "test": "real prepare CLI refuses omitted Standard intent before output mutation"
+        },
+        {
+          "type": "integration",
+          "path": "test/standard-cutover.test.js",
+          "test": "direct API refuses ${label} before creating output or invoking submit"
+        }
+      ]
+    },
+    {
+      "id": "REQ-STANDARD-PRIOR-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Standard prepared submissions refuse any prior dispatch/response/standard evidence before preflight, preserve bytes and links, and never relabel unknown outcomes as known-unsent.",
+      "bindings": [
+        {
+          "type": "integration",
+          "path": "test/standard-cutover.test.js",
+          "test": "${schema} with ${evidence}: ${boundary} refuses without changing evidence or preflight"
+        },
+        {
+          "type": "integration",
+          "path": "test/submit-once.test.js",
+          "test": "legacy submit-once preserves prior intent-only uncertainty without preflight"
+        }
+      ]
+    },
+    {
+      "id": "REQ-STANDARD-RAW-001",
+      "level": "hard",
+      "external": false,
+      "statement": "Raw Standard exports refuse an unqualified driver before transport effects, including default ask mode; raw ask admits only exact Web/Deep modes and refuses invalid/prototype/coercible modes. Historical parsing remains available; refusal is not driver qualification.",
+      "bindings": [
+        {
+          "type": "integration",
+          "path": "test/opencli-transport.test.js",
+          "test": "refuses explicit standard mode without an ask invocation"
+        },
+        {
+          "type": "integration",
+          "path": "test/raw-standard-transport.test.js",
+          "test": "${name} refuses ${modeName} mode with a valid local executable and zero spawn"
+        },
+        {
+          "type": "integration",
+          "path": "test/raw-standard-transport.test.js",
+          "test": "raw ask rejects ${label} mode before ${identityKind} identity and effects"
+        }
       ]
     }
   ]
