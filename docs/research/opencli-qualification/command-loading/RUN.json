@@ -1,0 +1,4830 @@
+{
+  "status": "pass",
+  "qualification": "source VM chain with native require resolution; not full runtime",
+  "node": "v26.5.0",
+  "opencli": "1.8.7",
+  "servedModel": "unknown",
+  "installedSourcesUnchanged": true,
+  "cleaned": true,
+  "cases": [
+    {
+      "kind": "refusal",
+      "commandSha256": "5fe38cd302885d842379d1d6901b2b80ec3fc2067a0560ce5a71f5831eb03986",
+      "callbackCount": 1,
+      "collisionSelectedCount": 0,
+      "exitCode": 1,
+      "collisions": [],
+      "metadata": {
+        "browser": true,
+        "access": "write",
+        "siteSession": "persistent",
+        "navigateBefore": false
+      },
+      "stderr": [
+        "{\"ok\":false,\"error\":{\"code\":\"ERR_STANDARD_DRIVER_UNQUALIFIED\",\"message\":\"Owned loading qualification refuses input\",\"exitCode\":1}}\n"
+      ],
+      "stdout": [],
+      "simulatedBuiltins": [
+        "node:fs",
+        "node:path",
+        "node:url",
+        "node:os",
+        "node:crypto",
+        "node:events",
+        "node:process",
+        "node:child_process"
+      ],
+      "additionalStub": "js-yaml (JSON rendering, load traps)",
+      "preflightTraps": [
+        "child_process.spawn",
+        "network.fetch",
+        "browser.page.nativeClick"
+      ],
+      "traps": [],
+      "loaded": [
+        "dist/src/main.js",
+        "dist/src/package-paths.js",
+        "dist/src/version.js",
+        "dist/src/errors.js",
+        "dist/src/runtime-detect.js",
+        "dist/src/constants.js",
+        "dist/src/discovery.js",
+        "dist/src/registry.js",
+        "dist/src/cli.js",
+        "commander/index.js",
+        "commander/lib/argument.js",
+        "commander/lib/error.js",
+        "commander/lib/command.js",
+        "commander/lib/help.js",
+        "commander/lib/option.js",
+        "commander/lib/suggestSimilar.js",
+        "dist/src/serialization.js",
+        "dist/src/commanderAdapter.js",
+        "dist/src/execution.js",
+        "dist/src/capabilityRouting.js",
+        "dist/src/runtime.js",
+        "dist/src/browser/config.js",
+        "dist/src/hooks.js",
+        "dist/src/help.js",
+        "<temporary>/refusal/home/.opencli/clis/chatgpt/research-standard.js",
+        "dist/src/registry-api.js",
+        "dist/src/cli-argv-preprocess.js"
+      ],
+      "stubsLoaded": [
+        {
+          "module": "dist/src/completion-fast.js",
+          "exports": [
+            "getCompletionsFromManifest",
+            "hasAllManifests",
+            "printCompletionScriptFast"
+          ]
+        },
+        {
+          "module": "dist/src/logger.js",
+          "exports": [
+            "log"
+          ]
+        },
+        {
+          "module": "dist/src/completion.js",
+          "exports": [
+            "printCompletionScript"
+          ]
+        },
+        {
+          "module": "dist/src/output.js",
+          "exports": [
+            "render"
+          ]
+        },
+        {
+          "module": "dist/src/external.js",
+          "exports": [
+            "loadExternalClis",
+            "executeExternalCli",
+            "installExternalCli",
+            "registerExternalCli",
+            "isBinaryInstalled",
+            "formatExternalCliLabel"
+          ]
+        },
+        {
+          "module": "dist/src/skills.js",
+          "exports": [
+            "listOpenCliSkills",
+            "readOpenCliSkill"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/index.js",
+          "exports": [
+            "executePipeline"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/registry.js",
+          "exports": [
+            "getRegisteredStepNames"
+          ]
+        },
+        {
+          "module": "dist/src/browser/index.js",
+          "exports": [
+            "BrowserBridge",
+            "CDPBridge"
+          ]
+        },
+        {
+          "module": "dist/src/electron-apps.js",
+          "exports": [
+            "isElectronApp"
+          ]
+        },
+        {
+          "module": "dist/src/browser/profile.js",
+          "exports": [
+            "aliasForContextId",
+            "loadProfileConfig",
+            "profileRouteParams",
+            "renameProfile",
+            "resolveProfileSelection",
+            "setDefaultProfile"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-client.js",
+          "exports": [
+            "bindTab",
+            "BrowserCommandError",
+            "sendCommand",
+            "clearDaemonRunContext",
+            "generateRunId",
+            "isUnknownOutcomeError",
+            "releaseSiteSessionLease",
+            "setDaemonCommandTimeoutSeconds",
+            "setDaemonRunContext"
+          ]
+        },
+        {
+          "module": "dist/src/launcher.js",
+          "exports": [
+            "probeCDP",
+            "resolveElectronEndpoint"
+          ]
+        },
+        {
+          "module": "dist/src/observation/index.js",
+          "exports": [
+            "ObservationSession",
+            "exportObservationSession"
+          ]
+        },
+        {
+          "module": "dist/src/adapter-source.js",
+          "exports": [
+            "resolveAdapterSourcePath"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-errors.js",
+          "exports": [
+            "TargetError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-resolver.js",
+          "exports": [
+            "resolveTargetJs",
+            "getTextResolvedJs",
+            "getValueResolvedJs",
+            "getAttributesResolvedJs",
+            "selectResolvedJs",
+            "isAutocompleteResolvedJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/find.js",
+          "exports": [
+            "buildFindJs",
+            "buildSemanticFindJs",
+            "isFindError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape.js",
+          "exports": [
+            "inferShape"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-key.js",
+          "exports": [
+            "assignKeys"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-cache.js",
+          "exports": [
+            "DEFAULT_TTL_MS",
+            "findEntry",
+            "loadNetworkCache",
+            "saveNetworkCache"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-interceptor.js",
+          "exports": [
+            "NETWORK_INTERCEPTOR_JS"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape-filter.js",
+          "exports": [
+            "parseFilter",
+            "shapeMatchesFilter"
+          ]
+        },
+        {
+          "module": "dist/src/browser/html-tree.js",
+          "exports": [
+            "buildHtmlTreeJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/extract.js",
+          "exports": [
+            "buildExtractHtmlJs",
+            "runExtractFromHtml"
+          ]
+        },
+        {
+          "module": "dist/src/browser/analyze.js",
+          "exports": [
+            "analyzeSite"
+          ]
+        },
+        {
+          "module": "dist/src/commands/auth.js",
+          "exports": [
+            "registerAuthCommands"
+          ]
+        },
+        {
+          "module": "dist/src/commands/daemon.js",
+          "exports": [
+            "daemonRestart",
+            "daemonStatus",
+            "daemonStop"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-transport.js",
+          "exports": [
+            "fetchDaemonStatus"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-version.js",
+          "exports": [
+            "formatDaemonVersion",
+            "isDaemonStale"
+          ]
+        },
+        {
+          "module": "dist/src/node-network.js",
+          "exports": [
+            "installNodeNetwork"
+          ]
+        },
+        {
+          "module": "dist/src/update-check.js",
+          "exports": [
+            "registerUpdateNoticeOnExit",
+            "checkForUpdateBackground"
+          ]
+        }
+      ],
+      "resolutions": [
+        {
+          "specifier": "./completion-fast.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion-fast.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./runtime-detect.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime-detect.js"
+        },
+        {
+          "specifier": "./constants.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/constants.js"
+        },
+        {
+          "specifier": "./discovery.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./cli.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js"
+        },
+        {
+          "specifier": "commander",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/commander/index.js"
+        },
+        {
+          "specifier": "./lib/argument.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/argument.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/command.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/command.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/help.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./option.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/option.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./suggestSimilar",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/suggestSimilar.js"
+        },
+        {
+          "specifier": "./lib/error.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/help.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./lib/option.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./external.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/external.js"
+        },
+        {
+          "specifier": "./skills.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/skills.js"
+        },
+        {
+          "specifier": "./commanderAdapter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./execution.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./pipeline/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./capabilityRouting.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js"
+        },
+        {
+          "specifier": "./pipeline/registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/registry.js"
+        },
+        {
+          "specifier": "./runtime.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js"
+        },
+        {
+          "specifier": "./browser/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "../logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./launcher.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/launcher.js"
+        },
+        {
+          "specifier": "./observation/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/observation/index.js"
+        },
+        {
+          "specifier": "./adapter-source.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/adapter-source.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./browser/target-errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-errors.js"
+        },
+        {
+          "specifier": "./browser/target-resolver.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-resolver.js"
+        },
+        {
+          "specifier": "./browser/find.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/find.js"
+        },
+        {
+          "specifier": "./browser/shape.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape.js"
+        },
+        {
+          "specifier": "./browser/network-key.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-key.js"
+        },
+        {
+          "specifier": "./browser/network-cache.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-cache.js"
+        },
+        {
+          "specifier": "./browser/network-interceptor.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-interceptor.js"
+        },
+        {
+          "specifier": "./browser/shape-filter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape-filter.js"
+        },
+        {
+          "specifier": "./browser/html-tree.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/html-tree.js"
+        },
+        {
+          "specifier": "./browser/extract.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/extract.js"
+        },
+        {
+          "specifier": "./browser/analyze.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/analyze.js"
+        },
+        {
+          "specifier": "./commands/auth.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/auth.js"
+        },
+        {
+          "specifier": "./commands/daemon.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/daemon.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./browser/daemon-transport.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-transport.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-version.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./node-network.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/node-network.js"
+        },
+        {
+          "specifier": "./update-check.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/update-check.js"
+        },
+        {
+          "specifier": "file://<temporary>/refusal/home/.opencli/clis/chatgpt/research-standard.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/refusal/home/.opencli/clis/chatgpt/research-standard.js"
+        },
+        {
+          "specifier": "@jackwener/opencli/registry",
+          "parent": "<temporary>/refusal/home/.opencli/clis/chatgpt/research-standard.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "@jackwener/opencli/errors",
+          "parent": "<temporary>/refusal/home/.opencli/clis/chatgpt/research-standard.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./cli-argv-preprocess.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli-argv-preprocess.js"
+        }
+      ],
+      "events": [
+        {
+          "type": "stub-network-install"
+        },
+        {
+          "type": "command-timeout",
+          "value": null
+        },
+        {
+          "type": "run-context",
+          "value": {
+            "runId": "run_123_synthetic",
+            "command": "chatgpt/research-standard",
+            "access": "write"
+          }
+        },
+        {
+          "type": "synthetic-browser-connect",
+          "options": {
+            "timeout": 45,
+            "session": "site:chatgpt",
+            "contextId": "synthetic-context",
+            "windowMode": "background",
+            "surface": "adapter",
+            "siteSession": "persistent"
+          }
+        },
+        {
+          "type": "main-evaluation-ended",
+          "callbacks": 0,
+          "exitSeen": false
+        },
+        {
+          "type": "synthetic-browser-close"
+        },
+        {
+          "type": "run-context",
+          "value": null
+        },
+        {
+          "type": "synthetic-lease-release"
+        },
+        {
+          "type": "action-settled",
+          "exitCode": 1
+        }
+      ],
+      "sentinelUnchanged": true
+    },
+    {
+      "kind": "missing-command",
+      "commandSha256": null,
+      "callbackCount": 0,
+      "collisionSelectedCount": 0,
+      "exitCode": 2,
+      "collisions": [],
+      "stderr": [
+        "error: unknown command 'chatgpt'"
+      ],
+      "stdout": [
+        "Usage: opencli [options] [command]\n\nMake any website your CLI. Zero setup. AI-powered.\n\nOptions:\n  -V, --version                        output the version number\n  --profile <name>                     Chrome profile/context alias for Browser\n                                       Bridge commands\n  -h, --help                           display help for command\n\nCommands:\n  list [options]                       List all available CLI commands\n  validate [target]                    Validate CLI definitions\n  verify [options] [target]            Validate + smoke test\n  skills                               list, read\n  auth\n  convention-audit [options] [target]  Scan adapters for agent-native convention\n                                       violations\n  browser [options]                    analyze, back, bind, check, click, close,\n                                       console, dblclick, dialog, drag, eval,\n                                       extract, fill, find, focus, frames, get,\n                                       hover, init, keys, network, open,\n                                       screenshot, scroll, select, state, tab,\n                                       type, unbind, uncheck, upload, verify,\n                                       wait\n  doctor [options]                     Diagnose opencli browser bridge\n                                       connectivity\n  completion <shell>                   Output shell completion script\n  plugin                               create, install, list, uninstall, update\n  adapter                              eject, reset, status\n  profile                              list, rename, use\n  daemon                               restart, status, stop\n  external                             install, list, register\n  antigravity                          serve\n"
+      ],
+      "simulatedBuiltins": [
+        "node:fs",
+        "node:path",
+        "node:url",
+        "node:os",
+        "node:crypto",
+        "node:events",
+        "node:process",
+        "node:child_process"
+      ],
+      "additionalStub": "js-yaml (JSON rendering, load traps)",
+      "preflightTraps": [
+        "child_process.spawn",
+        "network.fetch",
+        "browser.page.nativeClick"
+      ],
+      "traps": [],
+      "loaded": [
+        "dist/src/main.js",
+        "dist/src/package-paths.js",
+        "dist/src/version.js",
+        "dist/src/errors.js",
+        "dist/src/runtime-detect.js",
+        "dist/src/constants.js",
+        "dist/src/discovery.js",
+        "dist/src/registry.js",
+        "dist/src/cli.js",
+        "commander/index.js",
+        "commander/lib/argument.js",
+        "commander/lib/error.js",
+        "commander/lib/command.js",
+        "commander/lib/help.js",
+        "commander/lib/option.js",
+        "commander/lib/suggestSimilar.js",
+        "dist/src/serialization.js",
+        "dist/src/commanderAdapter.js",
+        "dist/src/execution.js",
+        "dist/src/capabilityRouting.js",
+        "dist/src/runtime.js",
+        "dist/src/browser/config.js",
+        "dist/src/hooks.js",
+        "dist/src/help.js",
+        "dist/src/cli-argv-preprocess.js"
+      ],
+      "stubsLoaded": [
+        {
+          "module": "dist/src/completion-fast.js",
+          "exports": [
+            "getCompletionsFromManifest",
+            "hasAllManifests",
+            "printCompletionScriptFast"
+          ]
+        },
+        {
+          "module": "dist/src/logger.js",
+          "exports": [
+            "log"
+          ]
+        },
+        {
+          "module": "dist/src/completion.js",
+          "exports": [
+            "printCompletionScript"
+          ]
+        },
+        {
+          "module": "dist/src/output.js",
+          "exports": [
+            "render"
+          ]
+        },
+        {
+          "module": "dist/src/external.js",
+          "exports": [
+            "loadExternalClis",
+            "executeExternalCli",
+            "installExternalCli",
+            "registerExternalCli",
+            "isBinaryInstalled",
+            "formatExternalCliLabel"
+          ]
+        },
+        {
+          "module": "dist/src/skills.js",
+          "exports": [
+            "listOpenCliSkills",
+            "readOpenCliSkill"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/index.js",
+          "exports": [
+            "executePipeline"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/registry.js",
+          "exports": [
+            "getRegisteredStepNames"
+          ]
+        },
+        {
+          "module": "dist/src/browser/index.js",
+          "exports": [
+            "BrowserBridge",
+            "CDPBridge"
+          ]
+        },
+        {
+          "module": "dist/src/electron-apps.js",
+          "exports": [
+            "isElectronApp"
+          ]
+        },
+        {
+          "module": "dist/src/browser/profile.js",
+          "exports": [
+            "aliasForContextId",
+            "loadProfileConfig",
+            "profileRouteParams",
+            "renameProfile",
+            "resolveProfileSelection",
+            "setDefaultProfile"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-client.js",
+          "exports": [
+            "bindTab",
+            "BrowserCommandError",
+            "sendCommand",
+            "clearDaemonRunContext",
+            "generateRunId",
+            "isUnknownOutcomeError",
+            "releaseSiteSessionLease",
+            "setDaemonCommandTimeoutSeconds",
+            "setDaemonRunContext"
+          ]
+        },
+        {
+          "module": "dist/src/launcher.js",
+          "exports": [
+            "probeCDP",
+            "resolveElectronEndpoint"
+          ]
+        },
+        {
+          "module": "dist/src/observation/index.js",
+          "exports": [
+            "ObservationSession",
+            "exportObservationSession"
+          ]
+        },
+        {
+          "module": "dist/src/adapter-source.js",
+          "exports": [
+            "resolveAdapterSourcePath"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-errors.js",
+          "exports": [
+            "TargetError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-resolver.js",
+          "exports": [
+            "resolveTargetJs",
+            "getTextResolvedJs",
+            "getValueResolvedJs",
+            "getAttributesResolvedJs",
+            "selectResolvedJs",
+            "isAutocompleteResolvedJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/find.js",
+          "exports": [
+            "buildFindJs",
+            "buildSemanticFindJs",
+            "isFindError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape.js",
+          "exports": [
+            "inferShape"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-key.js",
+          "exports": [
+            "assignKeys"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-cache.js",
+          "exports": [
+            "DEFAULT_TTL_MS",
+            "findEntry",
+            "loadNetworkCache",
+            "saveNetworkCache"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-interceptor.js",
+          "exports": [
+            "NETWORK_INTERCEPTOR_JS"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape-filter.js",
+          "exports": [
+            "parseFilter",
+            "shapeMatchesFilter"
+          ]
+        },
+        {
+          "module": "dist/src/browser/html-tree.js",
+          "exports": [
+            "buildHtmlTreeJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/extract.js",
+          "exports": [
+            "buildExtractHtmlJs",
+            "runExtractFromHtml"
+          ]
+        },
+        {
+          "module": "dist/src/browser/analyze.js",
+          "exports": [
+            "analyzeSite"
+          ]
+        },
+        {
+          "module": "dist/src/commands/auth.js",
+          "exports": [
+            "registerAuthCommands"
+          ]
+        },
+        {
+          "module": "dist/src/commands/daemon.js",
+          "exports": [
+            "daemonRestart",
+            "daemonStatus",
+            "daemonStop"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-transport.js",
+          "exports": [
+            "fetchDaemonStatus"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-version.js",
+          "exports": [
+            "formatDaemonVersion",
+            "isDaemonStale"
+          ]
+        },
+        {
+          "module": "dist/src/node-network.js",
+          "exports": [
+            "installNodeNetwork"
+          ]
+        },
+        {
+          "module": "dist/src/update-check.js",
+          "exports": [
+            "registerUpdateNoticeOnExit",
+            "checkForUpdateBackground"
+          ]
+        }
+      ],
+      "resolutions": [
+        {
+          "specifier": "./completion-fast.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion-fast.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./runtime-detect.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime-detect.js"
+        },
+        {
+          "specifier": "./constants.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/constants.js"
+        },
+        {
+          "specifier": "./discovery.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./cli.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js"
+        },
+        {
+          "specifier": "commander",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/commander/index.js"
+        },
+        {
+          "specifier": "./lib/argument.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/argument.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/command.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/command.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/help.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./option.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/option.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./suggestSimilar",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/suggestSimilar.js"
+        },
+        {
+          "specifier": "./lib/error.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/help.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./lib/option.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./external.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/external.js"
+        },
+        {
+          "specifier": "./skills.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/skills.js"
+        },
+        {
+          "specifier": "./commanderAdapter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./execution.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./pipeline/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./capabilityRouting.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js"
+        },
+        {
+          "specifier": "./pipeline/registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/registry.js"
+        },
+        {
+          "specifier": "./runtime.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js"
+        },
+        {
+          "specifier": "./browser/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "../logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./launcher.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/launcher.js"
+        },
+        {
+          "specifier": "./observation/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/observation/index.js"
+        },
+        {
+          "specifier": "./adapter-source.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/adapter-source.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./browser/target-errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-errors.js"
+        },
+        {
+          "specifier": "./browser/target-resolver.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-resolver.js"
+        },
+        {
+          "specifier": "./browser/find.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/find.js"
+        },
+        {
+          "specifier": "./browser/shape.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape.js"
+        },
+        {
+          "specifier": "./browser/network-key.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-key.js"
+        },
+        {
+          "specifier": "./browser/network-cache.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-cache.js"
+        },
+        {
+          "specifier": "./browser/network-interceptor.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-interceptor.js"
+        },
+        {
+          "specifier": "./browser/shape-filter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape-filter.js"
+        },
+        {
+          "specifier": "./browser/html-tree.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/html-tree.js"
+        },
+        {
+          "specifier": "./browser/extract.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/extract.js"
+        },
+        {
+          "specifier": "./browser/analyze.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/analyze.js"
+        },
+        {
+          "specifier": "./commands/auth.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/auth.js"
+        },
+        {
+          "specifier": "./commands/daemon.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/daemon.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./browser/daemon-transport.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-transport.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-version.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./node-network.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/node-network.js"
+        },
+        {
+          "specifier": "./update-check.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/update-check.js"
+        },
+        {
+          "specifier": "./cli-argv-preprocess.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli-argv-preprocess.js"
+        }
+      ],
+      "events": [
+        {
+          "type": "stub-network-install"
+        },
+        {
+          "type": "action-settled",
+          "exitCode": 2
+        },
+        {
+          "type": "main-evaluation-ended",
+          "callbacks": 0,
+          "exitSeen": true
+        }
+      ],
+      "sentinelUnchanged": true
+    },
+    {
+      "kind": "broken-import",
+      "commandSha256": "7079d5d5c8ab6f37f5fb6a0d33fd83d75e1742c3cdbb8637a2c89662af863d52",
+      "callbackCount": 0,
+      "collisionSelectedCount": 0,
+      "exitCode": 2,
+      "collisions": [],
+      "stderr": [
+        "error: unknown command 'chatgpt'"
+      ],
+      "stdout": [
+        "Usage: opencli [options] [command]\n\nMake any website your CLI. Zero setup. AI-powered.\n\nOptions:\n  -V, --version                        output the version number\n  --profile <name>                     Chrome profile/context alias for Browser\n                                       Bridge commands\n  -h, --help                           display help for command\n\nCommands:\n  list [options]                       List all available CLI commands\n  validate [target]                    Validate CLI definitions\n  verify [options] [target]            Validate + smoke test\n  skills                               list, read\n  auth\n  convention-audit [options] [target]  Scan adapters for agent-native convention\n                                       violations\n  browser [options]                    analyze, back, bind, check, click, close,\n                                       console, dblclick, dialog, drag, eval,\n                                       extract, fill, find, focus, frames, get,\n                                       hover, init, keys, network, open,\n                                       screenshot, scroll, select, state, tab,\n                                       type, unbind, uncheck, upload, verify,\n                                       wait\n  doctor [options]                     Diagnose opencli browser bridge\n                                       connectivity\n  completion <shell>                   Output shell completion script\n  plugin                               create, install, list, uninstall, update\n  adapter                              eject, reset, status\n  profile                              list, rename, use\n  daemon                               restart, status, stop\n  external                             install, list, register\n  antigravity                          serve\n"
+      ],
+      "simulatedBuiltins": [
+        "node:fs",
+        "node:path",
+        "node:url",
+        "node:os",
+        "node:crypto",
+        "node:events",
+        "node:process",
+        "node:child_process"
+      ],
+      "additionalStub": "js-yaml (JSON rendering, load traps)",
+      "preflightTraps": [
+        "child_process.spawn",
+        "network.fetch",
+        "browser.page.nativeClick"
+      ],
+      "traps": [],
+      "loaded": [
+        "dist/src/main.js",
+        "dist/src/package-paths.js",
+        "dist/src/version.js",
+        "dist/src/errors.js",
+        "dist/src/runtime-detect.js",
+        "dist/src/constants.js",
+        "dist/src/discovery.js",
+        "dist/src/registry.js",
+        "dist/src/cli.js",
+        "commander/index.js",
+        "commander/lib/argument.js",
+        "commander/lib/error.js",
+        "commander/lib/command.js",
+        "commander/lib/help.js",
+        "commander/lib/option.js",
+        "commander/lib/suggestSimilar.js",
+        "dist/src/serialization.js",
+        "dist/src/commanderAdapter.js",
+        "dist/src/execution.js",
+        "dist/src/capabilityRouting.js",
+        "dist/src/runtime.js",
+        "dist/src/browser/config.js",
+        "dist/src/hooks.js",
+        "dist/src/help.js",
+        "<temporary>/broken-import/home/.opencli/clis/chatgpt/research-standard.js",
+        "dist/src/cli-argv-preprocess.js"
+      ],
+      "stubsLoaded": [
+        {
+          "module": "dist/src/completion-fast.js",
+          "exports": [
+            "getCompletionsFromManifest",
+            "hasAllManifests",
+            "printCompletionScriptFast"
+          ]
+        },
+        {
+          "module": "dist/src/logger.js",
+          "exports": [
+            "log"
+          ]
+        },
+        {
+          "module": "dist/src/completion.js",
+          "exports": [
+            "printCompletionScript"
+          ]
+        },
+        {
+          "module": "dist/src/output.js",
+          "exports": [
+            "render"
+          ]
+        },
+        {
+          "module": "dist/src/external.js",
+          "exports": [
+            "loadExternalClis",
+            "executeExternalCli",
+            "installExternalCli",
+            "registerExternalCli",
+            "isBinaryInstalled",
+            "formatExternalCliLabel"
+          ]
+        },
+        {
+          "module": "dist/src/skills.js",
+          "exports": [
+            "listOpenCliSkills",
+            "readOpenCliSkill"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/index.js",
+          "exports": [
+            "executePipeline"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/registry.js",
+          "exports": [
+            "getRegisteredStepNames"
+          ]
+        },
+        {
+          "module": "dist/src/browser/index.js",
+          "exports": [
+            "BrowserBridge",
+            "CDPBridge"
+          ]
+        },
+        {
+          "module": "dist/src/electron-apps.js",
+          "exports": [
+            "isElectronApp"
+          ]
+        },
+        {
+          "module": "dist/src/browser/profile.js",
+          "exports": [
+            "aliasForContextId",
+            "loadProfileConfig",
+            "profileRouteParams",
+            "renameProfile",
+            "resolveProfileSelection",
+            "setDefaultProfile"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-client.js",
+          "exports": [
+            "bindTab",
+            "BrowserCommandError",
+            "sendCommand",
+            "clearDaemonRunContext",
+            "generateRunId",
+            "isUnknownOutcomeError",
+            "releaseSiteSessionLease",
+            "setDaemonCommandTimeoutSeconds",
+            "setDaemonRunContext"
+          ]
+        },
+        {
+          "module": "dist/src/launcher.js",
+          "exports": [
+            "probeCDP",
+            "resolveElectronEndpoint"
+          ]
+        },
+        {
+          "module": "dist/src/observation/index.js",
+          "exports": [
+            "ObservationSession",
+            "exportObservationSession"
+          ]
+        },
+        {
+          "module": "dist/src/adapter-source.js",
+          "exports": [
+            "resolveAdapterSourcePath"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-errors.js",
+          "exports": [
+            "TargetError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-resolver.js",
+          "exports": [
+            "resolveTargetJs",
+            "getTextResolvedJs",
+            "getValueResolvedJs",
+            "getAttributesResolvedJs",
+            "selectResolvedJs",
+            "isAutocompleteResolvedJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/find.js",
+          "exports": [
+            "buildFindJs",
+            "buildSemanticFindJs",
+            "isFindError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape.js",
+          "exports": [
+            "inferShape"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-key.js",
+          "exports": [
+            "assignKeys"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-cache.js",
+          "exports": [
+            "DEFAULT_TTL_MS",
+            "findEntry",
+            "loadNetworkCache",
+            "saveNetworkCache"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-interceptor.js",
+          "exports": [
+            "NETWORK_INTERCEPTOR_JS"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape-filter.js",
+          "exports": [
+            "parseFilter",
+            "shapeMatchesFilter"
+          ]
+        },
+        {
+          "module": "dist/src/browser/html-tree.js",
+          "exports": [
+            "buildHtmlTreeJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/extract.js",
+          "exports": [
+            "buildExtractHtmlJs",
+            "runExtractFromHtml"
+          ]
+        },
+        {
+          "module": "dist/src/browser/analyze.js",
+          "exports": [
+            "analyzeSite"
+          ]
+        },
+        {
+          "module": "dist/src/commands/auth.js",
+          "exports": [
+            "registerAuthCommands"
+          ]
+        },
+        {
+          "module": "dist/src/commands/daemon.js",
+          "exports": [
+            "daemonRestart",
+            "daemonStatus",
+            "daemonStop"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-transport.js",
+          "exports": [
+            "fetchDaemonStatus"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-version.js",
+          "exports": [
+            "formatDaemonVersion",
+            "isDaemonStale"
+          ]
+        },
+        {
+          "module": "dist/src/node-network.js",
+          "exports": [
+            "installNodeNetwork"
+          ]
+        },
+        {
+          "module": "dist/src/update-check.js",
+          "exports": [
+            "registerUpdateNoticeOnExit",
+            "checkForUpdateBackground"
+          ]
+        }
+      ],
+      "resolutions": [
+        {
+          "specifier": "./completion-fast.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion-fast.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./runtime-detect.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime-detect.js"
+        },
+        {
+          "specifier": "./constants.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/constants.js"
+        },
+        {
+          "specifier": "./discovery.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./cli.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js"
+        },
+        {
+          "specifier": "commander",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/commander/index.js"
+        },
+        {
+          "specifier": "./lib/argument.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/argument.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/command.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/command.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/help.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./option.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/option.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./suggestSimilar",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/suggestSimilar.js"
+        },
+        {
+          "specifier": "./lib/error.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/help.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./lib/option.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./external.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/external.js"
+        },
+        {
+          "specifier": "./skills.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/skills.js"
+        },
+        {
+          "specifier": "./commanderAdapter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./execution.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./pipeline/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./capabilityRouting.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js"
+        },
+        {
+          "specifier": "./pipeline/registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/registry.js"
+        },
+        {
+          "specifier": "./runtime.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js"
+        },
+        {
+          "specifier": "./browser/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "../logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./launcher.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/launcher.js"
+        },
+        {
+          "specifier": "./observation/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/observation/index.js"
+        },
+        {
+          "specifier": "./adapter-source.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/adapter-source.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./browser/target-errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-errors.js"
+        },
+        {
+          "specifier": "./browser/target-resolver.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-resolver.js"
+        },
+        {
+          "specifier": "./browser/find.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/find.js"
+        },
+        {
+          "specifier": "./browser/shape.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape.js"
+        },
+        {
+          "specifier": "./browser/network-key.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-key.js"
+        },
+        {
+          "specifier": "./browser/network-cache.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-cache.js"
+        },
+        {
+          "specifier": "./browser/network-interceptor.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-interceptor.js"
+        },
+        {
+          "specifier": "./browser/shape-filter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape-filter.js"
+        },
+        {
+          "specifier": "./browser/html-tree.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/html-tree.js"
+        },
+        {
+          "specifier": "./browser/extract.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/extract.js"
+        },
+        {
+          "specifier": "./browser/analyze.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/analyze.js"
+        },
+        {
+          "specifier": "./commands/auth.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/auth.js"
+        },
+        {
+          "specifier": "./commands/daemon.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/daemon.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./browser/daemon-transport.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-transport.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-version.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./node-network.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/node-network.js"
+        },
+        {
+          "specifier": "./update-check.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/update-check.js"
+        },
+        {
+          "specifier": "file://<temporary>/broken-import/home/.opencli/clis/chatgpt/research-standard.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/broken-import/home/.opencli/clis/chatgpt/research-standard.js"
+        },
+        {
+          "specifier": "./cli-argv-preprocess.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli-argv-preprocess.js"
+        }
+      ],
+      "events": [
+        {
+          "type": "stub-network-install"
+        },
+        {
+          "type": "warning",
+          "message": "Failed to load module <temporary>/broken-import/home/.opencli/clis/chatgpt/research-standard.js: Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './no-such-export' is not defined by \"exports\" in <temporary>/broken-import/home/.opencli/node_modules/@jackwener/opencli/package.json"
+        },
+        {
+          "type": "action-settled",
+          "exitCode": 2
+        },
+        {
+          "type": "main-evaluation-ended",
+          "callbacks": 0,
+          "exitSeen": true
+        }
+      ],
+      "sentinelUnchanged": true
+    },
+    {
+      "kind": "collision",
+      "commandSha256": "5fe38cd302885d842379d1d6901b2b80ec3fc2067a0560ce5a71f5831eb03986",
+      "callbackCount": 0,
+      "collisionSelectedCount": 0,
+      "exitCode": 1,
+      "collisions": [
+        "chatgpt/research-standard"
+      ],
+      "metadata": {
+        "browser": true,
+        "access": "write",
+        "siteSession": "persistent",
+        "navigateBefore": false
+      },
+      "stderr": [
+        "{\"ok\":false,\"error\":{\"code\":\"FIXTURE_COLLISION\",\"message\":\"Fixture detected duplicate registration\",\"exitCode\":1}}\n"
+      ],
+      "stdout": [],
+      "simulatedBuiltins": [
+        "node:fs",
+        "node:path",
+        "node:url",
+        "node:os",
+        "node:crypto",
+        "node:events",
+        "node:process",
+        "node:child_process"
+      ],
+      "additionalStub": "js-yaml (JSON rendering, load traps)",
+      "preflightTraps": [
+        "child_process.spawn",
+        "network.fetch",
+        "browser.page.nativeClick"
+      ],
+      "traps": [],
+      "loaded": [
+        "dist/src/main.js",
+        "dist/src/package-paths.js",
+        "dist/src/version.js",
+        "dist/src/errors.js",
+        "dist/src/runtime-detect.js",
+        "dist/src/constants.js",
+        "dist/src/discovery.js",
+        "dist/src/registry.js",
+        "dist/src/cli.js",
+        "commander/index.js",
+        "commander/lib/argument.js",
+        "commander/lib/error.js",
+        "commander/lib/command.js",
+        "commander/lib/help.js",
+        "commander/lib/option.js",
+        "commander/lib/suggestSimilar.js",
+        "dist/src/serialization.js",
+        "dist/src/commanderAdapter.js",
+        "dist/src/execution.js",
+        "dist/src/capabilityRouting.js",
+        "dist/src/runtime.js",
+        "dist/src/browser/config.js",
+        "dist/src/hooks.js",
+        "dist/src/help.js",
+        "<temporary>/collision/home/.opencli/clis/chatgpt/research-standard.js",
+        "dist/src/registry-api.js",
+        "<temporary>/collision/home/.opencli/plugins/collision/collision.js",
+        "dist/src/cli-argv-preprocess.js"
+      ],
+      "stubsLoaded": [
+        {
+          "module": "dist/src/completion-fast.js",
+          "exports": [
+            "getCompletionsFromManifest",
+            "hasAllManifests",
+            "printCompletionScriptFast"
+          ]
+        },
+        {
+          "module": "dist/src/logger.js",
+          "exports": [
+            "log"
+          ]
+        },
+        {
+          "module": "dist/src/completion.js",
+          "exports": [
+            "printCompletionScript"
+          ]
+        },
+        {
+          "module": "dist/src/output.js",
+          "exports": [
+            "render"
+          ]
+        },
+        {
+          "module": "dist/src/external.js",
+          "exports": [
+            "loadExternalClis",
+            "executeExternalCli",
+            "installExternalCli",
+            "registerExternalCli",
+            "isBinaryInstalled",
+            "formatExternalCliLabel"
+          ]
+        },
+        {
+          "module": "dist/src/skills.js",
+          "exports": [
+            "listOpenCliSkills",
+            "readOpenCliSkill"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/index.js",
+          "exports": [
+            "executePipeline"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/registry.js",
+          "exports": [
+            "getRegisteredStepNames"
+          ]
+        },
+        {
+          "module": "dist/src/browser/index.js",
+          "exports": [
+            "BrowserBridge",
+            "CDPBridge"
+          ]
+        },
+        {
+          "module": "dist/src/electron-apps.js",
+          "exports": [
+            "isElectronApp"
+          ]
+        },
+        {
+          "module": "dist/src/browser/profile.js",
+          "exports": [
+            "aliasForContextId",
+            "loadProfileConfig",
+            "profileRouteParams",
+            "renameProfile",
+            "resolveProfileSelection",
+            "setDefaultProfile"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-client.js",
+          "exports": [
+            "bindTab",
+            "BrowserCommandError",
+            "sendCommand",
+            "clearDaemonRunContext",
+            "generateRunId",
+            "isUnknownOutcomeError",
+            "releaseSiteSessionLease",
+            "setDaemonCommandTimeoutSeconds",
+            "setDaemonRunContext"
+          ]
+        },
+        {
+          "module": "dist/src/launcher.js",
+          "exports": [
+            "probeCDP",
+            "resolveElectronEndpoint"
+          ]
+        },
+        {
+          "module": "dist/src/observation/index.js",
+          "exports": [
+            "ObservationSession",
+            "exportObservationSession"
+          ]
+        },
+        {
+          "module": "dist/src/adapter-source.js",
+          "exports": [
+            "resolveAdapterSourcePath"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-errors.js",
+          "exports": [
+            "TargetError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-resolver.js",
+          "exports": [
+            "resolveTargetJs",
+            "getTextResolvedJs",
+            "getValueResolvedJs",
+            "getAttributesResolvedJs",
+            "selectResolvedJs",
+            "isAutocompleteResolvedJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/find.js",
+          "exports": [
+            "buildFindJs",
+            "buildSemanticFindJs",
+            "isFindError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape.js",
+          "exports": [
+            "inferShape"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-key.js",
+          "exports": [
+            "assignKeys"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-cache.js",
+          "exports": [
+            "DEFAULT_TTL_MS",
+            "findEntry",
+            "loadNetworkCache",
+            "saveNetworkCache"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-interceptor.js",
+          "exports": [
+            "NETWORK_INTERCEPTOR_JS"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape-filter.js",
+          "exports": [
+            "parseFilter",
+            "shapeMatchesFilter"
+          ]
+        },
+        {
+          "module": "dist/src/browser/html-tree.js",
+          "exports": [
+            "buildHtmlTreeJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/extract.js",
+          "exports": [
+            "buildExtractHtmlJs",
+            "runExtractFromHtml"
+          ]
+        },
+        {
+          "module": "dist/src/browser/analyze.js",
+          "exports": [
+            "analyzeSite"
+          ]
+        },
+        {
+          "module": "dist/src/commands/auth.js",
+          "exports": [
+            "registerAuthCommands"
+          ]
+        },
+        {
+          "module": "dist/src/commands/daemon.js",
+          "exports": [
+            "daemonRestart",
+            "daemonStatus",
+            "daemonStop"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-transport.js",
+          "exports": [
+            "fetchDaemonStatus"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-version.js",
+          "exports": [
+            "formatDaemonVersion",
+            "isDaemonStale"
+          ]
+        },
+        {
+          "module": "dist/src/node-network.js",
+          "exports": [
+            "installNodeNetwork"
+          ]
+        },
+        {
+          "module": "dist/src/update-check.js",
+          "exports": [
+            "registerUpdateNoticeOnExit",
+            "checkForUpdateBackground"
+          ]
+        }
+      ],
+      "resolutions": [
+        {
+          "specifier": "./completion-fast.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion-fast.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./runtime-detect.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime-detect.js"
+        },
+        {
+          "specifier": "./constants.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/constants.js"
+        },
+        {
+          "specifier": "./discovery.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./cli.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js"
+        },
+        {
+          "specifier": "commander",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/commander/index.js"
+        },
+        {
+          "specifier": "./lib/argument.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/argument.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/command.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/command.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/help.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./option.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/option.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./suggestSimilar",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/suggestSimilar.js"
+        },
+        {
+          "specifier": "./lib/error.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/help.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./lib/option.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./external.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/external.js"
+        },
+        {
+          "specifier": "./skills.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/skills.js"
+        },
+        {
+          "specifier": "./commanderAdapter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./execution.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./pipeline/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./capabilityRouting.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js"
+        },
+        {
+          "specifier": "./pipeline/registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/registry.js"
+        },
+        {
+          "specifier": "./runtime.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js"
+        },
+        {
+          "specifier": "./browser/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "../logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./launcher.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/launcher.js"
+        },
+        {
+          "specifier": "./observation/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/observation/index.js"
+        },
+        {
+          "specifier": "./adapter-source.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/adapter-source.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./browser/target-errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-errors.js"
+        },
+        {
+          "specifier": "./browser/target-resolver.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-resolver.js"
+        },
+        {
+          "specifier": "./browser/find.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/find.js"
+        },
+        {
+          "specifier": "./browser/shape.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape.js"
+        },
+        {
+          "specifier": "./browser/network-key.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-key.js"
+        },
+        {
+          "specifier": "./browser/network-cache.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-cache.js"
+        },
+        {
+          "specifier": "./browser/network-interceptor.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-interceptor.js"
+        },
+        {
+          "specifier": "./browser/shape-filter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape-filter.js"
+        },
+        {
+          "specifier": "./browser/html-tree.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/html-tree.js"
+        },
+        {
+          "specifier": "./browser/extract.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/extract.js"
+        },
+        {
+          "specifier": "./browser/analyze.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/analyze.js"
+        },
+        {
+          "specifier": "./commands/auth.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/auth.js"
+        },
+        {
+          "specifier": "./commands/daemon.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/daemon.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./browser/daemon-transport.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-transport.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-version.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./node-network.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/node-network.js"
+        },
+        {
+          "specifier": "./update-check.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/update-check.js"
+        },
+        {
+          "specifier": "file://<temporary>/collision/home/.opencli/clis/chatgpt/research-standard.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/collision/home/.opencli/clis/chatgpt/research-standard.js"
+        },
+        {
+          "specifier": "@jackwener/opencli/registry",
+          "parent": "<temporary>/collision/home/.opencli/clis/chatgpt/research-standard.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "@jackwener/opencli/errors",
+          "parent": "<temporary>/collision/home/.opencli/clis/chatgpt/research-standard.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "file://<temporary>/collision/home/.opencli/plugins/collision/collision.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/collision/home/.opencli/plugins/collision/collision.js"
+        },
+        {
+          "specifier": "@jackwener/opencli/registry",
+          "parent": "<temporary>/collision/home/.opencli/plugins/collision/collision.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js"
+        },
+        {
+          "specifier": "./cli-argv-preprocess.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli-argv-preprocess.js"
+        }
+      ],
+      "events": [
+        {
+          "type": "stub-network-install"
+        },
+        {
+          "type": "warning",
+          "message": "Plugin collision/collision.js: Error: FIXTURE_COLLISION"
+        },
+        {
+          "type": "action-settled",
+          "exitCode": 1
+        },
+        {
+          "type": "main-evaluation-ended",
+          "callbacks": 0,
+          "exitSeen": true
+        }
+      ],
+      "sentinelUnchanged": true
+    },
+    {
+      "kind": "collision-unguarded",
+      "commandSha256": "5fe38cd302885d842379d1d6901b2b80ec3fc2067a0560ce5a71f5831eb03986",
+      "callbackCount": 0,
+      "collisionSelectedCount": 1,
+      "exitCode": 1,
+      "collisions": [
+        "chatgpt/research-standard"
+      ],
+      "metadata": {
+        "browser": true,
+        "access": "write",
+        "siteSession": "persistent",
+        "navigateBefore": false
+      },
+      "stderr": [
+        "{\"ok\":false,\"error\":{\"code\":\"UNKNOWN\",\"message\":\"COLLISION_SELECTED\",\"exitCode\":1}}\n# AutoFix: re-run with --trace=retain-on-failure for trace artifact\n# opencli chatgpt research-standard --trace retain-on-failure\n"
+      ],
+      "stdout": [],
+      "simulatedBuiltins": [
+        "node:fs",
+        "node:path",
+        "node:url",
+        "node:os",
+        "node:crypto",
+        "node:events",
+        "node:process",
+        "node:child_process"
+      ],
+      "additionalStub": "js-yaml (JSON rendering, load traps)",
+      "preflightTraps": [
+        "child_process.spawn",
+        "network.fetch",
+        "browser.page.nativeClick"
+      ],
+      "traps": [],
+      "loaded": [
+        "dist/src/main.js",
+        "dist/src/package-paths.js",
+        "dist/src/version.js",
+        "dist/src/errors.js",
+        "dist/src/runtime-detect.js",
+        "dist/src/constants.js",
+        "dist/src/discovery.js",
+        "dist/src/registry.js",
+        "dist/src/cli.js",
+        "commander/index.js",
+        "commander/lib/argument.js",
+        "commander/lib/error.js",
+        "commander/lib/command.js",
+        "commander/lib/help.js",
+        "commander/lib/option.js",
+        "commander/lib/suggestSimilar.js",
+        "dist/src/serialization.js",
+        "dist/src/commanderAdapter.js",
+        "dist/src/execution.js",
+        "dist/src/capabilityRouting.js",
+        "dist/src/runtime.js",
+        "dist/src/browser/config.js",
+        "dist/src/hooks.js",
+        "dist/src/help.js",
+        "<temporary>/collision-unguarded/home/.opencli/clis/chatgpt/research-standard.js",
+        "dist/src/registry-api.js",
+        "<temporary>/collision-unguarded/home/.opencli/plugins/collision/collision.js",
+        "dist/src/cli-argv-preprocess.js"
+      ],
+      "stubsLoaded": [
+        {
+          "module": "dist/src/completion-fast.js",
+          "exports": [
+            "getCompletionsFromManifest",
+            "hasAllManifests",
+            "printCompletionScriptFast"
+          ]
+        },
+        {
+          "module": "dist/src/logger.js",
+          "exports": [
+            "log"
+          ]
+        },
+        {
+          "module": "dist/src/completion.js",
+          "exports": [
+            "printCompletionScript"
+          ]
+        },
+        {
+          "module": "dist/src/output.js",
+          "exports": [
+            "render"
+          ]
+        },
+        {
+          "module": "dist/src/external.js",
+          "exports": [
+            "loadExternalClis",
+            "executeExternalCli",
+            "installExternalCli",
+            "registerExternalCli",
+            "isBinaryInstalled",
+            "formatExternalCliLabel"
+          ]
+        },
+        {
+          "module": "dist/src/skills.js",
+          "exports": [
+            "listOpenCliSkills",
+            "readOpenCliSkill"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/index.js",
+          "exports": [
+            "executePipeline"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/registry.js",
+          "exports": [
+            "getRegisteredStepNames"
+          ]
+        },
+        {
+          "module": "dist/src/browser/index.js",
+          "exports": [
+            "BrowserBridge",
+            "CDPBridge"
+          ]
+        },
+        {
+          "module": "dist/src/electron-apps.js",
+          "exports": [
+            "isElectronApp"
+          ]
+        },
+        {
+          "module": "dist/src/browser/profile.js",
+          "exports": [
+            "aliasForContextId",
+            "loadProfileConfig",
+            "profileRouteParams",
+            "renameProfile",
+            "resolveProfileSelection",
+            "setDefaultProfile"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-client.js",
+          "exports": [
+            "bindTab",
+            "BrowserCommandError",
+            "sendCommand",
+            "clearDaemonRunContext",
+            "generateRunId",
+            "isUnknownOutcomeError",
+            "releaseSiteSessionLease",
+            "setDaemonCommandTimeoutSeconds",
+            "setDaemonRunContext"
+          ]
+        },
+        {
+          "module": "dist/src/launcher.js",
+          "exports": [
+            "probeCDP",
+            "resolveElectronEndpoint"
+          ]
+        },
+        {
+          "module": "dist/src/observation/index.js",
+          "exports": [
+            "ObservationSession",
+            "exportObservationSession"
+          ]
+        },
+        {
+          "module": "dist/src/adapter-source.js",
+          "exports": [
+            "resolveAdapterSourcePath"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-errors.js",
+          "exports": [
+            "TargetError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-resolver.js",
+          "exports": [
+            "resolveTargetJs",
+            "getTextResolvedJs",
+            "getValueResolvedJs",
+            "getAttributesResolvedJs",
+            "selectResolvedJs",
+            "isAutocompleteResolvedJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/find.js",
+          "exports": [
+            "buildFindJs",
+            "buildSemanticFindJs",
+            "isFindError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape.js",
+          "exports": [
+            "inferShape"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-key.js",
+          "exports": [
+            "assignKeys"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-cache.js",
+          "exports": [
+            "DEFAULT_TTL_MS",
+            "findEntry",
+            "loadNetworkCache",
+            "saveNetworkCache"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-interceptor.js",
+          "exports": [
+            "NETWORK_INTERCEPTOR_JS"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape-filter.js",
+          "exports": [
+            "parseFilter",
+            "shapeMatchesFilter"
+          ]
+        },
+        {
+          "module": "dist/src/browser/html-tree.js",
+          "exports": [
+            "buildHtmlTreeJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/extract.js",
+          "exports": [
+            "buildExtractHtmlJs",
+            "runExtractFromHtml"
+          ]
+        },
+        {
+          "module": "dist/src/browser/analyze.js",
+          "exports": [
+            "analyzeSite"
+          ]
+        },
+        {
+          "module": "dist/src/commands/auth.js",
+          "exports": [
+            "registerAuthCommands"
+          ]
+        },
+        {
+          "module": "dist/src/commands/daemon.js",
+          "exports": [
+            "daemonRestart",
+            "daemonStatus",
+            "daemonStop"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-transport.js",
+          "exports": [
+            "fetchDaemonStatus"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-version.js",
+          "exports": [
+            "formatDaemonVersion",
+            "isDaemonStale"
+          ]
+        },
+        {
+          "module": "dist/src/node-network.js",
+          "exports": [
+            "installNodeNetwork"
+          ]
+        },
+        {
+          "module": "dist/src/update-check.js",
+          "exports": [
+            "registerUpdateNoticeOnExit",
+            "checkForUpdateBackground"
+          ]
+        }
+      ],
+      "resolutions": [
+        {
+          "specifier": "./completion-fast.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion-fast.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./runtime-detect.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime-detect.js"
+        },
+        {
+          "specifier": "./constants.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/constants.js"
+        },
+        {
+          "specifier": "./discovery.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./cli.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js"
+        },
+        {
+          "specifier": "commander",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/commander/index.js"
+        },
+        {
+          "specifier": "./lib/argument.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/argument.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/command.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/command.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/help.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./option.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/option.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./suggestSimilar",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/suggestSimilar.js"
+        },
+        {
+          "specifier": "./lib/error.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/help.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./lib/option.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./external.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/external.js"
+        },
+        {
+          "specifier": "./skills.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/skills.js"
+        },
+        {
+          "specifier": "./commanderAdapter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./execution.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./pipeline/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./capabilityRouting.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js"
+        },
+        {
+          "specifier": "./pipeline/registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/registry.js"
+        },
+        {
+          "specifier": "./runtime.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js"
+        },
+        {
+          "specifier": "./browser/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "../logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./launcher.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/launcher.js"
+        },
+        {
+          "specifier": "./observation/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/observation/index.js"
+        },
+        {
+          "specifier": "./adapter-source.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/adapter-source.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./browser/target-errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-errors.js"
+        },
+        {
+          "specifier": "./browser/target-resolver.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-resolver.js"
+        },
+        {
+          "specifier": "./browser/find.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/find.js"
+        },
+        {
+          "specifier": "./browser/shape.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape.js"
+        },
+        {
+          "specifier": "./browser/network-key.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-key.js"
+        },
+        {
+          "specifier": "./browser/network-cache.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-cache.js"
+        },
+        {
+          "specifier": "./browser/network-interceptor.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-interceptor.js"
+        },
+        {
+          "specifier": "./browser/shape-filter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape-filter.js"
+        },
+        {
+          "specifier": "./browser/html-tree.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/html-tree.js"
+        },
+        {
+          "specifier": "./browser/extract.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/extract.js"
+        },
+        {
+          "specifier": "./browser/analyze.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/analyze.js"
+        },
+        {
+          "specifier": "./commands/auth.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/auth.js"
+        },
+        {
+          "specifier": "./commands/daemon.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/daemon.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./browser/daemon-transport.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-transport.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-version.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./node-network.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/node-network.js"
+        },
+        {
+          "specifier": "./update-check.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/update-check.js"
+        },
+        {
+          "specifier": "file://<temporary>/collision-unguarded/home/.opencli/clis/chatgpt/research-standard.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/collision-unguarded/home/.opencli/clis/chatgpt/research-standard.js"
+        },
+        {
+          "specifier": "@jackwener/opencli/registry",
+          "parent": "<temporary>/collision-unguarded/home/.opencli/clis/chatgpt/research-standard.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "@jackwener/opencli/errors",
+          "parent": "<temporary>/collision-unguarded/home/.opencli/clis/chatgpt/research-standard.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "file://<temporary>/collision-unguarded/home/.opencli/plugins/collision/collision.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/collision-unguarded/home/.opencli/plugins/collision/collision.js"
+        },
+        {
+          "specifier": "@jackwener/opencli/registry",
+          "parent": "<temporary>/collision-unguarded/home/.opencli/plugins/collision/collision.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js"
+        },
+        {
+          "specifier": "./cli-argv-preprocess.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli-argv-preprocess.js"
+        }
+      ],
+      "events": [
+        {
+          "type": "stub-network-install"
+        },
+        {
+          "type": "command-timeout",
+          "value": null
+        },
+        {
+          "type": "run-context",
+          "value": {
+            "runId": "run_123_synthetic",
+            "command": "chatgpt/research-standard",
+            "access": "write"
+          }
+        },
+        {
+          "type": "synthetic-browser-connect",
+          "options": {
+            "timeout": 45,
+            "session": "site:chatgpt",
+            "contextId": "synthetic-context",
+            "windowMode": "background",
+            "surface": "adapter",
+            "siteSession": "persistent"
+          }
+        },
+        {
+          "type": "main-evaluation-ended",
+          "callbacks": 0,
+          "exitSeen": false
+        },
+        {
+          "type": "synthetic-browser-close"
+        },
+        {
+          "type": "run-context",
+          "value": null
+        },
+        {
+          "type": "synthetic-lease-release"
+        },
+        {
+          "type": "action-settled",
+          "exitCode": 1
+        }
+      ],
+      "sentinelUnchanged": true
+    },
+    {
+      "kind": "effect-trap",
+      "commandSha256": "16061ae5b912ed985ff8949dc61f0350008fe9849f84ebda80946f28fffb6a49",
+      "callbackCount": 1,
+      "collisionSelectedCount": 0,
+      "exitCode": 1,
+      "collisions": [],
+      "metadata": {
+        "browser": true,
+        "access": "write",
+        "siteSession": "persistent",
+        "navigateBefore": false
+      },
+      "stderr": [
+        "{\"ok\":false,\"error\":{\"code\":\"UNKNOWN\",\"message\":\"Error: EFFECT_TRAP:browser.page.nativeClick\",\"exitCode\":1}}\n# AutoFix: re-run with --trace=retain-on-failure for trace artifact\n# opencli chatgpt research-standard --trace retain-on-failure\n"
+      ],
+      "stdout": [],
+      "simulatedBuiltins": [
+        "node:fs",
+        "node:path",
+        "node:url",
+        "node:os",
+        "node:crypto",
+        "node:events",
+        "node:process",
+        "node:child_process"
+      ],
+      "additionalStub": "js-yaml (JSON rendering, load traps)",
+      "preflightTraps": [
+        "child_process.spawn",
+        "network.fetch",
+        "browser.page.nativeClick"
+      ],
+      "traps": [
+        "browser.page.nativeClick"
+      ],
+      "loaded": [
+        "dist/src/main.js",
+        "dist/src/package-paths.js",
+        "dist/src/version.js",
+        "dist/src/errors.js",
+        "dist/src/runtime-detect.js",
+        "dist/src/constants.js",
+        "dist/src/discovery.js",
+        "dist/src/registry.js",
+        "dist/src/cli.js",
+        "commander/index.js",
+        "commander/lib/argument.js",
+        "commander/lib/error.js",
+        "commander/lib/command.js",
+        "commander/lib/help.js",
+        "commander/lib/option.js",
+        "commander/lib/suggestSimilar.js",
+        "dist/src/serialization.js",
+        "dist/src/commanderAdapter.js",
+        "dist/src/execution.js",
+        "dist/src/capabilityRouting.js",
+        "dist/src/runtime.js",
+        "dist/src/browser/config.js",
+        "dist/src/hooks.js",
+        "dist/src/help.js",
+        "<temporary>/effect-trap/home/.opencli/clis/chatgpt/research-standard.js",
+        "dist/src/registry-api.js",
+        "dist/src/cli-argv-preprocess.js"
+      ],
+      "stubsLoaded": [
+        {
+          "module": "dist/src/completion-fast.js",
+          "exports": [
+            "getCompletionsFromManifest",
+            "hasAllManifests",
+            "printCompletionScriptFast"
+          ]
+        },
+        {
+          "module": "dist/src/logger.js",
+          "exports": [
+            "log"
+          ]
+        },
+        {
+          "module": "dist/src/completion.js",
+          "exports": [
+            "printCompletionScript"
+          ]
+        },
+        {
+          "module": "dist/src/output.js",
+          "exports": [
+            "render"
+          ]
+        },
+        {
+          "module": "dist/src/external.js",
+          "exports": [
+            "loadExternalClis",
+            "executeExternalCli",
+            "installExternalCli",
+            "registerExternalCli",
+            "isBinaryInstalled",
+            "formatExternalCliLabel"
+          ]
+        },
+        {
+          "module": "dist/src/skills.js",
+          "exports": [
+            "listOpenCliSkills",
+            "readOpenCliSkill"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/index.js",
+          "exports": [
+            "executePipeline"
+          ]
+        },
+        {
+          "module": "dist/src/pipeline/registry.js",
+          "exports": [
+            "getRegisteredStepNames"
+          ]
+        },
+        {
+          "module": "dist/src/browser/index.js",
+          "exports": [
+            "BrowserBridge",
+            "CDPBridge"
+          ]
+        },
+        {
+          "module": "dist/src/electron-apps.js",
+          "exports": [
+            "isElectronApp"
+          ]
+        },
+        {
+          "module": "dist/src/browser/profile.js",
+          "exports": [
+            "aliasForContextId",
+            "loadProfileConfig",
+            "profileRouteParams",
+            "renameProfile",
+            "resolveProfileSelection",
+            "setDefaultProfile"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-client.js",
+          "exports": [
+            "bindTab",
+            "BrowserCommandError",
+            "sendCommand",
+            "clearDaemonRunContext",
+            "generateRunId",
+            "isUnknownOutcomeError",
+            "releaseSiteSessionLease",
+            "setDaemonCommandTimeoutSeconds",
+            "setDaemonRunContext"
+          ]
+        },
+        {
+          "module": "dist/src/launcher.js",
+          "exports": [
+            "probeCDP",
+            "resolveElectronEndpoint"
+          ]
+        },
+        {
+          "module": "dist/src/observation/index.js",
+          "exports": [
+            "ObservationSession",
+            "exportObservationSession"
+          ]
+        },
+        {
+          "module": "dist/src/adapter-source.js",
+          "exports": [
+            "resolveAdapterSourcePath"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-errors.js",
+          "exports": [
+            "TargetError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/target-resolver.js",
+          "exports": [
+            "resolveTargetJs",
+            "getTextResolvedJs",
+            "getValueResolvedJs",
+            "getAttributesResolvedJs",
+            "selectResolvedJs",
+            "isAutocompleteResolvedJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/find.js",
+          "exports": [
+            "buildFindJs",
+            "buildSemanticFindJs",
+            "isFindError"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape.js",
+          "exports": [
+            "inferShape"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-key.js",
+          "exports": [
+            "assignKeys"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-cache.js",
+          "exports": [
+            "DEFAULT_TTL_MS",
+            "findEntry",
+            "loadNetworkCache",
+            "saveNetworkCache"
+          ]
+        },
+        {
+          "module": "dist/src/browser/network-interceptor.js",
+          "exports": [
+            "NETWORK_INTERCEPTOR_JS"
+          ]
+        },
+        {
+          "module": "dist/src/browser/shape-filter.js",
+          "exports": [
+            "parseFilter",
+            "shapeMatchesFilter"
+          ]
+        },
+        {
+          "module": "dist/src/browser/html-tree.js",
+          "exports": [
+            "buildHtmlTreeJs"
+          ]
+        },
+        {
+          "module": "dist/src/browser/extract.js",
+          "exports": [
+            "buildExtractHtmlJs",
+            "runExtractFromHtml"
+          ]
+        },
+        {
+          "module": "dist/src/browser/analyze.js",
+          "exports": [
+            "analyzeSite"
+          ]
+        },
+        {
+          "module": "dist/src/commands/auth.js",
+          "exports": [
+            "registerAuthCommands"
+          ]
+        },
+        {
+          "module": "dist/src/commands/daemon.js",
+          "exports": [
+            "daemonRestart",
+            "daemonStatus",
+            "daemonStop"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-transport.js",
+          "exports": [
+            "fetchDaemonStatus"
+          ]
+        },
+        {
+          "module": "dist/src/browser/daemon-version.js",
+          "exports": [
+            "formatDaemonVersion",
+            "isDaemonStale"
+          ]
+        },
+        {
+          "module": "dist/src/node-network.js",
+          "exports": [
+            "installNodeNetwork"
+          ]
+        },
+        {
+          "module": "dist/src/update-check.js",
+          "exports": [
+            "registerUpdateNoticeOnExit",
+            "checkForUpdateBackground"
+          ]
+        }
+      ],
+      "resolutions": [
+        {
+          "specifier": "./completion-fast.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion-fast.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./runtime-detect.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime-detect.js"
+        },
+        {
+          "specifier": "./constants.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/constants.js"
+        },
+        {
+          "specifier": "./discovery.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./cli.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js"
+        },
+        {
+          "specifier": "commander",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/commander/index.js"
+        },
+        {
+          "specifier": "./lib/argument.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/argument.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/command.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/command.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./argument.js",
+          "parent": "<temporary>/node_modules/commander/lib/help.js",
+          "resolved": "<temporary>/node_modules/commander/lib/argument.js"
+        },
+        {
+          "specifier": "./option.js",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./error.js",
+          "parent": "<temporary>/node_modules/commander/lib/option.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./suggestSimilar",
+          "parent": "<temporary>/node_modules/commander/lib/command.js",
+          "resolved": "<temporary>/node_modules/commander/lib/suggestSimilar.js"
+        },
+        {
+          "specifier": "./lib/error.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/error.js"
+        },
+        {
+          "specifier": "./lib/help.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/help.js"
+        },
+        {
+          "specifier": "./lib/option.js",
+          "parent": "<temporary>/node_modules/commander/index.js",
+          "resolved": "<temporary>/node_modules/commander/lib/option.js"
+        },
+        {
+          "specifier": "./package-paths.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/package-paths.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/version.js"
+        },
+        {
+          "specifier": "./completion.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/completion.js"
+        },
+        {
+          "specifier": "./external.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/external.js"
+        },
+        {
+          "specifier": "./skills.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/skills.js"
+        },
+        {
+          "specifier": "./commanderAdapter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./output.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/output.js"
+        },
+        {
+          "specifier": "./execution.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./pipeline/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./capabilityRouting.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js"
+        },
+        {
+          "specifier": "./pipeline/registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/capabilityRouting.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/pipeline/registry.js"
+        },
+        {
+          "specifier": "./runtime.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js"
+        },
+        {
+          "specifier": "./browser/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/index.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/runtime.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "../logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./electron-apps.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/electron-apps.js"
+        },
+        {
+          "specifier": "./launcher.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/launcher.js"
+        },
+        {
+          "specifier": "./observation/index.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/observation/index.js"
+        },
+        {
+          "specifier": "./adapter-source.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/execution.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/adapter-source.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./serialization.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/serialization.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/commanderAdapter.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./help.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/help.js"
+        },
+        {
+          "specifier": "./errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./browser/target-errors.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-errors.js"
+        },
+        {
+          "specifier": "./browser/target-resolver.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/target-resolver.js"
+        },
+        {
+          "specifier": "./browser/find.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/find.js"
+        },
+        {
+          "specifier": "./browser/shape.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape.js"
+        },
+        {
+          "specifier": "./browser/network-key.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-key.js"
+        },
+        {
+          "specifier": "./browser/network-cache.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-cache.js"
+        },
+        {
+          "specifier": "./browser/network-interceptor.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/network-interceptor.js"
+        },
+        {
+          "specifier": "./browser/shape-filter.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/shape-filter.js"
+        },
+        {
+          "specifier": "./browser/html-tree.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/html-tree.js"
+        },
+        {
+          "specifier": "./browser/extract.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/extract.js"
+        },
+        {
+          "specifier": "./browser/analyze.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/analyze.js"
+        },
+        {
+          "specifier": "./commands/auth.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/auth.js"
+        },
+        {
+          "specifier": "./commands/daemon.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/commands/daemon.js"
+        },
+        {
+          "specifier": "./logger.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/logger.js"
+        },
+        {
+          "specifier": "./browser/daemon-client.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-client.js"
+        },
+        {
+          "specifier": "./browser/daemon-transport.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-transport.js"
+        },
+        {
+          "specifier": "./browser/profile.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/profile.js"
+        },
+        {
+          "specifier": "./browser/daemon-version.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/daemon-version.js"
+        },
+        {
+          "specifier": "./browser/config.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/browser/config.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "./node-network.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/node-network.js"
+        },
+        {
+          "specifier": "./update-check.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/update-check.js"
+        },
+        {
+          "specifier": "file://<temporary>/effect-trap/home/.opencli/clis/chatgpt/research-standard.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/discovery.js",
+          "resolved": "<temporary>/effect-trap/home/.opencli/clis/chatgpt/research-standard.js"
+        },
+        {
+          "specifier": "@jackwener/opencli/registry",
+          "parent": "<temporary>/effect-trap/home/.opencli/clis/chatgpt/research-standard.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js"
+        },
+        {
+          "specifier": "./registry.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry.js"
+        },
+        {
+          "specifier": "./hooks.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/registry-api.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/hooks.js"
+        },
+        {
+          "specifier": "@jackwener/opencli/errors",
+          "parent": "<temporary>/effect-trap/home/.opencli/clis/chatgpt/research-standard.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/errors.js"
+        },
+        {
+          "specifier": "./cli-argv-preprocess.js",
+          "parent": "<temporary>/node_modules/@jackwener/opencli/dist/src/main.js",
+          "resolved": "<temporary>/node_modules/@jackwener/opencli/dist/src/cli-argv-preprocess.js"
+        }
+      ],
+      "events": [
+        {
+          "type": "stub-network-install"
+        },
+        {
+          "type": "command-timeout",
+          "value": null
+        },
+        {
+          "type": "run-context",
+          "value": {
+            "runId": "run_123_synthetic",
+            "command": "chatgpt/research-standard",
+            "access": "write"
+          }
+        },
+        {
+          "type": "synthetic-browser-connect",
+          "options": {
+            "timeout": 45,
+            "session": "site:chatgpt",
+            "contextId": "synthetic-context",
+            "windowMode": "background",
+            "surface": "adapter",
+            "siteSession": "persistent"
+          }
+        },
+        {
+          "type": "main-evaluation-ended",
+          "callbacks": 0,
+          "exitSeen": false
+        },
+        {
+          "type": "synthetic-browser-close"
+        },
+        {
+          "type": "run-context",
+          "value": null
+        },
+        {
+          "type": "synthetic-lease-release"
+        },
+        {
+          "type": "action-settled",
+          "exitCode": 1
+        }
+      ],
+      "sentinelUnchanged": true
+    }
+  ]
+}

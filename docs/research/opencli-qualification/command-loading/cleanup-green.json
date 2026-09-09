@@ -1,0 +1,22 @@
+{
+  "contract": "setup/copy failure removes newly owned temporary directory and preserves unrelated paths and pinned installed sources",
+  "cases": [
+    {
+      "phase": "mkdirSync",
+      "actualRunnerReached": true,
+      "injectedError": "REVIEW_SYNTHETIC_mkdirSync_ERROR",
+      "leakedTemporaryDirectory": false,
+      "installedSourcesUnchanged": true,
+      "unrelatedCandidatePathsUnchanged": true
+    },
+    {
+      "phase": "writeFileSync",
+      "actualRunnerReached": true,
+      "injectedError": "REVIEW_SYNTHETIC_writeFileSync_ERROR",
+      "leakedTemporaryDirectory": false,
+      "installedSourcesUnchanged": true,
+      "unrelatedCandidatePathsUnchanged": true
+    }
+  ],
+  "reviewerCleanupComplete": true
+}
