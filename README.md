@@ -6,6 +6,10 @@ Standard submission is intentionally refused while the explicit-intent driver is
 
 This is a development package, not a supported Standard release. Historical commands below are context, not instructions to bypass the current refusals.
 
+## Contributing
+
+For setup, offline checks, source-pin updates, and evidence expectations, read [CONTRIBUTING](CONTRIBUTING.md). Coding agents should also read [agent contribution guidance](docs/agents/contributing.md) before editing or reviewing. These links describe the repository checkout; the development package excludes docs.
+
 ## Historical implementation context
 
 Historical status: OpenCLI remains the selected practical upstream behind the custom `chatgpt-research` wrapper protocol. M002 implemented offline preparation, M003 established the one-shot transport and ambiguity contract, M004 provides a locally usable `ask` command, and M005 adds wrapper-owned versioned epistemic-rigor profiles to every compiled prompt. Exact OpenCLI v1.8.7 and Browser Bridge 1.0.23 are installed locally with the owner's persistent Chrome choice. A live standard-mode wrapper call sent a prompt and saved the answer locally; a subsequent structured-response regression was corrected by reading the returned conversation through a fresh ephemeral container instead of the stale submission container. `[IMPLEMENTATION OBSERVATION — 2026-08-28]` Deep now has a deterministic asynchronous lifecycle: one durable handoff, then process-free status or non-submitting collection. This is not live Deep qualification: current completed-report/source extraction remains blocked on the separately approval-gated Browser Bridge diagnostic described below. No new provider submission occurred in this implementation phase.
