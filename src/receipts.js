@@ -56,8 +56,11 @@ async function writeExclusive(path, bytes, name, seam) {
   }
 }
 
-export async function persistPreparedJob({ outputRoot, job, turn, compiled, now, testSeam } = {}) {
+export async function persistPreparedJob({ outputRoot, job, turn, compiled, now, intent, testSeam } = {}) {
   validate({ outputRoot, job, turn, compiled, now });
+  if (intent !== undefined && (!intent || Array.isArray(intent) || typeof intent !== 'object' || Object.keys(intent).sort().join(',') !== 'effort,model_family' || compiled.mode !== 'standard' || intent.model_family !== 'gpt-5.6-pro' || !['standard', 'extended'].includes(intent.effort))) fail('invalid Standard intent', 'ERR_STANDARD_INTENT_UNSUPPORTED');
+  const schema = intent === undefined ? 'm002.prepared.v1' : 'standard.prepared.v2';
+  const provenance = intent === undefined ? {} : { model_family: intent.model_family, effort: intent.effort };
   const jobsRoot = join(outputRoot, 'jobs');
   const published = join(jobsRoot, job.job_id);
   await validateOutputRoot(outputRoot, jobsRoot, testSeam);
@@ -67,10 +70,10 @@ export async function persistPreparedJob({ outputRoot, job, turn, compiled, now,
   fault(testSeam, 'after-staging');
 
   const rigor = { rigor_protocol_id: compiled.rigor_protocol_id, rigor_protocol_version: compiled.rigor_protocol_version, rigor_profile_id: compiled.rigor_profile_id, rigor_profile_version: compiled.rigor_profile_version, rigor_profile_sha256: compiled.rigor_profile_sha256, citation_level: compiled.citation_level, audit_appendix: compiled.audit_appendix };
-  const common = { schema: 'm002.prepared.v1', time: now, job_id: job.job_id, caller: 'codex', template_id: compiled.template_id, template_version: compiled.template_version, template_sha256: compiled.template_sha256, template_body_sha256: compiled.template_body_sha256, mode: compiled.mode, mode_reason: compiled.mode_reason, ...rigor };
+  const common = { schema, time: now, job_id: job.job_id, caller: 'codex', template_id: compiled.template_id, template_version: compiled.template_version, template_sha256: compiled.template_sha256, template_body_sha256: compiled.template_body_sha256, mode: compiled.mode, mode_reason: compiled.mode_reason, ...provenance, ...rigor };
   const created = { ...common, type: 'job_created', sequence: 1, pacing_decision: 'not_applicable_pre_dispatch', state: 'preparing' };
   const prepared = { ...common, type: 'turn_prepared', sequence: 2, turn_id: turn.turn_id, attempt: 1, prior_turn_id: null, prompt_sha256: compiled.prompt_sha256, state: 'prepared', transport_status: 'not_dispatched', conversation_reference: null, submitted_at: null, accepted_at: null, unknown_at: null, completed_at: null, answer_sha256: null, remote_effect: null };
-  const current = { schema: 'm002.prepared.v1', job: { job_id: job.job_id, caller: 'codex', template_id: compiled.template_id, template_version: compiled.template_version, template_sha256: compiled.template_sha256, template_body_sha256: compiled.template_body_sha256, mode: compiled.mode, mode_reason: compiled.mode_reason, ...rigor, state: 'prepared', pacing_decision: 'not_applicable_pre_dispatch', created_at: now }, turn: { turn_id: turn.turn_id, attempt: 1, prior_turn_id: null, prompt_sha256: compiled.prompt_sha256, state: 'prepared', transport_status: 'not_dispatched', conversation_reference: null, submitted_at: null, accepted_at: null, unknown_at: null, completed_at: null, answer_sha256: null, remote_effect: null, prepared_at: now } };
+  const current = { schema, job: { job_id: job.job_id, caller: 'codex', template_id: compiled.template_id, template_version: compiled.template_version, template_sha256: compiled.template_sha256, template_body_sha256: compiled.template_body_sha256, mode: compiled.mode, mode_reason: compiled.mode_reason, ...provenance, ...rigor, state: 'prepared', pacing_decision: 'not_applicable_pre_dispatch', created_at: now }, turn: { turn_id: turn.turn_id, attempt: 1, prior_turn_id: null, prompt_sha256: compiled.prompt_sha256, state: 'prepared', transport_status: 'not_dispatched', conversation_reference: null, submitted_at: null, accepted_at: null, unknown_at: null, completed_at: null, answer_sha256: null, remote_effect: null, prepared_at: now } };
   await writeExclusive(join(staging, 'events.jsonl'), `${canonicalJson(created)}\n${canonicalJson(prepared)}\n`, 'events', testSeam);
   await writeExclusive(join(staging, 'current.json'), `${canonicalJson(current)}\n`, 'current', testSeam);
   await writeExclusive(join(staging, 'prompt.txt'), compiled.prompt, 'prompt', testSeam);
@@ -80,5 +83,5 @@ export async function persistPreparedJob({ outputRoot, job, turn, compiled, now,
   fault(testSeam, 'after-publish');
   await syncDirectory(jobsRoot);
   fault(testSeam, 'after-jobs-directory-sync');
-  return Object.freeze({ job_id: job.job_id, turn_id: turn.turn_id, state: 'prepared', transport_status: 'not_dispatched' });
+  return Object.freeze({ ...(intent === undefined ? {} : { schema, ...provenance }), job_id: job.job_id, turn_id: turn.turn_id, state: 'prepared', transport_status: 'not_dispatched' });
 }

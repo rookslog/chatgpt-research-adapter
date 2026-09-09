@@ -803,6 +803,15 @@ export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath
   const bundle = await loadPreparedBundle({ outputRoot, jobId, allowedModes: [mode] });
   if (bundle.mode !== mode || bundle.job_root !== jobPath) fail('prepared job does not match direct ask', 'ERR_DIRECT_ASK_JOB');
   const { askTimeoutSeconds, deepTimeoutSeconds, runtimeOptions } = directTransportOptions(transportOptions);
+  if (mode === 'standard') {
+    for (const name of ['dispatch', 'response', 'standard']) {
+      try { await lstat(join(jobPath, name)); }
+      catch (error) { if (error?.code === 'ENOENT') continue; throw error; }
+      fail('prior dispatch evidence prevents submission; its outcome requires inspection', 'ERR_STANDARD_PRIOR_DISPATCH');
+    }
+    if (bundle.current.schema === 'standard.prepared.v2') fail('Standard driver is not qualified for this prepared bundle', 'ERR_STANDARD_DRIVER_UNQUALIFIED');
+    fail('prepare a new job with explicit Standard model family and effort', 'ERR_STANDARD_LEGACY_INTENT_REQUIRED');
+  }
   const responseRoot = join(jobPath, 'response');
   if (mode === 'deep' && await lstat(responseRoot).catch(() => null)) fail('direct response already exists', 'ERR_DIRECT_EXISTS');
   const identity = await preflight({ ...runtimeOptions, executablePath: openCliPath });
@@ -876,12 +885,18 @@ export async function submitDirectPreparedJob({ mode, outputRoot, jobId, jobPath
   }
 }
 
-export async function directAsk({ question, prompt, mode, rigorProfile, rigorProfileVersion, rigorProfileFile, citationLevel, auditAppendix, outputRoot, openCliPath, transportOptions, clock = () => new Date().toISOString(), newJobId, newTurnId, submit = submitDirectPreparedJob, templatesRoot: templateRoot = templatesRoot, rigorRoot: profileRoot = rigorRoot } = {}) {
+export async function directAsk({ question, prompt, mode, modelFamily, effort, rigorProfile, rigorProfileVersion, rigorProfileFile, citationLevel, auditAppendix, outputRoot, openCliPath, transportOptions, clock = () => new Date().toISOString(), newJobId, newTurnId, submit = submitDirectPreparedJob, templatesRoot: templateRoot = templatesRoot, rigorRoot: profileRoot = rigorRoot } = {}) {
   if (question !== undefined && prompt !== undefined) fail('provide question or prompt, not both', 'ERR_DIRECT_ASK_INPUT');
   if (typeof outputRoot !== 'string' || !isAbsolute(outputRoot)) fail('output root must be absolute', 'ERR_DIRECT_ASK_OUTPUT');
   if (typeof openCliPath !== 'string' || !isAbsolute(openCliPath)) fail('OpenCLI path must be absolute', 'ERR_OPENCLI_PATH');
   const requestedMode = mode ?? 'standard';
   if (!['standard', 'web', 'deep'].includes(requestedMode)) fail('mode must be standard, web, or deep', 'ERR_DIRECT_ASK_MODE');
+  if (requestedMode === 'standard') {
+    if (modelFamily === undefined || effort === undefined) fail('Standard model family and effort are both required', 'ERR_STANDARD_INTENT_REQUIRED');
+    if (modelFamily !== 'gpt-5.6-pro' || !['standard', 'extended'].includes(effort)) fail('Standard model family or effort is unsupported', 'ERR_STANDARD_INTENT_UNSUPPORTED');
+    fail('Standard driver is not qualified', 'ERR_STANDARD_DRIVER_UNQUALIFIED');
+  }
+  if (modelFamily !== undefined || effort !== undefined) fail('model family and effort are only supported in Standard mode', 'ERR_STANDARD_INTENT_UNSUPPORTED');
   const request = { question: question ?? prompt, template_id: 'research-question', template_version: '1.0.0' };
   if (mode !== undefined) request.mode = mode;
   if (requestedMode !== 'standard') request.mode_reason = 'direct-ask';

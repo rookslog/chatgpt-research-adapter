@@ -1,52 +1,67 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { prepareResearchJob } from '../src/prepare.js';
+import { createDispatchIntent, persistDispatchIntent, persistDispatchHandoff, persistCompletedResult } from '../src/dispatch-receipts.js';
+import { loadPreparedBundle } from '../src/prepared-bundle.js';
 import { submitPreparedJobOnce } from '../src/submit-once.js';
 
-const templatesRoot = new URL('../templates/', import.meta.url).pathname;
-const preparedAt = '2026-08-24T01:02:03.456Z';
-const times = () => { const values = ['2026-08-24T01:03:03.456Z', '2026-08-24T01:04:03.456Z', '2026-08-24T01:05:03.456Z']; return () => values.shift(); };
-
-async function withCase(fakeAskSource, run) {
-  const root = await mkdtemp(join(tmpdir(), 'm003-submit-')); const outputRoot = join(root, 'output'); const opencli = join(root, 'opencli');
-  await (await import('node:fs/promises')).mkdir(outputRoot);
-  await prepareResearchJob({ request: { question: 'Reply with exactly CHATGPT_RESEARCH_LIVE_SMOKE_OK', template_id: 'research-question', template_version: '1.0.0' }, outputRoot, templatesRoot, now: preparedAt, newJobId: () => 'job_smoke', newTurnId: () => 'turn_smoke' });
-  const intentPath = join(outputRoot, 'jobs', 'job_smoke', 'dispatch', 'intent.json');
-  await writeFile(opencli, `#!/usr/bin/env node
-import { existsSync, writeFileSync } from 'node:fs';
-if (process.argv[2] === '--version') console.log('1.8.7');
-else { if (!existsSync(${JSON.stringify(intentPath)})) process.exit(91); ${fakeAskSource} }
-`, { mode: 0o700 });
-  try { return await run({ root, outputRoot, opencli, jobRoot: join(outputRoot, 'jobs', 'job_smoke') }); } finally { await rm(root, { recursive: true, force: true }); }
+const now = '2026-08-26T23:10:00.000Z';
+async function withCase(run) {
+  const root = await mkdtemp(join(tmpdir(), 'legacy-submit-refusal-'));
+  const outputRoot = join(root, 'output'); const jobId = 'job_legacy_standard'; const jobRoot = join(outputRoot, 'jobs', jobId);
+  await mkdir(jobRoot, { recursive: true });
+  for (const name of ['current.json', 'events.jsonl', 'prompt.txt']) await writeFile(join(jobRoot, name), await readFile(new URL(`./fixtures/standard-prepared-v1/${name}`, import.meta.url)));
+  const opencli = join(root, 'opencli.cjs'); const log = join(root, 'calls.jsonl');
+  await writeFile(log, '');
+  await writeFile(opencli, `#!${process.execPath}\nrequire('node:fs').appendFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2))+'\\n');\nconsole.log('1.8.6');\n`, { mode: 0o700 });
+  // Independently exercised logger: a missing call log cannot masquerade as zero invocations.
+  const control = spawnSync(opencli, ['fixture-control'], { encoding: 'utf8' });
+  assert.ifError(control.error); assert.equal(control.status, 0); assert.equal(control.stdout, '1.8.6\n');
+  assert.equal(await readFile(log, 'utf8'), '["fixture-control"]\n'); await writeFile(log, '');
+  const bundle = await loadPreparedBundle({ outputRoot, jobId });
+  const executable = { supplied_path: '/tmp/historical-opencli', real_path: '/tmp/historical-opencli', sha256: 'e'.repeat(64), size: 123, device: '1', inode: '2', version: '1.8.7' };
+  const intent = createDispatchIntent({ bundle, executable, now });
+  try { await run({ outputRoot, jobId, jobRoot, opencli, log, bundle, intent }); }
+  finally { await rm(root, { recursive: true, force: true }); }
 }
+async function preparedBytes(jobRoot) { return Promise.all(['current.json', 'events.jsonl', 'prompt.txt'].map(name => readFile(join(jobRoot, name)))); }
 
-test('submits once only after intent and persists one validated completed answer', async () => withCase("console.log(JSON.stringify([{conversationId:'smoke-1',conversationUrl:'https://chatgpt.com/c/smoke-1',tool:'',response:'CHATGPT_RESEARCH_LIVE_SMOKE_OK'}]));", async ({ outputRoot, opencli, jobRoot }) => {
-  const result = await submitPreparedJobOnce({ outputRoot, jobId: 'job_smoke', openCliPath: opencli, now: times() });
-  assert.equal(result.status, 'completed'); assert.equal(result.conversation_url, 'https://chatgpt.com/c/smoke-1');
-  assert.equal(await readFile(join(jobRoot, 'dispatch', 'answer.md'), 'utf8'), 'CHATGPT_RESEARCH_LIVE_SMOKE_OK');
-  assert.equal(JSON.parse(await readFile(join(jobRoot, 'dispatch', 'result.json'), 'utf8')).status, 'completed');
+test('legacy submit-once without evidence refuses missing intent before executable preflight', async () => withCase(async ({ outputRoot, jobId, jobRoot, opencli, log }) => {
+  const before = await preparedBytes(jobRoot);
+  await assert.rejects(submitPreparedJobOnce({ outputRoot, jobId, openCliPath: opencli }), { code: 'ERR_STANDARD_LEGACY_INTENT_REQUIRED' });
+  assert.equal(await readFile(log, 'utf8'), '');
+  assert.deepEqual(await preparedBytes(jobRoot), before);
+  assert.deepEqual((await readdir(jobRoot)).sort(), ['current.json', 'events.jsonl', 'prompt.txt']);
 }));
 
-test('post-intent malformed output becomes one terminal ambiguous effect without retry', async () => withCase("console.log('{bad');", async ({ outputRoot, opencli, jobRoot }) => {
-  const result = await submitPreparedJobOnce({ outputRoot, jobId: 'job_smoke', openCliPath: opencli, now: times() });
-  assert.equal(result.status, 'ambiguous_effect'); assert.equal(result.retry_decision, 'prohibited'); assert.equal(result.process_disposition, 'ERR_OPENCLI_OUTPUT');
-  await assert.rejects(stat(join(jobRoot, 'dispatch', 'answer.md')), { code: 'ENOENT' });
+test('legacy submit-once preserves prior intent-only uncertainty without preflight', async () => withCase(async ({ outputRoot, jobId, jobRoot, opencli, log, intent }) => {
+  // Synthetic historical intent written by actual receipt storage, never by a send.
+  const saved = await persistDispatchIntent({ jobRoot, intent });
+  const before = await readFile(saved.intent_path);
+  await assert.rejects(submitPreparedJobOnce({ outputRoot, jobId, openCliPath: opencli }), { code: 'ERR_STANDARD_PRIOR_DISPATCH' });
+  assert.equal(await readFile(log, 'utf8'), '');
+  assert.deepEqual(await readFile(saved.intent_path), before);
+  assert.deepEqual(await readdir(join(jobRoot, 'dispatch')), ['intent.json']);
 }));
 
-test('duplicate submit refuses before any executable process and preserves prior bytes', async () => withCase("console.log(JSON.stringify([{conversationId:'smoke-2',conversationUrl:'https://chatgpt.com/c/smoke-2',tool:'',response:'ok'}]));", async ({ outputRoot, opencli, jobRoot }) => {
-  await submitPreparedJobOnce({ outputRoot, jobId: 'job_smoke', openCliPath: opencli, now: times() });
-  const before = await Promise.all(['intent.json', 'answer.md', 'result.json'].map((name) => readFile(join(jobRoot, 'dispatch', name))));
-  await writeFile(opencli, "#!/usr/bin/env node\nprocess.exit(88);\n", { mode: 0o700 });
-  await assert.rejects(submitPreparedJobOnce({ outputRoot, jobId: 'job_smoke', openCliPath: opencli, now: times() }), { code: 'ERR_DISPATCH_EXISTS' });
-  assert.deepEqual(await Promise.all(['intent.json', 'answer.md', 'result.json'].map((name) => readFile(join(jobRoot, 'dispatch', name)))), before);
+test('legacy submit-once refuses prior completed evidence and preserves every receipt byte', async () => withCase(async ({ outputRoot, jobId, jobRoot, opencli, log, bundle, intent }) => {
+  const saved = await persistDispatchIntent({ jobRoot, intent });
+  const common = { jobRoot, bundle, now, intentSha256: saved.intent_sha256, conversationId: 'historical-complete', conversationUrl: 'https://chatgpt.com/c/historical-complete' };
+  const handoff = await persistDispatchHandoff({ ...common, tool: '' });
+  await persistCompletedResult({ ...common, handoffSha256: handoff.handoff_sha256, answer: 'Historical synthetic completed answer' });
+  const names = ['intent.json', 'handoff.json', 'answer.md', 'result.json'];
+  const before = await Promise.all(names.map(name => readFile(join(jobRoot, 'dispatch', name))));
+  await assert.rejects(submitPreparedJobOnce({ outputRoot, jobId, openCliPath: opencli }), { code: 'ERR_STANDARD_PRIOR_DISPATCH' });
+  assert.equal(await readFile(log, 'utf8'), '');
+  assert.deepEqual(await Promise.all(names.map(name => readFile(join(jobRoot, 'dispatch', name)))), before);
 }));
 
-test('wrong OpenCLI version fails before intent and ask', async () => withCase("console.log('should-not-run');", async ({ outputRoot, opencli, jobRoot }) => {
-  await writeFile(opencli, "#!/usr/bin/env node\nconsole.log('1.8.6');\n", { mode: 0o700 });
-  await assert.rejects(submitPreparedJobOnce({ outputRoot, jobId: 'job_smoke', openCliPath: opencli, now: times() }), { code: 'ERR_OPENCLI_VERSION' });
-  await assert.rejects(stat(join(jobRoot, 'dispatch')), { code: 'ENOENT' });
+test('legacy policy refusal precedes even a wrong-version executable preflight', async () => withCase(async ({ outputRoot, jobId, jobRoot, opencli, log }) => {
+  await assert.rejects(submitPreparedJobOnce({ outputRoot, jobId, openCliPath: opencli }), { code: 'ERR_STANDARD_LEGACY_INTENT_REQUIRED' });
+  assert.equal(await readFile(log, 'utf8'), '');
+  assert.deepEqual((await readdir(jobRoot)).sort(), ['current.json', 'events.jsonl', 'prompt.txt']);
 }));

@@ -18,8 +18,8 @@ async function withRoot(run) { const root = await mkdtemp(join(tmpdir(), 'm002-p
 
 test('prepare orchestration resolves and records every requested mode without dispatch', async () => withRoot(async (outputRoot) => {
   const cases = [
-    [{ question: 'default question', template_id: 'research-question', template_version: '1.0.0' }, 'standard', 'default'],
-    [{ question: 'standard question', mode: 'standard', template_id: 'research-question', template_version: '1.0.0' }, 'standard', 'explicit-standard'],
+    [{ model_family: 'gpt-5.6-pro', effort: 'standard', question: 'default question', template_id: 'research-question', template_version: '1.0.0' }, 'standard', 'default'],
+    [{ model_family: 'gpt-5.6-pro', effort: 'standard', question: 'standard question', mode: 'standard', template_id: 'research-question', template_version: '1.0.0' }, 'standard', 'explicit-standard'],
     [{ question: 'web question', mode: 'web', mode_reason: 'sources', template_id: 'research-question', template_version: '1.0.0' }, 'web', 'sources'],
     [{ question: 'deep question', mode: 'deep', mode_reason: 'analysis', template_id: 'research-question', template_version: '1.0.0' }, 'deep', 'analysis'],
     [{ question: 'image question', mode: 'image', mode_reason: 'visual', template_id: 'research-question', template_version: '1.0.0' }, 'image', 'visual']
@@ -27,7 +27,7 @@ test('prepare orchestration resolves and records every requested mode without di
   for (let index = 0; index < cases.length; index += 1) {
     const [request, mode, reason] = cases[index];
     const summary = await prepareResearchJob({ request, outputRoot, templatesRoot, now, newJobId: () => `job_${index}`, newTurnId: () => `turn_${index}` });
-    assert.deepEqual(summary, { job_id: `job_${index}`, turn_id: `turn_${index}`, state: 'prepared', transport_status: 'not_dispatched', mode, mode_reason: reason });
+    assert.deepEqual(summary, { job_id: `job_${index}`, turn_id: `turn_${index}`, state: 'prepared', transport_status: 'not_dispatched', mode, mode_reason: reason, ...(mode === 'standard' ? { schema: 'standard.prepared.v2', model_family: 'gpt-5.6-pro', effort: 'standard' } : {}) });
     const output = join(outputRoot, 'jobs', `job_${index}`);
     const [events, current, prompt] = await Promise.all([readFile(join(output, 'events.jsonl'), 'utf8'), readFile(join(output, 'current.json'), 'utf8'), readFile(join(output, 'prompt.txt'), 'utf8')]);
     const parsedEvents = events.trimEnd().split('\n').map(JSON.parse);
@@ -49,7 +49,7 @@ test('prepare is byte-deterministic for identical request, ids, and time across 
 }));
 
 test('prepare injects standard rigor by default and records explicit strict audit options', async () => withRoot(async (outputRoot) => {
-  const base = { question: 'Assess this claim', template_id: 'research-question', template_version: '1.0.0' };
+  const base = { model_family: 'gpt-5.6-pro', effort: 'standard', question: 'Assess this claim', template_id: 'research-question', template_version: '1.0.0' };
   await prepareResearchJob({ request: base, outputRoot, templatesRoot, now, newJobId: () => 'job_rigor_default', newTurnId: () => 'turn_rigor_default' });
   const defaultRoot = join(outputRoot, 'jobs', 'job_rigor_default');
   const defaultPrompt = await readFile(join(defaultRoot, 'prompt.txt'), 'utf8');
@@ -75,7 +75,7 @@ test('prepare injects standard rigor by default and records explicit strict audi
 
 test('prepare validates typed request and injected identity/time before any filesystem mutation', async () => withRoot(async (outputRoot) => {
   for (const request of [null, [], {}, { question: 1 }, { question: '' }, { question: 'x', extra: true }, { question: 'x', mode: 'web' }]) await assert.rejects(prepareResearchJob({ request, outputRoot, templatesRoot, now, newJobId: () => 'job_ok', newTurnId: () => 'turn_ok' }), { code: /ERR_REQUEST|ERR_MODE_REASON/ });
-  await assert.rejects(prepareResearchJob({ request: { question: 'x', template_id: 'research-question', template_version: '1.0.0' }, outputRoot, templatesRoot, now, newJobId: () => '../bad', newTurnId: () => 'turn_ok' }), { code: 'ERR_RECEIPT_ID' });
+  await assert.rejects(prepareResearchJob({ request: { model_family: 'gpt-5.6-pro', effort: 'standard', question: 'x', template_id: 'research-question', template_version: '1.0.0' }, outputRoot, templatesRoot, now, newJobId: () => '../bad', newTurnId: () => 'turn_ok' }), { code: 'ERR_RECEIPT_ID' });
   assert.deepEqual(await readdir(outputRoot), []);
 }));
 
@@ -90,12 +90,12 @@ test('prepare rejects whitespace question, array mode, and invalid turn id befor
   const identity = { template_id: 'research-question', template_version: '1.0.0' };
   await assert.rejects(prepareResearchJob({ request: { question: ' \t', ...identity }, outputRoot, templatesRoot, now, newJobId: () => 'job_ok', newTurnId: () => 'turn_ok' }), { code: 'ERR_REQUEST' });
   await assert.rejects(prepareResearchJob({ request: { question: 'q', mode: [], ...identity }, outputRoot, templatesRoot, now, newJobId: () => 'job_ok', newTurnId: () => 'turn_ok' }), { code: 'ERR_REQUEST' });
-  await assert.rejects(prepareResearchJob({ request: { question: 'q', ...identity }, outputRoot, templatesRoot, now, newJobId: () => 'job_ok', newTurnId: () => '../turn' }), { code: 'ERR_RECEIPT_ID' });
+  await assert.rejects(prepareResearchJob({ request: { model_family: 'gpt-5.6-pro', effort: 'standard', question: 'q', ...identity }, outputRoot, templatesRoot, now, newJobId: () => 'job_ok', newTurnId: () => '../turn' }), { code: 'ERR_RECEIPT_ID' });
   assert.deepEqual(await readdir(outputRoot), []);
 }));
 
 test('duplicate prepare leaves the original prepared receipt bytes unchanged', async () => withRoot(async (outputRoot) => {
-  const options = { request: { question: 'x', template_id: 'research-question', template_version: '1.0.0' }, outputRoot, templatesRoot, now, newJobId: () => 'job_one', newTurnId: () => 'turn_one' };
+  const options = { request: { model_family: 'gpt-5.6-pro', effort: 'standard', question: 'x', template_id: 'research-question', template_version: '1.0.0' }, outputRoot, templatesRoot, now, newJobId: () => 'job_one', newTurnId: () => 'turn_one' };
   await prepareResearchJob(options);
   const before = await readFile(join(outputRoot, 'jobs', 'job_one', 'current.json'));
   await assert.rejects(prepareResearchJob(options), { code: 'ERR_DUPLICATE_JOB' });
@@ -103,7 +103,7 @@ test('duplicate prepare leaves the original prepared receipt bytes unchanged', a
 }));
 
 test('CLI prints one canonical summary line and records exact mode/reason for every mode', async () => withRoot(async (root) => {
-  for (const [request, mode, reason] of [[{ question: 'a', template_id: 'research-question', template_version: '1.0.0' }, 'standard', 'default'], [{ question: 'b', mode: 'standard', template_id: 'research-question', template_version: '1.0.0' }, 'standard', 'explicit-standard'], [{ question: 'c', mode: 'web', mode_reason: 'why', template_id: 'research-question', template_version: '1.0.0' }, 'web', 'why'], [{ question: 'd', mode: 'deep', mode_reason: 'why', template_id: 'research-question', template_version: '1.0.0' }, 'deep', 'why'], [{ question: 'e', mode: 'image', mode_reason: 'why', template_id: 'research-question', template_version: '1.0.0' }, 'image', 'why']]) {
+  for (const [request, mode, reason] of [[{ model_family: 'gpt-5.6-pro', effort: 'standard', question: 'a', template_id: 'research-question', template_version: '1.0.0' }, 'standard', 'default'], [{ model_family: 'gpt-5.6-pro', effort: 'standard', question: 'b', mode: 'standard', template_id: 'research-question', template_version: '1.0.0' }, 'standard', 'explicit-standard'], [{ question: 'c', mode: 'web', mode_reason: 'why', template_id: 'research-question', template_version: '1.0.0' }, 'web', 'why'], [{ question: 'd', mode: 'deep', mode_reason: 'why', template_id: 'research-question', template_version: '1.0.0' }, 'deep', 'why'], [{ question: 'e', mode: 'image', mode_reason: 'why', template_id: 'research-question', template_version: '1.0.0' }, 'image', 'why']]) {
     const input = join(root, `${mode}-${reason}.json`); const outputRoot = join(root, `out-${mode}-${reason}`);
     await writeFile(input, JSON.stringify(request)); await (await import('node:fs/promises')).mkdir(outputRoot);
     const { stdout, stderr } = await execFile(process.execPath, [cli, 'prepare', '--request', input, '--output-root', outputRoot]);
@@ -121,7 +121,7 @@ test('CLI prints one canonical summary line and records exact mode/reason for ev
 
 test('CLI accepts a valid request file at exactly 64 KiB', async () => withRoot(async (root) => {
   const outputRoot = join(root, 'out'); await (await import('node:fs/promises')).mkdir(outputRoot);
-  const request = JSON.stringify({ question: 'bounded', template_id: 'research-question', template_version: '1.0.0' });
+  const request = JSON.stringify({ model_family: 'gpt-5.6-pro', effort: 'standard', question: 'bounded', template_id: 'research-question', template_version: '1.0.0' });
   const source = `${request}${' '.repeat(64 * 1024 - Buffer.byteLength(request))}`;
   assert.equal(Buffer.byteLength(source), 64 * 1024);
   const input = join(root, 'exact-limit.json'); await writeFile(input, source);
@@ -133,7 +133,7 @@ test('CLI accepts a valid request file at exactly 64 KiB', async () => withRoot(
 
 test('POSIX direct executable bin invocation prepares a job', { skip: process.platform === 'win32' }, async () => withRoot(async (root) => {
   const outputRoot = join(root, 'out'); await (await import('node:fs/promises')).mkdir(outputRoot);
-  const input = join(root, 'request.json'); await writeFile(input, JSON.stringify({ question: 'direct', template_id: 'research-question', template_version: '1.0.0' }));
+  const input = join(root, 'request.json'); await writeFile(input, JSON.stringify({ model_family: 'gpt-5.6-pro', effort: 'standard', question: 'direct', template_id: 'research-question', template_version: '1.0.0' }));
   const { stdout, stderr } = await execFile(cli, ['prepare', '--request', input, '--output-root', outputRoot]);
   assert.equal(stderr, ''); assert.equal(JSON.parse(stdout).state, 'prepared');
 }));

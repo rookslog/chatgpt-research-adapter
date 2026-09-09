@@ -10,7 +10,7 @@ import { parseStrictJsonBuffer } from './strict-json.js';
 import { submitPreparedJobOnce } from './submit-once.js';
 
 const fail = (message, code) => { const error = new Error(message); error.code = code; throw error; };
-const ASK_USAGE = 'usage: ask <prompt> [--mode standard|web|deep] [--rigor light|standard|strict | --rigor-file <absolute-json>] [--citations principal|expanded] [--audit-appendix] --output-root <directory> --opencli <absolute-path>';
+const ASK_USAGE = 'usage: ask <prompt> [--mode standard|web|deep] [--model-family gpt-5.6-pro --effort standard|extended (Standard only; driver unqualified)] [--rigor light|standard|strict | --rigor-file <absolute-json>] [--citations principal|expanded] [--audit-appendix] --output-root <directory> --opencli <absolute-path>';
 const LIFECYCLE_USAGE = 'status --output-root <directory> --job-id <id> | collect --output-root <directory> --job-id <id> --opencli <absolute-path> | wait --output-root <directory> --job-id <id> --opencli <absolute-path>';
 
 function parseAsk(argv) {
@@ -28,18 +28,26 @@ function parseAsk(argv) {
     if (typeof value !== 'string' || value.startsWith('--')) fail(ASK_USAGE, 'ERR_CLI_USAGE');
     index += 1;
     if (flag === '--mode') options.mode = value;
+    else if (flag === '--model-family') options.modelFamily = value;
+    else if (flag === '--effort') options.effort = value;
     else if (flag === '--rigor') options.rigorProfile = value;
     else if (flag === '--rigor-file') options.rigorProfileFile = value;
     else if (flag === '--citations') options.citationLevel = value;
     else fail(ASK_USAGE, 'ERR_CLI_USAGE');
   }
   if (!['standard', 'web', 'deep'].includes(options.mode) || (options.rigorProfile !== undefined && !['light', 'standard', 'strict'].includes(options.rigorProfile)) || (options.rigorProfileFile !== undefined && !isAbsolute(options.rigorProfileFile)) || (options.rigorProfile !== undefined && options.rigorProfileFile !== undefined) || (options.citationLevel !== undefined && !['principal', 'expanded'].includes(options.citationLevel))) fail(ASK_USAGE, 'ERR_CLI_USAGE');
+  if (options.mode !== 'standard' && (options.modelFamily !== undefined || options.effort !== undefined)) fail(ASK_USAGE, 'ERR_CLI_USAGE');
   return options;
 }
 
 export async function runCli(argv, { stdout = process.stdout, templatesRoot = fileURLToPath(new URL('../templates/', import.meta.url)), ask = directAsk, submit = submitPreparedJobOnce, status = getDeepPreparedJobStatus, collect = collectDeepPreparedJob, wait = waitDeepPreparedJob } = {}) {
   const askOptions = parseAsk(argv);
   if (askOptions) {
+    if (askOptions.mode === 'standard') {
+      if (askOptions.modelFamily === undefined || askOptions.effort === undefined) fail('Standard mode requires explicit model family and effort intent', 'ERR_STANDARD_INTENT_REQUIRED');
+      if (askOptions.modelFamily !== 'gpt-5.6-pro' || !['standard', 'extended'].includes(askOptions.effort)) fail('Standard model family or effort intent is unsupported', 'ERR_STANDARD_INTENT_UNSUPPORTED');
+      fail('Standard mode has no qualified driver for this model family and effort intent', 'ERR_STANDARD_DRIVER_UNQUALIFIED');
+    }
     const summary = await ask(askOptions);
     stdout.write(`${canonicalJson(summary)}\n`);
     return summary;

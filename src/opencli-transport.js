@@ -753,8 +753,9 @@ function requireTimeoutSeconds(value) {
 }
 
 async function runAsk({ executablePath, identity, prompt, mode, timeoutSeconds, siteSession, spawnImpl, environment, timeoutMs, killGraceMs }) {
+  if (mode === 'standard') throw fail('Standard driver is not qualified', 'ERR_STANDARD_DRIVER_UNQUALIFIED');
+  if (mode !== 'web' && mode !== 'deep') throw fail('OpenCLI mode is invalid', 'ERR_OPENCLI_MODE');
   if (!identity || identity.version !== VERSION) throw fail('OpenCLI identity is required', 'ERR_OPENCLI_IDENTITY');
-  if (!(mode in MODE_TO_TOOL)) throw fail('OpenCLI mode is invalid', 'ERR_OPENCLI_MODE');
   if (typeof prompt !== 'string' || Buffer.byteLength(prompt, 'utf8') > 64 * 1024 || prompt.length === 0) throw fail('compiled prompt is invalid', 'ERR_OPENCLI_PROMPT');
   const seconds = requireTimeoutSeconds(timeoutSeconds);
   const current = await executableIdentity(executablePath);

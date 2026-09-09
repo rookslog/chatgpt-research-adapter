@@ -8,9 +8,18 @@ test('prints OpenCLI stderr with a transport failure', () => {
   assert.equal(formatCliError(error), 'ERR_OPENCLI_EXIT: OpenCLI failed\ntool selection failed\n');
 });
 
-test('routes one-command standard and explicit research modes', async () => {
+test('refuses omitted Standard intent before dispatch', async () => {
+  const calls = []; let output = '';
+  await assert.rejects(runCli(['ask', 'Summarize this', '--output-root', '/tmp/out', '--opencli', '/tmp/opencli'], {
+    stdout: { write: (value) => { output += value; } },
+    ask: async (options) => { calls.push(options); return {}; }
+  }), { code: 'ERR_STANDARD_INTENT_REQUIRED' });
+  assert.deepEqual(calls, []);
+  assert.equal(output, '');
+});
+
+test('routes explicit research modes', async () => {
   const cases = [
-    [['ask', 'Summarize this', '--output-root', '/tmp/out', '--opencli', '/tmp/opencli'], 'standard'],
     [['ask', 'Research this', '--mode', 'web', '--output-root', '/tmp/out', '--opencli', '/tmp/opencli'], 'web'],
     [['ask', 'Research deeply', '--mode', 'deep', '--output-root', '/tmp/out', '--opencli', '/tmp/opencli'], 'deep']
   ];
@@ -33,12 +42,23 @@ test('rejects malformed ask usage before dispatch', async () => {
   ]) await assert.rejects(runCli(argv, { stdout: { write() {} }, ask: async () => assert.fail('must not dispatch') }), { code: 'ERR_CLI_USAGE' });
 });
 
-test('routes rigor, expanded citation, and audit appendix options to direct ask', async () => {
+test('refuses omitted Standard intent even with rigor, expanded citations, and audit appendix', async () => {
   const calls = []; let output = '';
-  const summary = { jobPath: '/tmp/out/jobs/job_audit', result: { status: 'completed', mode: 'standard' } };
   const argv = ['ask', 'Audit this', '--rigor', 'strict', '--citations', 'expanded', '--audit-appendix', '--output-root', '/tmp/out', '--opencli', '/tmp/opencli'];
+  await assert.rejects(runCli(argv, {
+    stdout: { write: (value) => { output += value; } },
+    ask: async (options) => { calls.push(options); return {}; }
+  }), { code: 'ERR_STANDARD_INTENT_REQUIRED' });
+  assert.deepEqual(calls, []);
+  assert.equal(output, '');
+});
+
+test('routes rigor, expanded citation, and audit appendix options to Web direct ask', async () => {
+  const calls = []; let output = '';
+  const summary = { jobPath: '/tmp/out/jobs/job_audit', result: { status: 'completed', mode: 'web' } };
+  const argv = ['ask', 'Audit this', '--mode', 'web', '--rigor', 'strict', '--citations', 'expanded', '--audit-appendix', '--output-root', '/tmp/out', '--opencli', '/tmp/opencli'];
   await runCli(argv, { stdout: { write: (value) => { output += value; } }, ask: async (options) => { calls.push(options); return summary; } });
-  assert.deepEqual(calls, [{ question: 'Audit this', mode: 'standard', rigorProfile: 'strict', citationLevel: 'expanded', auditAppendix: true, outputRoot: '/tmp/out', openCliPath: '/tmp/opencli' }]);
+  assert.deepEqual(calls, [{ question: 'Audit this', mode: 'web', rigorProfile: 'strict', citationLevel: 'expanded', auditAppendix: true, outputRoot: '/tmp/out', openCliPath: '/tmp/opencli' }]);
   assert.deepEqual(JSON.parse(output), summary);
 });
 

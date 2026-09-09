@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { withRawTransportWebFixture } from './fixtures/raw-transport-web-helper.js';
 import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -186,54 +188,47 @@ test('rejects relative, non-executable, wrong-version, nonzero, and changed exec
   await withFake("console.log('1.8.7');", async ({ path }) => {
     const identity = await preflightOpenCli({ executablePath: path });
     await writeFile(path, "#!/usr/bin/env node\nconsole.log('changed');\n", { mode: 0o700 });
-    await assert.rejects(runOpenCliStandard({ executablePath: path, identity, prompt: 'x' }), { code: 'ERR_OPENCLI_IDENTITY' });
+    await assert.rejects(runOpenCliAsk({ executablePath: path, identity, prompt: 'x', mode: 'web' }), { code: 'ERR_OPENCLI_IDENTITY' });
   });
 });
 
-test('passes the exact fixed argv and opaque prompt once without a shell', async () => withFake('', async ({ root, path }) => {
-  const capture = join(root, 'argv.json');
-  await writeFile(path, `#!/usr/bin/env node
-import { writeFileSync } from 'node:fs';
-if (process.argv[2] === '--version') console.log('1.8.7');
-else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.argv.slice(2))); console.log(${JSON.stringify(JSON.stringify([validRow]))}); }
-`, { mode: 0o700 });
+test('Web passes the exact fixed argv and opaque prompt once without a shell', async () => withRawTransportWebFixture(async ({ path, capture }) => {
   const identity = await preflightOpenCli({ executablePath: path });
   const prompt = 'line 1\n$HOME `echo nope` "quoted" --web-search';
-  const result = await runOpenCliStandard({ executablePath: path, identity, prompt });
-  assert.equal(result.response, validRow.response);
-  assert.deepEqual(JSON.parse(await readFile(capture, 'utf8')), ['chatgpt', 'ask', prompt, '--new', 'true', '--site-session', 'ephemeral', '--timeout', '120', '--format', 'json']);
-}));
-
-test('passes the temporary OpenCLI config root but excludes unrelated environment values', async () => withFake('', async ({ root, path }) => {
-  const capture = join(root, 'environment.json');
-  await writeFile(path, `#!/usr/bin/env node
-import { writeFileSync } from 'node:fs';
-if (process.argv[2] === '--version') console.log('1.8.7');
-else { writeFileSync(${JSON.stringify(capture)}, JSON.stringify(process.env)); console.log(${JSON.stringify(JSON.stringify([validRow]))}); }
-`, { mode: 0o700 });
-  const environment = { HOME: process.env.HOME, PATH: process.env.PATH, OPENCLI_CONFIG_DIR: join(root, 'config'), CHATGPT_RESEARCH_SECRET_PROBE: 'must-not-pass' };
-  const identity = await preflightOpenCli({ executablePath: path, environment });
-  await runOpenCliStandard({ executablePath: path, identity, prompt: 'x', environment });
-  const received = JSON.parse(await readFile(capture, 'utf8'));
-  assert.equal(received.OPENCLI_CONFIG_DIR, environment.OPENCLI_CONFIG_DIR);
-  assert.equal(received.CHATGPT_RESEARCH_SECRET_PROBE, undefined);
-}));
-
-test('maps standard mode to the original practical OpenCLI ask arguments', async () => withFake('', async ({ root, path }) => {
-  const capture = join(root, 'argv.jsonl');
-  await writeFile(path, `#!/usr/bin/env node
-import { appendFileSync } from 'node:fs';
-if (process.argv[2] === '--version') console.log('1.8.7');
-else {
-  const args = process.argv.slice(2); appendFileSync(${JSON.stringify(capture)}, JSON.stringify({ args, executable: process.argv[1] }) + '\\n');
-  console.log(JSON.stringify([{conversationId:'mode-1',conversationUrl:'https://chatgpt.com/c/mode-1',tool:'',response:'done'}]));
-}
-`, { mode: 0o700 });
-  const identity = await preflightOpenCli({ executablePath: path });
-  await runOpenCliAsk({ executablePath: path, identity, prompt: 'research this', mode: 'standard', timeoutSeconds: 600 });
+  const spawns = [];
+  const result = await runOpenCliAsk({ executablePath: path, identity, prompt, mode: 'web', spawnImpl: (file, args, options) => {
+    spawns.push({ file, args, options });
+    return spawn(file, args, options);
+  } });
+  assert.equal(result.response, 'local fixture answer');
+  assert.equal(result.tool, 'Web Search');
+  assert.equal(spawns.length, 1);
+  assert.equal(spawns[0].options.shell, false);
   const calls = (await readFile(capture, 'utf8')).trim().split('\n').map(JSON.parse);
-  const base = ['chatgpt', 'ask', 'research this', '--new', 'true', '--site-session', 'persistent', '--timeout', '600', '--format', 'json', '--wait', 'false'];
-  assert.deepEqual(calls, [{ args: base, executable: identity.real_path }]);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].args, ['chatgpt', 'ask', prompt, '--new', 'true', '--site-session', 'persistent', '--timeout', '600', '--format', 'json', '--wait', 'false', '--web-search', 'true']);
+  assert.deepEqual(spawns[0].args, calls[0].args);
+}));
+
+test('Web passes the temporary OpenCLI config root but excludes unrelated environment values', async () => withRawTransportWebFixture(async ({ root, path, capture }) => {
+  const environment = { HOME: root, PATH: process.env.PATH, OPENCLI_CONFIG_DIR: join(root, 'config'), CHATGPT_RESEARCH_SECRET_PROBE: 'must-not-pass' };
+  const identity = await preflightOpenCli({ executablePath: path, environment });
+  await runOpenCliAsk({ executablePath: path, identity, prompt: 'x', environment, mode: 'web' });
+  const calls = (await readFile(capture, 'utf8')).trim().split('\n').map(JSON.parse);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].environment.OPENCLI_CONFIG_DIR, environment.OPENCLI_CONFIG_DIR);
+  assert.equal(calls[0].environment.CHATGPT_RESEARCH_SECRET_PROBE, undefined);
+}));
+
+test('refuses explicit standard mode without an ask invocation', async () => withRawTransportWebFixture(async ({ path, capture }) => {
+  const identity = await preflightOpenCli({ executablePath: path });
+  let spawned = 0;
+  try {
+    await assert.rejects(runOpenCliAsk({ executablePath: path, identity, prompt: 'research this', mode: 'standard', timeoutSeconds: 600,
+      spawnImpl: (...args) => { spawned += 1; return spawn(...args); }
+    }), { code: 'ERR_STANDARD_DRIVER_UNQUALIFIED' });
+  } finally { assert.equal(spawned, 0, 'Standard must not invoke ask'); }
+  await assert.rejects(readFile(capture), { code: 'ENOENT' });
 }));
 
 test('accepts blank handoff rows for read-after-submit collection', () => {
@@ -311,22 +306,32 @@ test('strictly validates the one-row standard ChatGPT output contract', () => {
   assert.throws(() => parseOpenCliAnswer(Buffer.from('[{"x":1,"x":2}]')), { code: 'ERR_OPENCLI_OUTPUT' });
 });
 
-test('bounds output and turns nonzero exit and timeout into typed transport failures', async () => {
-  await withFake("if (process.argv[2] === '--version') console.log('1.8.7'); else { console.error('bad'); process.exit(4); }", async ({ path }) => {
+test('Web bounds output and turns nonzero exit and timeout into typed transport failures', async () => {
+  const cases = [
+    { name: 'exit4', body: "console.error('bad'); process.exit(4);", code: 'ERR_OPENCLI_EXIT' },
+    { name: 'stdout limit', body: "process.stdout.write('x'.repeat(300000));", code: 'ERR_OPENCLI_OUTPUT_LIMIT' },
+    { name: 'timeout', body: 'setInterval(() => {}, 1000);', code: 'ERR_OPENCLI_TIMEOUT', timeoutMs: 250 },
+    { name: 'SIGTERM resistance', body: "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);", code: 'ERR_OPENCLI_TIMEOUT', timeoutMs: 250, escalate: true }
+  ];
+  for (const entry of cases) await withRawTransportWebFixture(async ({ path, capture }) => {
     const identity = await preflightOpenCli({ executablePath: path });
-    await assert.rejects(runOpenCliStandard({ executablePath: path, identity, prompt: 'x' }), { code: 'ERR_OPENCLI_EXIT' });
-  });
-  await withFake("if (process.argv[2] === '--version') console.log('1.8.7'); else process.stdout.write('x'.repeat(300000));", async ({ path }) => {
-    const identity = await preflightOpenCli({ executablePath: path });
-    await assert.rejects(runOpenCliStandard({ executablePath: path, identity, prompt: 'x' }), { code: 'ERR_OPENCLI_OUTPUT_LIMIT' });
-  });
-  await withFake("if (process.argv[2] === '--version') console.log('1.8.7'); else setInterval(() => {}, 1000);", async ({ path }) => {
-    const identity = await preflightOpenCli({ executablePath: path });
-    await assert.rejects(runOpenCliStandard({ executablePath: path, identity, prompt: 'x', timeoutMs: 80 }), { code: 'ERR_OPENCLI_TIMEOUT' });
-  });
-  await withFake("if (process.argv[2] === '--version') console.log('1.8.7'); else { process.on('SIGTERM', () => {}); setInterval(() => {}, 1000); }", async ({ path }) => {
-    const identity = await preflightOpenCli({ executablePath: path }); const started = Date.now();
-    await assert.rejects(runOpenCliStandard({ executablePath: path, identity, prompt: 'x', timeoutMs: 80, killGraceMs: 80 }), { code: 'ERR_OPENCLI_TIMEOUT' });
-    assert.ok(Date.now() - started < 1500);
-  });
+    const signals = [];
+    let spawned = 0;
+    const started = Date.now();
+    await assert.rejects(runOpenCliAsk({ executablePath: path, identity, prompt: 'x', mode: 'web', timeoutMs: entry.timeoutMs, killGraceMs: 80,
+      spawnImpl: (...args) => {
+        spawned += 1;
+        const child = spawn(...args);
+        const kill = child.kill.bind(child);
+        child.kill = (signal) => { signals.push(signal); return kill(signal); };
+        return child;
+      }
+    }), { code: entry.code }, entry.name);
+    assert.equal(spawned, 1, entry.name);
+    assert.equal((await readFile(capture, 'utf8')).trim().split('\n').length, 1, `${entry.name} reached executable body`);
+    if (entry.escalate) {
+      assert.deepEqual(signals, ['SIGTERM', 'SIGKILL']);
+      assert.ok(Date.now() - started < 1500);
+    }
+  }, { body: entry.body });
 });
