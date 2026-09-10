@@ -113,6 +113,31 @@ export async function readManagedBackend(runtime) {
   return structuredClone(record.backend);
 }
 
+export async function retireManagedBackend(runtime, expectedBackend) {
+  const root = await runtimeIdentity(runtime);
+  const path = backendPathFor(runtime);
+  const fd = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)).catch(() => null);
+  if (!fd) fail('managed browser owner changed before retirement', 'ERR_HUMAN_CONTROL_UNTRUSTED');
+  let stat;
+  let record;
+  try {
+    stat = await fd.stat();
+    if (!stat.isFile() || !owned(stat) || stat.size > 4096) fail('managed browser owner changed before retirement', 'ERR_HUMAN_CONTROL_UNTRUSTED');
+    record = JSON.parse(await fd.readFile('utf8'));
+  } catch (error) {
+    if (error?.code?.startsWith('ERR_HUMAN_CONTROL_')) throw error;
+    fail('managed browser owner changed before retirement', 'ERR_HUMAN_CONTROL_UNTRUSTED');
+  } finally { await fd.close().catch(() => {}); }
+  if (!validManagedBackend(record, runtime) || canonicalJson(record.backend) !== canonicalJson(expectedBackend)) {
+    fail('managed browser owner changed before retirement', 'ERR_HUMAN_CONTROL_UNTRUSTED');
+  }
+  const current = await lstat(path).catch(() => null);
+  if (!current || current.isSymbolicLink() || !current.isFile() || !owned(current) || current.dev !== stat.dev || current.ino !== stat.ino) fail('managed browser owner changed before retirement', 'ERR_HUMAN_CONTROL_UNTRUSTED');
+  await unlink(path);
+  await syncRoot(runtime, root);
+  return true;
+}
+
 async function syncRoot(runtime, identity) {
   const fd = await open(runtime.root, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {

@@ -131,6 +131,7 @@ export async function configureRuntime({
       existingConfig.browser?.contextId === contextId &&
       existingConfig.hostId === hostId &&
       existingConfig.registryRoot === registryRoot &&
+      canonicalJson(existingConfig.allowedPriorities) === canonicalJson(allowedPriorities) &&
       canonicalJson(existingConfig.browserHost ?? null) === canonicalJson(browserHost) &&
       canonicalJson(existingConfig.browser?.sourceIdentity) === canonicalJson(sourceIdentity);
 

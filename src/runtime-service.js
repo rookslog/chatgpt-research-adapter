@@ -20,6 +20,13 @@ const fail = (message, code = 'ERR_RUNTIME_SERVICE') => {
   throw error;
 };
 
+async function recordAttentionOnce({ config, operationRef, jobRef, payload }) {
+  const view = await inspectStandardRuntime({ runtime: config.runtime, operationRef });
+  const latest = (view.events ?? []).filter((event) => event.operation_ref === operationRef && event.type === 'observation.attention').at(-1);
+  const duplicate = latest && canonicalJson(latest.payload ?? null) === canonicalJson(payload);
+  if (!duplicate) await recordOperationEvent({ config, operationRef, jobRef, type: 'observation.attention', payload });
+}
+
 function isProcessAlive(pid) {
   if (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0) return false;
   try {
@@ -275,13 +282,15 @@ export async function runRuntimeCycle({ config, driver, context } = {}) {
     driver
   });
 
-  if (dispatchResult?.status === 'held' && dispatchResult.operation_ref && typeof dispatchResult.reason === 'string') {
-    const heldState = await inspectStandardRuntime({ runtime: config.runtime, operationRef: dispatchResult.operation_ref });
+  const preparationHolds = Array.isArray(dispatchResult?.preparation_holds)
+    ? dispatchResult.preparation_holds
+    : (dispatchResult?.status === 'held' && dispatchResult.operation_ref ? [{ operation_ref: dispatchResult.operation_ref, reason: dispatchResult.reason }] : []);
+  for (const hold of preparationHolds) {
+    if (!hold?.operation_ref || typeof hold.reason !== 'string') continue;
+    const heldState = await inspectStandardRuntime({ runtime: config.runtime, operationRef: hold.operation_ref });
     const heldOperation = heldState.operations[0];
     const alreadyRecorded = (heldState.events ?? []).some((event) =>
-      event.operation_ref === dispatchResult.operation_ref &&
-      event.type === 'preparation.attention' &&
-      event.payload?.reason === dispatchResult.reason
+      event.operation_ref === hold.operation_ref && event.type === 'preparation.attention' && event.payload?.reason === hold.reason
     );
     if (heldOperation && !alreadyRecorded) {
       await recordOperationEvent({
@@ -289,7 +298,7 @@ export async function runRuntimeCycle({ config, driver, context } = {}) {
         operationRef: heldOperation.operation_ref,
         jobRef: heldOperation.job_ref,
         type: 'preparation.attention',
-        payload: { reason: dispatchResult.reason }
+        payload: { reason: hold.reason }
       });
     }
   }
@@ -370,24 +379,28 @@ export async function runRuntimeCycle({ config, driver, context } = {}) {
                   context
                 });
               }
-              await recordOperationEvent({
-                config,
-                operationRef: op.operation_ref,
-                jobRef: op.job_ref,
-                type: `observation.${observation.status}`,
-                payload: observation.reason ? { reason: observation.reason } : null
-              });
+              const payload = observation.reason ? { reason: observation.reason } : null;
+              if (observation.status === 'attention') {
+                await recordAttentionOnce({ config, operationRef: op.operation_ref, jobRef: op.job_ref, payload });
+              } else {
+                await recordOperationEvent({
+                  config,
+                  operationRef: op.operation_ref,
+                  jobRef: op.job_ref,
+                  type: `observation.${observation.status}`,
+                  payload
+                });
+              }
             }
           }
         } catch (err) {
           if (err?.executorUnresolved === true) throw err;
           if (err?.code === 'ERR_HUMAN_CONTROL_ACTIVE') continue;
           // Record attention without resending
-          await recordOperationEvent({
+          await recordAttentionOnce({
             config,
             operationRef: op.operation_ref,
             jobRef: op.job_ref,
-            type: 'observation.attention',
             payload: { message: err?.message ?? 'observation error' }
           });
         }

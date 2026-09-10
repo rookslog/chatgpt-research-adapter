@@ -245,7 +245,7 @@ export async function renewObserver({
 
   const now = typeof clock?.now === 'function' ? clock.now() : Date.now();
   if (!Number.isInteger(now) || now < 0) fail('observer clock is invalid', 'ERR_BINDING_TTL');
-  if (now > existing.expires_at) {
+  if (now >= existing.expires_at) {
     fail(`observer lease expired at ${existing.expires_at}, current time is ${now}`, 'ERR_BINDING_EXPIRED');
   }
 

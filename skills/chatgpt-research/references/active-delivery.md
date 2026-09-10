@@ -1,6 +1,6 @@
 # Active caller delivery
 
-Development binding candidate: Codex Desktop's caller-owned code-mode cell with an awaited process watcher and `notify`. Installed-path qualification is required before advertising the tuple as supported. This is not a general promise for every Codex or other-harness session.
+Development binding candidate: Codex Desktop's caller-owned code-mode cell with an awaited process watcher and `notify`. The installed local and SSH paths have bounded synthetic-event qualification; live-provider completion and changed tool surfaces still require qualification. This is not a general promise for every Codex or other-harness session.
 
 ## Binding responsibilities
 
@@ -10,7 +10,7 @@ After submit returns, retain the runtime config, operation reference, observer I
 
 A bounded bridge does the following:
 
-1. Activate the exact operation/observer/generation with a finite lease of at most60seconds. Establish a watcher from the retained cursor so events arriving during activation are recovered.
+1. Activate the exact operation/observer/generation with a finite lease of at most 60 seconds. Establish a watcher from the retained cursor so events arriving during activation are recovered.
 2. Yield control while keeping the cell's promises awaited. The caller can do independent work. A detached promise discarded when the cell ends does not provide active delivery.
 3. Renew from the still-live cell before expiry; watch durable NDJSON events in bounded intervals shorter than the lease. Validate schema, operation identity, cursor and event IDs. Maintain a separate cursor for each observer. Reject malformed/truncated output instead of pretending delivery succeeded.
 4. Send only concise completion/attention references through `notify`. Deduplicate stable event IDs; ignore routine watch-timeout events. Do not inject report content, credentials or provider-page text into an event notification.
@@ -41,7 +41,8 @@ const observer = "caller-owned observer ID";
 const generation = "unique generation for this active cell";
 const quote = s => "'" + s.replaceAll("'", "'\\''") + "'";
 const command = args => [cli, ...args].map(quote).join(" ");
-let pending = "", cursor = 0;
+let pending = "", cursor = 0, delivered = false;
+const deadline = Date.now() + 5 * 60 * 1000; // Set from the caller's authorized work window.
 const seen = new Set();
 function consume(output) {
   pending += output;
@@ -56,15 +57,20 @@ function consume(output) {
     if (e.type === "watch.timeout" || seen.has(e.event_id)) continue;
     if (e.cursor <= cursor) throw Error("Non-monotonic event cursor");
     cursor = e.cursor; seen.add(e.event_id);
-    if (e.type === "result.available" || e.type.endsWith(".attention"))
+    if (e.type === "result.available" || e.type.endsWith(".attention")) {
+      delivered = true;
       notify({type:e.type, operation_ref:operation, result_ref:e.result_ref ?? null, event_id:e.event_id});
+    }
   }
 }
-let child = await tools.exec_command({
+async function watch() {
+  return await tools.exec_command({
   cmd:command(["runtime","watch","--runtime",config,"--operation",operation,
-    "--observer",observer,"--after",String(cursor),"--timeout-ms","50000","--json"]),
+    "--observer",observer,"--after",String(cursor),"--timeout-ms","20000","--json"]),
   yield_time_ms:1000, max_output_tokens:2500
 });
+}
+let child = await watch();
 consume(child.output);
 if (!child.session_id) throw Error("Watcher exited before activation");
 const active = await tools.exec_command({
@@ -75,13 +81,27 @@ const active = await tools.exec_command({
 if (active.exit_code !== 0) throw Error("Observer activation failed");
 text({watcher:"armed",operation_ref:operation});
 await yield_control();
-while (child.session_id) {
-  child = await tools.write_stdin({session_id:child.session_id,chars:"",
-    yield_time_ms:1000,max_output_tokens:2500});
+while (true) {
+  while (child.session_id) {
+    child = await tools.write_stdin({session_id:child.session_id,chars:"",
+      yield_time_ms:1000,max_output_tokens:2500});
+    consume(child.output);
+  }
+  if (pending.trim() || child.exit_code !== 0) throw Error("Incomplete watcher stream");
+  if (delivered || Date.now() + 20000 >= deadline) break;
+  const renewal = await tools.exec_command({
+    cmd:command(["runtime","renew","--runtime",config,"--operation",operation,
+      "--observer",observer,"--generation",generation,"--ttl-ms","60000","--json"]),
+    yield_time_ms:1000,max_output_tokens:1500
+  });
+  if (renewal.exit_code !== 0) throw Error("Observer renewal failed");
+  child = await watch();
   consume(child.output);
 }
-if (pending.trim() || child.exit_code !== 0) throw Error("Incomplete watcher stream");
-text({watcher:"bounded interval ended",operation_ref:operation,cursor});
+text({watcher:"bounded delivery ended",operation_ref:operation,cursor,
+  delivered,event_ids:[...seen]});
 ```
 
-This example watches one bounded interval. For a longer authorized research run, the still-active cell must renew the same generation before expiry and keep watching from its cursor; ending this interval does not establish continued delivery. Preserve state on any watcher/renewal failure and report delivery attention. Do not restart research to repair notification. A changed harness/tool surface needs binding qualification before reuse.
+This example watches in 20-second intervals and renews the same generation while its cell remains active. A bounded installed qualification received an event after three renewals and after the original lease would have expired. Set the overall deadline from the actual task budget. This receipt does not establish indefinite delivery; ending the cell ends renewal. Preserve state on any watcher/renewal failure and report delivery attention. Do not restart research to repair notification. A changed harness/tool surface needs binding qualification before reuse.
+
+For a deliberate reconnection after expiry, inspect the prior observer and use the explicit `--replace-expired` activation flag. Do not add that flag to every activation or use it to override a still-active recipient. Preserve the cursor and seen event IDs in the caller’s durable handoff before its context or process is discarded.

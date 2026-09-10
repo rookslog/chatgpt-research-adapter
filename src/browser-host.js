@@ -3,7 +3,7 @@ import { constants } from 'node:fs';
 import { mkdir, open, lstat } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { acquireHumanControl, humanControlActive, readManagedBackend, recordHumanBackend, releaseHumanControl } from './human-control.js';
+import { acquireHumanControl, humanControlActive, readManagedBackend, recordHumanBackend, releaseHumanControl, retireManagedBackend } from './human-control.js';
 import { requestServiceStop } from './runtime-service.js';
 import { canonicalJson } from './canonical-json.js';
 
@@ -200,7 +200,10 @@ async function waitForOwnershipRetirement(path, clock, message) {
 
 function processAlive(pid) {
   try { process.kill(pid, 0); return true; }
-  catch (error) { return error?.code === 'EPERM'; }
+  catch (error) {
+    if (error?.code === 'ESRCH') return false;
+    fail('managed browser process liveness is uncertain', 'ERR_BROWSER_HOST_OWNER');
+  }
 }
 
 function hostIdentity(plan) {
@@ -215,16 +218,23 @@ export async function authShow({ config, spawnImpl, clock } = {}) {
     await waitForOwnershipRetirement(join(config.runtime.root, 'service.lock'), clock, 'runtime service has not released browser control');
     await waitForOwnershipRetirement(join(config.runtime.root, 'effect.lock'), clock, 'runtime effect owner has not released browser control');
     const plan = await planBrowserHost({ config, platform: config?.browserHost?.platform, topology: config?.browserHost?.topology });
-    const managedBackend = await readManagedBackend(config.runtime);
+    let managedBackend = await readManagedBackend(config.runtime);
+    let recoveredDeadBackend = false;
     if (managedBackend) {
       if (
         managedBackend.profile_path !== plan.profile_path ||
-        managedBackend.host_identity_sha256 !== hostIdentity(plan) ||
-        !processAlive(managedBackend.pid)
+        managedBackend.host_identity_sha256 !== hostIdentity(plan)
       ) fail('owned browser backend identity is unavailable', 'ERR_BROWSER_HOST_OWNER');
-      started = { status: 'reused', pid: managedBackend.pid, browser_host: plan };
-    } else {
-      if (control.existing) fail('owned browser backend identity is unavailable', 'ERR_BROWSER_HOST_OWNER');
+      if (processAlive(managedBackend.pid)) {
+        started = { status: 'reused', pid: managedBackend.pid, browser_host: plan };
+      } else {
+        await retireManagedBackend(config.runtime, managedBackend);
+        managedBackend = null;
+        recoveredDeadBackend = true;
+      }
+    }
+    if (!managedBackend) {
+      if (control.existing && !recoveredDeadBackend) fail('owned browser backend identity is unavailable', 'ERR_BROWSER_HOST_OWNER');
       started = await startBrowserHost({ config, spawnImpl });
       await recordHumanBackend(config.runtime, control.nonce, {
         pid: started.pid,

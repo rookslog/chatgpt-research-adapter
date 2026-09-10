@@ -1240,7 +1240,7 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
     let selectedOp = null;
     let preparedTarget = null;
     let preparationError = null;
-    let preparationHold = null;
+    const preparationHolds = [];
     for (const cand of eligible) {
       if (!checkDispatchGate(context, 'authorize', cand)) continue;
       if (!checkDispatchGate(context, 'deliveryReady', cand)) continue;
@@ -1270,12 +1270,12 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
         continue;
       }
       if (prepStatus === 'held') {
-        preparationHold ??= {
+        preparationHolds.push({
           operation_ref: cand.operation_ref,
           reason: isNonEmptyString(prepReason) && Buffer.byteLength(prepReason, 'utf8') <= 256
             ? prepReason
             : 'preparation_held'
-        };
+        });
         continue;
       }
       const targetPresent = detachedTarget !== undefined && detachedTarget !== null &&
@@ -1302,8 +1302,9 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
 
     if (!selectedOp) {
       if (preparationError) throw preparationError;
+      const preparationHold = preparationHolds[0];
       return preparationHold
-        ? { status: 'held', operation_ref: preparationHold.operation_ref, reason: preparationHold.reason, snapshot: null }
+        ? { status: 'held', operation_ref: preparationHold.operation_ref, reason: preparationHold.reason, preparation_holds: preparationHolds, snapshot: null }
         : { status: 'held', operation_ref: null, reason: 'work_held_or_gated', snapshot: null };
     }
 
@@ -1460,6 +1461,7 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
       status: 'dispatched',
       operation_ref: selectedOp.operation_ref,
       reason: null,
+      preparation_holds: preparationHolds,
       snapshot: acceptedSnapshot
     };
   } catch (error) {

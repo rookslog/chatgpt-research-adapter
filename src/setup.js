@@ -2,7 +2,6 @@ import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, readFile, readdir, realpath, rename, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { canonicalJson } from './canonical-json.js';
 
 const fail = (message, code = 'ERR_SETUP') => {
@@ -22,6 +21,10 @@ function normalizedInventoryPath(relPath) {
 
 function exactStringSet(left, right) {
   return Array.isArray(left) && [...left].sort().join('\n') === [...right].sort().join('\n');
+}
+
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", `'"'"'`)}'`;
 }
 
 async function requireSafeExistingDirectory(path, label) {
@@ -279,7 +282,10 @@ export async function applySetup({ plan } = {}) {
 
   const wrapperPath = join(binDir, 'chatgpt-research');
   const targetScript = join(appDir, 'bin', 'chatgpt-research.js');
-  const wrapperScript = `#!/usr/bin/env node\nimport ${JSON.stringify(pathToFileURL(targetScript).href)};\n`;
+  const selectedNode = plan.browser_host?.components?.node;
+  const wrapperScript = typeof selectedNode === 'string' && selectedNode.length > 0
+    ? `#!/bin/sh\nexec ${shellQuote(selectedNode)} ${shellQuote(targetScript)} "$@"\n`
+    : `#!/bin/sh\nexec /usr/bin/env node ${shellQuote(targetScript)} "$@"\n`;
   const wrapperBytes = Buffer.from(wrapperScript, 'utf8');
   const wrapperSha256 = createHash('sha256').update(wrapperBytes).digest('hex');
   if (await existingRegularFile(wrapperPath, 'CLI wrapper')) {
