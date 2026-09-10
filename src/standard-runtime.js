@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, isAbsolute, join, parse, sep } from 'node:path';
 import { canonicalJson } from './canonical-json.js';
 
 const RUNTIME_STATE_SCHEMA = 'standard.runtime-state.v1';
@@ -11,8 +11,11 @@ const EFFECTS = new Set(['known_unsent', 'unknown', 'accepted']);
 const MAX_OPERATIONS = 256;
 const MAX_PROMPT_BYTES = 1024 * 1024;
 const MAX_SNAPSHOT_BYTES = 16 * 1024 * 1024;
+const MAX_LOCK_RECORD_BYTES = 4096;
 const HASH = /^[0-9a-f]{64}$/;
 const PREPARED_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const RESOURCE_ID = /^[a-z][a-z0-9-]{0,63}$/;
+const VERSION = /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/;
 
 const fail = (message, code = 'ERR_RUNTIME_INTERNAL') => {
   const error = new Error(message);
@@ -48,6 +51,7 @@ async function validateRuntimeRoot(root) {
   if (typeof root !== 'string' || !isAbsolute(root)) {
     fail('runtime root must be an absolute path', 'ERR_RUNTIME_ROOT');
   }
+  await assertNoSymlinkAncestors(root);
   let stat;
   try {
     stat = await lstat(root);
@@ -61,6 +65,22 @@ async function validateRuntimeRoot(root) {
     fail('runtime root must be owned by the current user', 'ERR_RUNTIME_ROOT');
   }
   return stat;
+}
+
+async function assertNoSymlinkAncestors(path) {
+  const root = parse(path).root;
+  const parts = path.slice(root.length).split(sep).filter((part) => part.length > 0);
+  if (parts.some((part) => part === '.' || part === '..')) {
+    fail('runtime path must not contain dot traversal', 'ERR_RUNTIME_ROOT');
+  }
+  let current = root;
+  for (const part of parts.slice(0, -1)) {
+    current = current === root ? `${root}${part}` : `${current}${sep}${part}`;
+    const stat = await lstat(current).catch(() => null);
+    if (!stat || stat.isSymbolicLink() || !stat.isDirectory()) {
+      fail('runtime path ancestor must be a regular directory', 'ERR_RUNTIME_ROOT');
+    }
+  }
 }
 
 async function assertRuntimeRootIdentity(root, expected, message) {
@@ -127,12 +147,12 @@ async function readLockRecord(lockPath) {
   }
   try {
     const stat = await fd.stat();
-    if (!stat.isFile() || !ownedByCurrentUser(stat)) {
+    if (!stat.isFile() || !ownedByCurrentUser(stat) || stat.size > MAX_LOCK_RECORD_BYTES) {
       fail('lock owner file is not a regular owned file', 'ERR_RUNTIME_OWNER_UNRESOLVED');
     }
     let record;
     try {
-      record = JSON.parse(await fd.readFile('utf8'));
+      record = JSON.parse(await readBoundedText(fd, MAX_LOCK_RECORD_BYTES));
     } catch {
       fail('lock owner file is corrupt', 'ERR_RUNTIME_OWNER_UNRESOLVED');
     }
@@ -140,6 +160,18 @@ async function readLockRecord(lockPath) {
   } finally {
     await fd.close().catch(() => {});
   }
+}
+
+async function readBoundedText(fd, limit) {
+  const bytes = Buffer.alloc(limit + 1);
+  let offset = 0;
+  while (offset < bytes.length) {
+    const { bytesRead } = await fd.read(bytes, offset, bytes.length - offset, offset);
+    if (bytesRead === 0) break;
+    offset += bytesRead;
+  }
+  if (offset > limit) fail('lock owner file exceeds size limit', 'ERR_RUNTIME_OWNER_UNRESOLVED');
+  return bytes.subarray(0, offset).toString('utf8');
 }
 
 async function assertLockOwnership(handle, expectedEpoch) {
@@ -193,12 +225,14 @@ async function cleanupFailedLockCreation(lockPath, identity, directoryIdentity, 
       }
       if (expectedRecord) {
         let record;
+        let recordStat;
         try {
-          record = JSON.parse(await readFile(lockPath, 'utf8'));
+          ({ record, stat: recordStat } = await readLockRecord(lockPath));
         } catch {
           fail('created lock record changed before cleanup', 'ERR_RUNTIME_OWNER_UNRESOLVED');
         }
         if (
+          !sameIdentity(recordStat, createdIdentity) ||
           !isPlainObject(record) ||
           record.token !== expectedRecord.token ||
           record.pid !== expectedRecord.pid ||
@@ -267,8 +301,21 @@ async function acquireLock(lockPath, epoch, { isStateLock = false } = {}) {
         if (stat.isSymbolicLink() || !stat.isFile() || !ownedByCurrentUser(stat)) {
           fail('lock file is not a regular file', 'ERR_RUNTIME_OWNER_UNRESOLVED');
         }
+        if (stat.size > MAX_LOCK_RECORD_BYTES) {
+          fail('lock file exceeds size limit', 'ERR_RUNTIME_OWNER_UNRESOLVED');
+        }
         try {
-          const text = await readFile(lockPath, 'utf8');
+          const readHandle = await open(lockPath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+          let text;
+          try {
+            const openedStat = await readHandle.stat();
+            if (!sameIdentity(openedStat, stat) || !openedStat.isFile() || !ownedByCurrentUser(openedStat) || openedStat.size > MAX_LOCK_RECORD_BYTES) {
+              fail('lock file changed while reading', 'ERR_RUNTIME_OWNER_UNRESOLVED');
+            }
+            text = await readBoundedText(readHandle, MAX_LOCK_RECORD_BYTES);
+          } finally {
+            await readHandle.close().catch(() => {});
+          }
           if (text.length > 0) {
             lockData = JSON.parse(text);
             if (
@@ -364,10 +411,10 @@ async function releaseLock(handle) {
       'ERR_RUNTIME_OWNER_UNRESOLVED'
     );
     await assertLockOwnership(handle, handle.epoch);
-    const pathStat = await lstat(handle.lockPath);
+    let pathStat;
     let pathRecord;
     try {
-      pathRecord = JSON.parse(await readFile(handle.lockPath, 'utf8'));
+      ({ record: pathRecord, stat: pathStat } = await readLockRecord(handle.lockPath));
     } catch (error) {
       throw new Error('owned lock record cannot be read during release', { cause: error });
     }
@@ -470,6 +517,15 @@ function isValidBinding(binding) {
     isNonEmptyString(binding.userMessageId);
 }
 
+function isCanonicalUtcTimestamp(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return false;
+  try {
+    return new Date(value).toISOString() === value;
+  } catch {
+    return false;
+  }
+}
+
 function createPreparedIntent(bundle, outputRoot) {
   const provenance = {
     events: bundle.events,
@@ -542,10 +598,15 @@ function validateStoredIntent(intent) {
     intent.caller !== 'codex' ||
     !PREPARED_ID.test(intent.job_id) ||
     !PREPARED_ID.test(intent.turn_id) ||
+    !RESOURCE_ID.test(intent.template_id) ||
+    !VERSION.test(intent.template_version) ||
+    !RESOURCE_ID.test(intent.rigor_profile_id) ||
+    !VERSION.test(intent.rigor_profile_version) ||
     intent.rigor_protocol_id !== 'chatgpt-research-epistemic' ||
     intent.rigor_protocol_version !== '1.0.0' ||
     !['principal', 'expanded'].includes(intent.citation_level) ||
     intent.created_at !== intent.prepared_at ||
+    !isCanonicalUtcTimestamp(intent.created_at) ||
     intent.job_root !== join(intent.output_root, 'jobs', intent.job_id) ||
     typeof intent.audit_appendix !== 'boolean'
   ) {
@@ -805,6 +866,7 @@ export async function initializeStandardRuntime({ root, capacity = 4 } = {}) {
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > 4) {
     fail('capacity must be an integer between 1 and 4', 'ERR_RUNTIME_CAPACITY');
   }
+  await assertNoSymlinkAncestors(root);
   let rootStat = null;
   try {
     rootStat = await lstat(root);
@@ -997,6 +1059,8 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
   const effectHandle = await acquireLock(effectLockPath, runtime.epoch, { isStateLock: false });
   let workError = null;
   try {
+    await assertRuntimeRootIdentity(runtime.root, initialRootStat, 'runtime directory replaced before dispatch state inspection');
+    await assertLockOwnership(effectHandle, runtime.epoch);
     let state = await readSnapshot(runtime.root, runtime.epoch);
     const occupied = (state.reservations ?? []).length;
     if (occupied >= state.capacity) {
@@ -1034,15 +1098,22 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
         preparationError ??= error;
         continue;
       }
-      if (prep?.status === 'held') continue;
-      const targetPresent = prep?.target !== undefined && prep?.target !== null &&
-        (typeof prep.target !== 'string' || prep.target.trim().length > 0);
-      if (prep?.status === 'ready' && targetPresent && isNonEmptyString(prep.evidenceRef)) {
-        try {
-          preparedTarget = immutableCallbackView(prep.target);
-        } catch {
-          continue;
-        }
+      let prepStatus;
+      let detachedTarget;
+      let prepEvidenceRef;
+      try {
+        prepStatus = prep?.status;
+        const target = prep?.target;
+        prepEvidenceRef = prep?.evidenceRef;
+        detachedTarget = immutableCallbackView(target);
+      } catch {
+        continue;
+      }
+      if (prepStatus === 'held') continue;
+      const targetPresent = detachedTarget !== undefined && detachedTarget !== null &&
+        (typeof detachedTarget !== 'string' || detachedTarget.trim().length > 0);
+      if (prepStatus === 'ready' && targetPresent && isNonEmptyString(prepEvidenceRef)) {
+        preparedTarget = detachedTarget;
         selectedOp = cand;
         break;
       }
@@ -1202,6 +1273,19 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
 export async function recordStandardObservation({ runtime, operationRef, expectedRevision, observation, context } = {}) {
   validateRuntimeDescriptor(runtime);
   await validateRuntimeRoot(runtime.root);
+  let observed;
+  try {
+    observed = Object.freeze({
+      status: observation?.status,
+      conversationId: observation?.conversationId,
+      userMessageId: observation?.userMessageId,
+      evidenceRef: observation?.evidenceRef,
+      attention: observation?.attention,
+      reason: observation?.reason
+    });
+  } catch {
+    fail('observation fields are unreadable', 'ERR_RUNTIME_OBSERVATION_STATUS');
+  }
   return await withStateLock(runtime.root, runtime.epoch, async (ownership) => {
     const state = await readSnapshot(runtime.root, runtime.epoch);
     const op = Object.hasOwn(state.operations, operationRef) ? state.operations[operationRef] : null;
@@ -1217,22 +1301,22 @@ export async function recordStandardObservation({ runtime, operationRef, expecte
     if (typeof expectedRevision !== 'number' || op.revision !== expectedRevision) {
       fail(`revision conflict: expected ${expectedRevision}, found ${op.revision}`, 'ERR_RUNTIME_REVISION_CONFLICT');
     }
-    if (!op.binding || observation?.conversationId !== op.binding.conversationId || observation?.userMessageId !== op.binding.userMessageId) {
+    if (!op.binding || observed.conversationId !== op.binding.conversationId || observed.userMessageId !== op.binding.userMessageId) {
       fail('observation binding mismatch', 'ERR_RUNTIME_BINDING');
     }
-    if (!['running', 'completed', 'failed'].includes(observation?.status)) {
+    if (!['running', 'completed', 'failed'].includes(observed.status)) {
       fail('invalid observation status', 'ERR_RUNTIME_OBSERVATION_STATUS');
     }
-    if (!isNonEmptyString(observation?.evidenceRef)) {
+    if (!isNonEmptyString(observed.evidenceRef)) {
       fail('observation evidenceRef is required', 'ERR_RUNTIME_OBSERVATION_EVIDENCE');
     }
-    op.observation_evidence_ref = observation.evidenceRef;
-    if (observation.status === 'completed') {
+    op.observation_evidence_ref = observed.evidenceRef;
+    if (observed.status === 'completed') {
       op.phase = 'collecting';
       state.reservations = (state.reservations ?? []).filter((id) => id !== op.operation_ref);
-    } else if (observation.status === 'failed') {
+    } else if (observed.status === 'failed') {
       op.phase = 'settled';
-      op.attention = observation.attention ?? observation.reason ?? 'failed';
+      op.attention = observed.attention ?? observed.reason ?? 'failed';
       state.reservations = (state.reservations ?? []).filter((id) => id !== op.operation_ref);
     }
     op.revision = (op.revision ?? 1) + 1;

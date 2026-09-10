@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {syncBuiltinESMExports} from 'node:module';
-import {tmpdir} from 'node:os';
+import { tmpdir as nativeTestTmpdir } from 'node:os';
+import { realpathSync as canonicalTestPath } from 'node:fs';
+const tmpdir = () => canonicalTestPath(nativeTestTmpdir());
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import test from 'node:test';
@@ -34,10 +36,11 @@ test('failed ownership verification after new lock publication cleans only that 
  assert.equal((await admit(w)).admission,'accepted');
 });
 test('token mismatch observed during release preserves foreign record and refuses success',async t=>{
- const w=await setup(t),read=fs.readFile;let changed=false;
- fs.readFile=async(...a)=>{if(a[0]===join(w.runtime.root,'state.lock')&&!changed){const value=JSON.parse(await read(...a));value.token='foreign-token';await fs.writeFile(a[0],JSON.stringify(value));changed=true;}return read(...a);};syncBuiltinESMExports();
- try{await assert.rejects(admit(w));assert.equal(changed,true);}finally{fs.readFile=read;syncBuiltinESMExports();}
- assert.equal(JSON.parse(await read(join(w.runtime.root,'state.lock'),'utf8')).token,'foreign-token');
+ const w=await setup(t),open=fs.open;let changed=false;
+ // Mutate at retirement entry, independent of path-read versus descriptor-read choice.
+ fs.open=async(...a)=>{if(a[0]===join(w.runtime.root,'state.lock')&&!changed&&(a[1]&constants.O_CREAT)===0&&/at (?:async )?releaseLock /.test(new Error().stack)){const value=JSON.parse(await fs.readFile(a[0],'utf8'));value.token='foreign-token';await fs.writeFile(a[0],JSON.stringify(value));changed=true;}return open(...a);};syncBuiltinESMExports();
+ try{await assert.rejects(admit(w));assert.equal(changed,true);}finally{fs.open=open;syncBuiltinESMExports();}
+ assert.equal(JSON.parse(await fs.readFile(join(w.runtime.root,'state.lock'),'utf8')).token,'foreign-token');
 });
 test('replaced temporary snapshot inode cannot produce a successful admission receipt',async t=>{
  const w=await setup(t),rename=fs.rename;let replaced=false;

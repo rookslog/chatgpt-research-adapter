@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
-import { tmpdir } from 'node:os';
+import { tmpdir as nativeTestTmpdir } from 'node:os';
+import { realpathSync as canonicalTestPath } from 'node:fs';
+const tmpdir = () => canonicalTestPath(nativeTestTmpdir());
 import { join } from 'node:path';
 import test from 'node:test';
 import { prepareResearchJob } from '../src/prepare.js';

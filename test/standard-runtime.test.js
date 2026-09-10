@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { tmpdir as nativeTestTmpdir } from 'node:os';
+import { realpathSync as canonicalTestPath } from 'node:fs';
+const tmpdir = () => canonicalTestPath(nativeTestTmpdir());
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
