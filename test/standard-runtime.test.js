@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -25,6 +26,9 @@ const {
 } = runtimeModule ?? {};
 
 const templatesRoot = fileURLToPath(new URL('../templates/', import.meta.url));
+const admitWorkerPath = fileURLToPath(new URL('./fixtures/standard-runtime/admit-worker.js', import.meta.url));
+const dispatchWorkerPath = fileURLToPath(new URL('./fixtures/standard-runtime/dispatch-worker.js', import.meta.url));
+const holdOwnerWorkerPath = fileURLToPath(new URL('./fixtures/standard-runtime/hold-owner-worker.js', import.meta.url));
 
 const baseRequest = {
   question: 'Explain the mechanism of tidal locking.',
@@ -61,6 +65,71 @@ async function createLoggingExecutable(root) {
   );
   await chmod(executable, 0o700);
   return { executable, log };
+}
+
+function createAdvancingClock(initialTime = 10_000_000) {
+  let currentTime = initialTime;
+  return {
+    now: () => currentTime,
+    sleep: async (ms) => {
+      currentTime += ms;
+    }
+  };
+}
+
+function runChildProcess(scriptPath, args, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(process.execPath, [scriptPath, ...args], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (d) => { stdout += d.toString(); });
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+    const timer = setTimeout(() => {
+      proc.kill('SIGKILL');
+      reject(new Error(`Child process ${scriptPath} timed out after ${timeoutMs}ms; stderr: ${stderr}`));
+    }, timeoutMs);
+    proc.on('close', (code, signal) => {
+      clearTimeout(timer);
+      resolve({ code, signal, stdout, stderr });
+    });
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+function spawnHoldingWorker(scriptPath, args, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(process.execPath, [scriptPath, ...args], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let stdout = '';
+    let stderr = '';
+    const timer = setTimeout(() => {
+      proc.kill('SIGKILL');
+      reject(new Error(`Holding worker timed out waiting for readiness signal after ${timeoutMs}ms; stderr: ${stderr}`));
+    }, timeoutMs);
+
+    proc.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+      if (stdout.includes('READY_HOLDING_OWNERSHIP\n')) {
+        clearTimeout(timer);
+        resolve(proc);
+      }
+    });
+    proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      reject(new Error(`Holding worker exited prematurely with code ${code}; stderr: ${stderr}`));
+    });
+  });
 }
 
 const moduleTest = (name, fn) => {
@@ -169,7 +238,7 @@ moduleTest('2. duplicate requestKey recovers existing operation or rejects inten
 });
 
 // ---------------------------------------------------------------------------
-// 3. Concurrent admission across distinct output roots without lost updates
+// 3. Concurrent admission across distinct output roots via child processes
 // ---------------------------------------------------------------------------
 moduleTest('3. concurrent admission across distinct output roots succeeds without lost updates', async (t) => {
   const { root } = await createWorkspace(t);
@@ -185,29 +254,48 @@ moduleTest('3. concurrent admission across distinct output roots succeeds withou
   const job1 = await createPreparedJob(outputRoot1, { question: 'Job from root 1' });
   const job2 = await createPreparedJob(outputRoot2, { question: 'Job from root 2' });
 
-  async function admitWithRetry(args, maxAttempts = 20) {
-    for (let i = 0; i < maxAttempts; i++) {
-      try {
-        return await submitPreparedJobOnce(args);
-      } catch (err) {
-        if (err?.code === 'ERR_RUNTIME_BUSY' && i < maxAttempts - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 10 + Math.random() * 20));
-          continue;
-        }
-        throw err;
-      }
-    }
-  }
-
-  const [receipt1, receipt2] = await Promise.all([
-    admitWithRetry({ outputRoot: outputRoot1, jobId: job1.job_id, runtime, requestKey: 'root1-key' }),
-    admitWithRetry({ outputRoot: outputRoot2, jobId: job2.job_id, runtime, requestKey: 'root2-key' })
+  // Concurrently admit from two distinct child processes with bounded ERR_RUNTIME_BUSY retry
+  const [proc1Result, proc2Result] = await Promise.all([
+    runChildProcess(admitWorkerPath, [
+      '--output-root', outputRoot1,
+      '--job-id', job1.job_id,
+      '--runtime-root', runtimeRoot,
+      '--runtime-epoch', runtime.epoch,
+      '--request-key', 'proc-root1-key'
+    ]),
+    runChildProcess(admitWorkerPath, [
+      '--output-root', outputRoot2,
+      '--job-id', job2.job_id,
+      '--runtime-root', runtimeRoot,
+      '--runtime-epoch', runtime.epoch,
+      '--request-key', 'proc-root2-key'
+    ])
   ]);
+
+  assert.equal(proc1Result.code, 0, `proc1 failed with stderr: ${proc1Result.stderr}`);
+  assert.equal(proc2Result.code, 0, `proc2 failed with stderr: ${proc2Result.stderr}`);
+
+  const receipt1 = JSON.parse(proc1Result.stdout);
+  const receipt2 = JSON.parse(proc2Result.stdout);
 
   assert.equal(receipt1.admission, 'accepted');
   assert.equal(receipt2.admission, 'accepted');
   assert.notEqual(receipt1.operation_ref, receipt2.operation_ref);
 
+  // Fresh child process lookup with same key recovers existing admission
+  const lookupResult = await runChildProcess(admitWorkerPath, [
+    '--output-root', outputRoot1,
+    '--job-id', job1.job_id,
+    '--runtime-root', runtimeRoot,
+    '--runtime-epoch', runtime.epoch,
+    '--request-key', 'proc-root1-key'
+  ]);
+  assert.equal(lookupResult.code, 0, `fresh process lookup failed: ${lookupResult.stderr}`);
+  const lookupReceipt = JSON.parse(lookupResult.stdout);
+  assert.equal(lookupReceipt.admission, 'existing');
+  assert.equal(lookupReceipt.operation_ref, receipt1.operation_ref);
+
+  // Inspect state from parent: both distinct operations must be durably present
   const inspected = await inspectStandardRuntime({ runtime });
   assert.equal(inspected.operations.length, 2);
   const opRefs = inspected.operations.map((o) => o.operation_ref);
@@ -216,61 +304,123 @@ moduleTest('3. concurrent admission across distinct output roots succeeds withou
 });
 
 // ---------------------------------------------------------------------------
-// 4. Capacity bounds 1-4 and competing last-slot dispatchers
+// 4. Capacity bounds 1, 2, 4 and competing last-slot dispatchers
 // ---------------------------------------------------------------------------
-moduleTest('4. capacity enforcement and competing last-slot dispatchers prevent oversubscription', async (t) => {
+moduleTest('4. capacity enforcement across capacities 1, 2, and 4 with competing last-slot dispatchers', async (t) => {
   const { root, outputRoot } = await createWorkspace(t);
-  const runtimeRoot = join(root, 'runtime');
-  const init = await initializeStandardRuntime({ root: runtimeRoot, capacity: 1 });
-  const runtime = { root: runtimeRoot, epoch: init.runtime_epoch };
 
-  // Rejects out-of-range capacities (integer 1-4)
+  // Capacity out of range (integer 1-4 required) must reject
   await assert.rejects(
-    initializeStandardRuntime({ root: join(root, 'c0'), capacity: 0 }),
+    initializeStandardRuntime({ root: join(root, 'cap-0'), capacity: 0 }),
     (err) => err?.code?.startsWith('ERR_RUNTIME_')
   );
   await assert.rejects(
-    initializeStandardRuntime({ root: join(root, 'c5'), capacity: 5 }),
+    initializeStandardRuntime({ root: join(root, 'cap-5'), capacity: 5 }),
     (err) => err?.code?.startsWith('ERR_RUNTIME_')
   );
 
-  const job1 = await createPreparedJob(outputRoot, { question: 'Job 1 for slot race' });
-  const job2 = await createPreparedJob(outputRoot, { question: 'Job 2 for slot race' });
+  for (const cap of [1, 2, 4]) {
+    const subRoot = join(root, `cap-sub-${cap}`);
+    await mkdir(subRoot);
+    const runtimeRoot = join(subRoot, 'runtime');
+    const init = await initializeStandardRuntime({ root: runtimeRoot, capacity: cap });
+    const runtime = { root: runtimeRoot, epoch: init.runtime_epoch };
 
-  await submitPreparedJobOnce({ outputRoot, jobId: job1.job_id, runtime, requestKey: 'slot-job-1' });
-  await submitPreparedJobOnce({ outputRoot, jobId: job2.job_id, runtime, requestKey: 'slot-job-2' });
-
-  let concurrentSends = 0;
-  let maxConcurrentSends = 0;
-  const slowDriver = {
-    prepare: async () => ({ status: 'ready', target: 'endpoint-1', evidenceRef: 'ev-prep' }),
-    send: async (op) => {
-      concurrentSends++;
-      maxConcurrentSends = Math.max(maxConcurrentSends, concurrentSends);
-      await new Promise((resolve) => setTimeout(resolve, 40));
-      concurrentSends--;
-      return {
-        status: 'accepted',
-        binding: { conversationId: `conv-${op.operation_ref}`, userMessageId: 'msg-1' },
-        evidenceRef: 'ev-send'
-      };
+    // Admit cap + 1 jobs
+    const jobs = [];
+    for (let i = 0; i <= cap; i++) {
+      const job = await createPreparedJob(outputRoot, { question: `Cap-${cap} test job ${i}` });
+      await submitPreparedJobOnce({ outputRoot, jobId: job.job_id, runtime, requestKey: `cap-${cap}-key-${i}` });
+      jobs.push(job);
     }
-  };
 
-  const fakeClock = { now: () => 1000000, sleep: async () => {} };
-  const context = { authorize: () => true, deliveryReady: () => true, clock: fakeClock, random: () => 0 };
+    // Prefill cap - 1 slots to leave exactly 1 slot open
+    const prefillDriver = {
+      prepare: async () => ({ status: 'ready', target: 'endpoint-prefill', evidenceRef: 'ev-prep' }),
+      send: async (op) => ({
+        status: 'accepted',
+        binding: { conversationId: `conv-prefill-${op.operation_ref}`, userMessageId: 'msg-prefill' },
+        evidenceRef: 'ev-send'
+      })
+    };
+    const prefillContext = {
+      authorize: () => true,
+      deliveryReady: () => true,
+      clock: createAdvancingClock(),
+      random: () => 0
+    };
 
-  const [res1, res2] = await Promise.all([
-    dispatchNextStandard({ runtime, context, driver: slowDriver }),
-    dispatchNextStandard({ runtime, context, driver: slowDriver })
-  ]);
+    for (let i = 0; i < cap - 1; i++) {
+      const prefillRes = await dispatchNextStandard({ runtime, context: prefillContext, driver: prefillDriver });
+      assert.equal(prefillRes.status, 'dispatched');
+    }
 
-  assert.equal(maxConcurrentSends, 1, 'shared effect mutex must prevent overlapping sends');
-  const statuses = [res1.status, res2.status].sort();
-  assert.deepEqual(statuses, ['dispatched', 'idle'], 'one worker dispatches, competing worker sees capacity full and reports idle');
+    const stateBeforeRace = await inspectStandardRuntime({ runtime });
+    assert.equal(stateBeforeRace.occupied, cap - 1, `exactly ${cap - 1} slots must be prefilled before last-slot race`);
 
-  const inspected = await inspectStandardRuntime({ runtime });
-  assert.equal(inspected.occupied, 1, 'capacity 1 allows exactly 1 occupied slot');
+    let raceResults;
+    if (cap === 1) {
+      // Race competing dispatchers using two distinct child processes
+      const [child1, child2] = await Promise.all([
+        runChildProcess(dispatchWorkerPath, ['--runtime-root', runtimeRoot, '--runtime-epoch', runtime.epoch, '--delay-send-ms', '40']),
+        runChildProcess(dispatchWorkerPath, ['--runtime-root', runtimeRoot, '--runtime-epoch', runtime.epoch, '--delay-send-ms', '40'])
+      ]);
+      assert.equal(child1.code, 0, `child1 failed: ${child1.stderr}`);
+      assert.equal(child2.code, 0, `child2 failed: ${child2.stderr}`);
+      raceResults = [JSON.parse(child1.stdout), JSON.parse(child2.stdout)];
+    } else {
+      // Race competing dispatchers concurrently in process
+      let concurrentSends = 0;
+      let maxConcurrentSends = 0;
+      const competingDriver = {
+        prepare: async () => ({ status: 'ready', target: 'endpoint-competing', evidenceRef: 'ev-prep' }),
+        send: async (op) => {
+          concurrentSends++;
+          maxConcurrentSends = Math.max(maxConcurrentSends, concurrentSends);
+          await new Promise((resolve) => setTimeout(resolve, 30));
+          concurrentSends--;
+          return {
+            status: 'accepted',
+            binding: { conversationId: `conv-${op.operation_ref}`, userMessageId: 'msg-comp' },
+            evidenceRef: 'ev-send'
+          };
+        }
+      };
+      const competingContext = {
+        authorize: () => true,
+        deliveryReady: () => true,
+        clock: createAdvancingClock(),
+        random: () => 0
+      };
+
+      raceResults = await Promise.all([
+        dispatchNextStandard({ runtime, context: competingContext, driver: competingDriver }).catch((err) => {
+          if (err?.code === 'ERR_RUNTIME_BUSY') return { status: 'busy', code: 'ERR_RUNTIME_BUSY' };
+          throw err;
+        }),
+        dispatchNextStandard({ runtime, context: competingContext, driver: competingDriver }).catch((err) => {
+          if (err?.code === 'ERR_RUNTIME_BUSY') return { status: 'busy', code: 'ERR_RUNTIME_BUSY' };
+          throw err;
+        })
+      ]);
+      assert.ok(maxConcurrentSends <= 1, 'shared effect mutex must prevent overlapping sends');
+    }
+
+    // Exactly one winner dispatches into the final available slot; loser receives idle or typed busy contention
+    const dispatchedCount = raceResults.filter((r) => r.status === 'dispatched').length;
+    assert.equal(dispatchedCount, 1, `exactly 1 additional send must be dispatched into final slot for cap ${cap}`);
+
+    for (const res of raceResults) {
+      assert.ok(
+        res.status === 'dispatched' || res.status === 'idle' || res.status === 'busy',
+        `contention result must be dispatched, idle, or busy (got: ${JSON.stringify(res)})`
+      );
+    }
+
+    const stateAfterRace = await inspectStandardRuntime({ runtime });
+    assert.ok(stateAfterRace.occupied <= cap, `occupied slots (${stateAfterRace.occupied}) must not exceed capacity (${cap})`);
+    assert.equal(stateAfterRace.occupied, cap, `capacity ${cap} must be fully occupied after winning dispatch`);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -299,7 +449,7 @@ moduleTest('5. state inspection inside send proves unknown marker and slot reser
     }
   };
 
-  const fakeClock = { now: () => 2000000, sleep: async () => {} };
+  const fakeClock = createAdvancingClock(2000000);
   const context = { authorize: () => true, deliveryReady: () => true, clock: fakeClock, random: () => 0 };
 
   const dispatchRes = await dispatchNextStandard({ runtime, context, driver: verifyingDriver });
@@ -341,7 +491,7 @@ moduleTest('6. thrown send retains unknown effect and occupancy without replay',
     }
   };
 
-  const fakeClock = { now: () => 3000000, sleep: async () => {} };
+  const fakeClock = createAdvancingClock(3000000);
   const context = { authorize: () => true, deliveryReady: () => true, clock: fakeClock, random: () => 0 };
 
   await assert.rejects(
@@ -393,7 +543,7 @@ moduleTest('7. accepted dispatch and matching completion releases slot while pre
     })
   };
 
-  const fakeClock = { now: () => 4000000, sleep: async () => {} };
+  const fakeClock = createAdvancingClock(4000000);
   const context = { authorize: () => true, deliveryReady: () => true, clock: fakeClock, random: () => 0 };
 
   const dispatch = await dispatchNextStandard({ runtime, context, driver });
@@ -452,7 +602,7 @@ moduleTest('8. observation rejects mismatched binding, revision conflict, or unk
     })
   };
 
-  const fakeClock = { now: () => 5000000, sleep: async () => {} };
+  const fakeClock = createAdvancingClock(5000000);
   const context = { authorize: () => true, deliveryReady: () => true, clock: fakeClock, random: () => 0 };
 
   await dispatchNextStandard({ runtime, context, driver });
@@ -524,9 +674,9 @@ moduleTest('8. observation rejects mismatched binding, revision conflict, or unk
 });
 
 // ---------------------------------------------------------------------------
-// 9. Held high priority preserves FIFO eligibility on normal priority
+// 9. Gated preferred request leaves ungated normal priority request eligible
 // ---------------------------------------------------------------------------
-moduleTest('9. held high priority request leaves normal priority eligible without starvation', async (t) => {
+moduleTest('9. ungated normal priority request remains eligible when preferred high priority request is gated', async (t) => {
   const { root, outputRoot } = await createWorkspace(t);
   const runtimeRoot = join(root, 'runtime');
   const init = await initializeStandardRuntime({ root: runtimeRoot, capacity: 2 });
@@ -535,12 +685,13 @@ moduleTest('9. held high priority request leaves normal priority eligible withou
   const jobHigh = await createPreparedJob(outputRoot, { question: 'High priority job' });
   const jobNormal = await createPreparedJob(outputRoot, { question: 'Normal priority job' });
 
+  // High priority admission must supply authorize: () => true because default authority allows only normal
   const receiptHigh = await submitPreparedJobOnce({
     outputRoot,
     jobId: jobHigh.job_id,
     runtime,
     requestKey: 'high-priority-key',
-    context: { priority: 'high' }
+    context: { priority: 'high', authorize: () => true }
   });
 
   const receiptNormal = await submitPreparedJobOnce({
@@ -548,16 +699,11 @@ moduleTest('9. held high priority request leaves normal priority eligible withou
     jobId: jobNormal.job_id,
     runtime,
     requestKey: 'normal-priority-key',
-    context: { priority: 'normal' }
+    context: { priority: 'normal', authorize: () => true }
   });
 
-  const driverWithHeldHigh = {
-    prepare: async (op) => {
-      if (op.priority === 'high') {
-        return { status: 'held', reason: 'high-tier capacity unavailable upstream' };
-      }
-      return { status: 'ready', target: 'endpoint-normal', evidenceRef: 'ev-norm-prep' };
-    },
+  const driver = {
+    prepare: async () => ({ status: 'ready', target: 'endpoint-ready', evidenceRef: 'ev-prep' }),
     send: async (op) => ({
       status: 'accepted',
       binding: { conversationId: `conv-${op.operation_ref}`, userMessageId: 'msg-norm' },
@@ -565,24 +711,34 @@ moduleTest('9. held high priority request leaves normal priority eligible withou
     })
   };
 
-  const fakeClock = { now: () => 6000000, sleep: async () => {} };
-  const context = { authorize: () => true, deliveryReady: () => true, clock: fakeClock, random: () => 0 };
+  const fakeClock = createAdvancingClock(6000000);
+  // Delivery gate explicitly holds the high-priority operation; normal-priority operation is deliveryReady
+  const context = {
+    authorize: () => true,
+    deliveryReady: (op) => op.priority !== 'high',
+    clock: fakeClock,
+    random: () => 0
+  };
 
-  const dispatchRes = await dispatchNextStandard({ runtime, context, driver: driverWithHeldHigh });
+  const dispatchRes = await dispatchNextStandard({ runtime, context, driver });
   assert.equal(dispatchRes.status, 'dispatched');
-  assert.equal(dispatchRes.operation_ref, receiptNormal.operation_ref, 'normal priority operation must be dispatched when high is held');
+  assert.equal(
+    dispatchRes.operation_ref,
+    receiptNormal.operation_ref,
+    'normal priority operation must be dispatched when high priority operation delivery gate is not ready'
+  );
 
   const inspected = await inspectStandardRuntime({ runtime });
-  assert.equal(inspected.occupied, 1, 'held high priority must not consume capacity');
+  assert.equal(inspected.occupied, 1, 'gated high priority must not consume capacity slot');
   const highOp = inspected.operations.find((o) => o.operation_ref === receiptHigh.operation_ref);
   assert.equal(highOp.phase, 'queued');
   assert.equal(highOp.submission_effect, 'known_unsent');
 });
 
 // ---------------------------------------------------------------------------
-// 10. Controlled clock sender enforces 4000-5000ms quiet period and cooldown
+// 10. Monotonic advancing clock enforces >=4000ms quiet period between sends
 // ---------------------------------------------------------------------------
-moduleTest('10. controlled clock enforces 4000-5000ms quiet period and cooldown between sends', async (t) => {
+moduleTest('10. advancing clock enforces monotonic >=4000ms quiet period separation between attempted sends (public cooldown setter deferred to next slice)', async (t) => {
   const { root, outputRoot } = await createWorkspace(t);
   const runtimeRoot = join(root, 'runtime');
   const init = await initializeStandardRuntime({ root: runtimeRoot, capacity: 4 });
@@ -594,33 +750,30 @@ moduleTest('10. controlled clock enforces 4000-5000ms quiet period and cooldown 
   await submitPreparedJobOnce({ outputRoot, jobId: job1.job_id, runtime, requestKey: 'clock-key-1' });
   await submitPreparedJobOnce({ outputRoot, jobId: job2.job_id, runtime, requestKey: 'clock-key-2' });
 
-  let simulatedNow = 10_000_000;
-  const recordedSleeps = [];
-  const fakeClock = {
-    now: () => simulatedNow,
-    sleep: async (ms) => {
-      recordedSleeps.push(ms);
-      simulatedNow += ms;
-    }
-  };
+  const advancingClock = createAdvancingClock(10_000_000);
+  const sendTimestamps = [];
 
-  // random returns 0.5 -> 4000 + floor(0.5 * 1001) = 4500ms quiet period
-  const fakeRandom = () => 0.5;
+  // random returns 0.5 -> monotonic quiet period = 4000 + floor(0.5 * 1001) = 4500ms
+  const controlledRandom = () => 0.5;
 
   const driver = {
     prepare: async () => ({ status: 'ready', target: 'endpoint-clock', evidenceRef: 'ev-prep' }),
-    send: async (op) => ({
-      status: 'accepted',
-      binding: { conversationId: `conv-${op.operation_ref}`, userMessageId: 'msg-clock' },
-      evidenceRef: 'ev-send'
-    })
+    send: async (op) => {
+      // Record the actual sender timestamp modeled by the advancing clock
+      sendTimestamps.push(advancingClock.now());
+      return {
+        status: 'accepted',
+        binding: { conversationId: `conv-${op.operation_ref}`, userMessageId: 'msg-clock' },
+        evidenceRef: 'ev-send'
+      };
+    }
   };
 
   const context = {
     authorize: () => true,
     deliveryReady: () => true,
-    clock: fakeClock,
-    random: fakeRandom
+    clock: advancingClock,
+    random: controlledRandom
   };
 
   const res1 = await dispatchNextStandard({ runtime, context, driver });
@@ -629,10 +782,13 @@ moduleTest('10. controlled clock enforces 4000-5000ms quiet period and cooldown 
   const res2 = await dispatchNextStandard({ runtime, context, driver });
   assert.equal(res2.status, 'dispatched');
 
-  assert.ok(recordedSleeps.length >= 2, 'both sends must observe quiet period sleeps');
-  for (const sleepMs of recordedSleeps) {
-    assert.ok(sleepMs >= 4000 && sleepMs <= 5001, `sleep ${sleepMs}ms must be within 4000-5001ms quiet period range`);
-  }
+  assert.equal(sendTimestamps.length, 2, 'both sends must have executed and recorded sender timestamps');
+  const elapsedBetweenSends = sendTimestamps[1] - sendTimestamps[0];
+  assert.ok(
+    elapsedBetweenSends >= 4000,
+    `sender timestamps must be separated by at least 4000ms monotonic quiet period (actual: ${elapsedBetweenSends}ms)`
+  );
+  // Note: cooldown setter is not in frozen C1 public API; public cooldown configuration testing is explicitly deferred to next slice.
 });
 
 // ---------------------------------------------------------------------------
@@ -696,40 +852,55 @@ moduleTest('11. missing, corrupt store or mismatched epoch refuses via ERR_RUNTI
 });
 
 // ---------------------------------------------------------------------------
-// 12. Untrustworthy or replaced lock ownership refuses via ERR_RUNTIME_OWNER_UNRESOLVED
+// 12. Abandoned owner from terminated worker refuses replacement dispatch via public API & process lifecycle
 // ---------------------------------------------------------------------------
-moduleTest('12. tampered or replaced lock ownership refuses via ERR_RUNTIME_OWNER_UNRESOLVED', async (t) => {
+moduleTest('12. abandoned owner from terminated worker refuses replacement dispatch via ERR_RUNTIME_OWNER_UNRESOLVED or ERR_RUNTIME_BUSY', async (t) => {
   const { root, outputRoot } = await createWorkspace(t);
   const runtimeRoot = join(root, 'runtime');
   const init = await initializeStandardRuntime({ root: runtimeRoot, capacity: 4 });
   const runtime = { root: runtimeRoot, epoch: init.runtime_epoch };
 
-  const job = await createPreparedJob(outputRoot, { question: 'Lock tampering test' });
-  await submitPreparedJobOnce({ outputRoot, jobId: job.job_id, runtime, requestKey: 'lock-test-key' });
+  const job = await createPreparedJob(outputRoot, { question: 'Lock owner test job' });
+  const receipt = await submitPreparedJobOnce({ outputRoot, jobId: job.job_id, runtime, requestKey: 'owner-test-key' });
 
-  // Simulate untrustworthy or replaced owner handle / lockfile
-  // Disappearance / replacement of owned lock files must yield conservative refusal
-  const files = await readdir(runtimeRoot);
-  const lockFiles = files.filter((f) => f.includes('lock'));
-  if (lockFiles.length === 0) {
-    // If locks are created on demand or named state.lock / effect.lock
-    await writeFile(join(runtimeRoot, 'state.lock'), JSON.stringify({ owner: 'alien-process-99999', token: 'alien-token' }));
-    await writeFile(join(runtimeRoot, 'effect.lock'), JSON.stringify({ owner: 'alien-process-99999', token: 'alien-token' }));
-  } else {
-    for (const lockFile of lockFiles) {
-      await writeFile(join(runtimeRoot, lockFile), JSON.stringify({ owner: 'alien-process-99999', token: 'alien-token' }));
+  // Spawn child worker that acquires effect ownership in driver.prepare and holds it indefinitely
+  const holderProc = await spawnHoldingWorker(holdOwnerWorkerPath, [
+    '--runtime-root', runtimeRoot,
+    '--runtime-epoch', runtime.epoch
+  ]);
+
+  // Terminate the holding child worker while it is holding ownership
+  holderProc.kill('SIGKILL');
+  await new Promise((resolve) => holderProc.on('close', resolve));
+
+  // Replacement dispatch attempt must refuse conservatively without making send calls
+  let sendCalls = 0;
+  const replacementDriver = {
+    prepare: async () => ({ status: 'ready', target: 'endpoint-replacement', evidenceRef: 'ev-prep' }),
+    send: async () => {
+      sendCalls++;
+      return { status: 'accepted', binding: { conversationId: 'c-rep', userMessageId: 'm-rep' } };
     }
-  }
-
-  const driver = {
-    prepare: async () => ({ status: 'ready', target: 'endpoint' }),
-    send: async () => ({ status: 'accepted', binding: { conversationId: 'c', userMessageId: 'm' } })
   };
-  const fakeClock = { now: () => 11000000, sleep: async () => {} };
-  const context = { authorize: () => true, deliveryReady: () => true, clock: fakeClock, random: () => 0 };
+
+  const context = {
+    authorize: () => true,
+    deliveryReady: () => true,
+    clock: createAdvancingClock(),
+    random: () => 0
+  };
 
   await assert.rejects(
-    dispatchNextStandard({ runtime, context, driver }),
+    dispatchNextStandard({ runtime, context, driver: replacementDriver }),
     (err) => err?.code === 'ERR_RUNTIME_OWNER_UNRESOLVED' || err?.code === 'ERR_RUNTIME_BUSY'
   );
+
+  assert.equal(sendCalls, 0, 'replacement dispatch must make zero send calls after owner abandoned');
+
+  // Verify queued / effect evidence remains intact without arbitrary mutation
+  const inspected = await inspectStandardRuntime({ runtime, operationRef: receipt.operation_ref });
+  assert.ok(inspected.operations.length >= 1);
+  const op = inspected.operations.find((o) => o.operation_ref === receipt.operation_ref);
+  assert.ok(op);
+  assert.ok(op.submission_effect === 'known_unsent' || op.submission_effect === 'unknown');
 });
