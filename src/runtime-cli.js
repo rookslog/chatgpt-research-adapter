@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { lstat, mkdir, open, readFile, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canonicalJson } from './canonical-json.js';
@@ -147,6 +148,29 @@ function parseStrictFlags(argv, allowedValued, allowedBoolean = ['--json']) {
     fail(`unknown option: ${flag}`, 'ERR_CLI_USAGE');
   }
   return options;
+}
+
+async function readBoundedRequest(path, limit = 64 * 1024) {
+  const before = await lstat(path).catch(() => fail('request file is unavailable', 'ERR_CLI_USAGE'));
+  if (before.isSymbolicLink() || !before.isFile() || before.size > limit) fail('request file is invalid or exceeds 64 KiB', 'ERR_CLI_USAGE');
+  const fd = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)).catch(() => fail('request file is unavailable', 'ERR_CLI_USAGE'));
+  try {
+    const stat = await fd.stat();
+    if (!stat.isFile() || stat.dev !== before.dev || stat.ino !== before.ino || stat.size > limit) {
+      fail('request file identity changed or exceeds 64 KiB', 'ERR_CLI_USAGE');
+    }
+    const bytes = Buffer.alloc(limit + 1);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const { bytesRead } = await fd.read(bytes, offset, bytes.length - offset, offset);
+      if (bytesRead === 0) break;
+      offset += bytesRead;
+    }
+    if (offset > limit) fail('request file exceeds 64 KiB', 'ERR_CLI_USAGE');
+    return bytes.subarray(0, offset).toString('utf8');
+  } finally {
+    await fd.close().catch(() => {});
+  }
 }
 
 export async function runRuntimeCli(argv, {
@@ -457,7 +481,7 @@ export async function runRuntimeCli(argv, {
 
       let requestData;
       try {
-        requestData = JSON.parse(await readFile(opts.request, 'utf8'));
+        requestData = JSON.parse(await readBoundedRequest(opts.request));
       } catch {
         fail('request file is invalid JSON', 'ERR_CLI_USAGE');
       }

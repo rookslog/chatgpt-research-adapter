@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, open, rename, unlink } from 'node:fs/promises';
+import { lstat, open, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalJson } from './canonical-json.js';
 
@@ -14,6 +14,7 @@ const fail = (message, code = 'ERR_HUMAN_CONTROL') => {
 
 const owned = (stat) => typeof process.getuid !== 'function' || stat.uid === process.getuid();
 const pathFor = (runtime) => join(runtime.root, 'human-control.json');
+const backendPathFor = (runtime) => join(runtime.root, 'managed-browser.json');
 
 async function runtimeIdentity(runtime) {
   if (!runtime || typeof runtime.root !== 'string' || typeof runtime.epoch !== 'string' || runtime.epoch.length === 0) {
@@ -26,9 +27,8 @@ async function runtimeIdentity(runtime) {
   return stat;
 }
 
-function valid(record, runtime) {
-  const backend = record?.backend;
-  const validBackend = backend === null || Boolean(
+function validBackend(backend) {
+  return Boolean(
     backend && !Array.isArray(backend) && typeof backend === 'object' &&
     Object.keys(backend).sort().join('\n') === ['host_identity_sha256', 'pid', 'profile_path', 'started_at'].sort().join('\n') &&
     Number.isInteger(backend.pid) && backend.pid > 0 &&
@@ -36,6 +36,10 @@ function valid(record, runtime) {
     typeof backend.profile_path === 'string' && backend.profile_path.length > 0 &&
     /^[0-9a-f]{64}$/.test(backend.host_identity_sha256)
   );
+}
+
+function valid(record, runtime) {
+  const backend = record?.backend;
   return Boolean(
     record && !Array.isArray(record) && typeof record === 'object' &&
     Object.keys(record).sort().join('\n') === ['backend', 'epoch', 'nonce', 'requested_at', 'schema'].sort().join('\n') &&
@@ -43,7 +47,17 @@ function valid(record, runtime) {
     record.epoch === runtime.epoch &&
     typeof record.nonce === 'string' && record.nonce.length > 0 &&
     Number.isInteger(record.requested_at) && record.requested_at >= 0 &&
-    validBackend
+    (backend === null || validBackend(backend))
+  );
+}
+
+function validManagedBackend(record, runtime) {
+  return Boolean(
+    record && !Array.isArray(record) && typeof record === 'object' &&
+    Object.keys(record).sort().join('\n') === ['backend', 'epoch', 'schema'].sort().join('\n') &&
+    record.schema === 'research.managed-browser.v1' &&
+    record.epoch === runtime.epoch &&
+    validBackend(record.backend)
   );
 }
 
@@ -69,6 +83,34 @@ async function readControl(runtime) {
   }
   if (!valid(record, runtime)) fail('human-control record is malformed', 'ERR_HUMAN_CONTROL_UNTRUSTED');
   return { path, stat, record };
+}
+
+export async function readManagedBackend(runtime) {
+  await runtimeIdentity(runtime);
+  const path = backendPathFor(runtime);
+  let fd;
+  try { fd = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    fail('managed browser record is untrusted', 'ERR_HUMAN_CONTROL_UNTRUSTED');
+  }
+  let record;
+  try {
+    const stat = await fd.stat();
+    if (!stat.isFile() || !owned(stat) || stat.size > 4096) {
+      fail('managed browser record is untrusted', 'ERR_HUMAN_CONTROL_UNTRUSTED');
+    }
+    record = JSON.parse(await fd.readFile('utf8'));
+  } catch (error) {
+    if (error?.code?.startsWith('ERR_HUMAN_CONTROL_')) throw error;
+    fail('managed browser record is malformed', 'ERR_HUMAN_CONTROL_UNTRUSTED');
+  } finally {
+    await fd.close().catch(() => {});
+  }
+  if (!validManagedBackend(record, runtime)) {
+    fail('managed browser record is malformed', 'ERR_HUMAN_CONTROL_UNTRUSTED');
+  }
+  return structuredClone(record.backend);
 }
 
 async function syncRoot(runtime, identity) {
@@ -118,35 +160,40 @@ export async function acquireHumanControl(runtime, now = Date.now()) {
 export async function recordHumanBackend(runtime, nonce, backend) {
   const root = await runtimeIdentity(runtime);
   const current = await readControl(runtime);
-  if (!current || current.record.nonce !== nonce || current.record.backend !== null) {
+  if (!current || current.record.nonce !== nonce || !validBackend(backend)) {
     fail('human-control backend owner is unresolved', 'ERR_HUMAN_CONTROL_UNTRUSTED');
   }
-  const updated = { ...current.record, backend };
-  if (!valid(updated, runtime)) fail('human-control backend identity is invalid', 'ERR_HUMAN_CONTROL_UNTRUSTED');
-  const tmpPath = `${current.path}.tmp.${randomUUID()}`;
-  const fd = await open(tmpPath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
-  const tmpIdentity = await fd.stat();
+  const path = backendPathFor(runtime);
+  const record = { schema: 'research.managed-browser.v1', epoch: runtime.epoch, backend: structuredClone(backend) };
+  const existing = await readManagedBackend(runtime);
+  if (existing) {
+    if (canonicalJson(existing) !== canonicalJson(record.backend)) {
+      fail('managed browser owner cannot be replaced', 'ERR_HUMAN_CONTROL_UNTRUSTED');
+    }
+    return existing;
+  }
+  let fd;
+  let identity;
   try {
-    await fd.writeFile(`${canonicalJson(updated)}\n`, 'utf8');
+    fd = await open(path, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
+    identity = await fd.stat();
+    await fd.writeFile(`${canonicalJson(record)}\n`, 'utf8');
     await fd.sync();
+  } catch (error) {
+    if (error?.code === 'EEXIST') {
+      const raced = await readManagedBackend(runtime);
+      if (raced && canonicalJson(raced) === canonicalJson(record.backend)) return raced;
+    }
+    throw error;
   } finally {
-    await fd.close().catch(() => {});
+    await fd?.close().catch(() => {});
   }
-  const written = await lstat(tmpPath).catch(() => null);
-  if (!written || written.isSymbolicLink() || !written.isFile() || !owned(written) || written.dev !== tmpIdentity.dev || written.ino !== tmpIdentity.ino) {
-    fail('human-control backend update changed before publication', 'ERR_HUMAN_CONTROL_UNTRUSTED');
-  }
-  const latest = await lstat(current.path).catch(() => null);
-  if (!latest || latest.dev !== current.stat.dev || latest.ino !== current.stat.ino || latest.isSymbolicLink() || !latest.isFile()) {
-    fail('human-control owner changed before backend publication', 'ERR_HUMAN_CONTROL_UNTRUSTED');
-  }
-  await rename(tmpPath, current.path);
-  const published = await lstat(current.path).catch(() => null);
-  if (!published || published.isSymbolicLink() || !published.isFile() || !owned(published) || published.dev !== tmpIdentity.dev || published.ino !== tmpIdentity.ino) {
+  const published = await lstat(path).catch(() => null);
+  if (!published || published.isSymbolicLink() || !published.isFile() || !owned(published) || published.dev !== identity.dev || published.ino !== identity.ino) {
     fail('human-control backend publication is unresolved', 'ERR_HUMAN_CONTROL_UNTRUSTED');
   }
   await syncRoot(runtime, root);
-  return updated.backend;
+  return structuredClone(record.backend);
 }
 
 export async function releaseHumanControl(runtime) {

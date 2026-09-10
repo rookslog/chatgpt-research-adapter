@@ -39,6 +39,44 @@ function getStopRequestPath(runtimeRoot) {
   return join(runtimeRoot, 'service.stop');
 }
 
+async function readStopRequest(runtimeRoot) {
+  const path = getStopRequestPath(runtimeRoot);
+  let fd;
+  try { fd = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    fail('stop request is untrusted', 'ERR_SERVICE_OWNER_UNRESOLVED');
+  }
+  try {
+    const stat = await fd.stat();
+    if (!stat.isFile() || !ownedByCurrentUser(stat) || stat.size > 4096) fail('stop request is untrusted', 'ERR_SERVICE_OWNER_UNRESOLVED');
+    const bytes = Buffer.alloc(4097);
+    const { bytesRead } = await fd.read(bytes, 0, bytes.length, 0);
+    if (bytesRead > 4096) fail('stop request is untrusted', 'ERR_SERVICE_OWNER_UNRESOLVED');
+    const record = JSON.parse(bytes.subarray(0, bytesRead).toString('utf8'));
+    if (
+      !record || Array.isArray(record) || typeof record !== 'object' ||
+      Object.keys(record).sort().join('\n') !== ['nonce', 'requested_at', 'schema'].sort().join('\n') ||
+      record.schema !== 'research.service-stop.v1' ||
+      typeof record.nonce !== 'string' || record.nonce.length === 0 ||
+      !Number.isInteger(record.requested_at) || record.requested_at < 0
+    ) fail('stop request is malformed', 'ERR_SERVICE_OWNER_UNRESOLVED');
+    return { path, stat, record };
+  } catch (error) {
+    if (error?.code === 'ERR_SERVICE_OWNER_UNRESOLVED') throw error;
+    fail('stop request is malformed', 'ERR_SERVICE_OWNER_UNRESOLVED');
+  } finally { await fd.close().catch(() => {}); }
+}
+
+async function retireStopRequest(runtimeRoot, rootIdentity, request) {
+  const current = await lstat(request.path).catch(() => null);
+  if (!current || current.dev !== request.stat.dev || current.ino !== request.stat.ino || current.isSymbolicLink() || !current.isFile()) {
+    fail('stop request owner changed before retirement', 'ERR_SERVICE_OWNER_UNRESOLVED');
+  }
+  await unlink(request.path);
+  await syncRuntimeDirectory(runtimeRoot, rootIdentity);
+}
+
 function ownedByCurrentUser(stat) {
   return typeof process.getuid !== 'function' || stat.uid === process.getuid();
 }
@@ -167,6 +205,11 @@ export async function requestServiceStop(runtimeRoot) {
     requested_at: Date.now(),
     nonce: lock.nonce
   }) + '\n';
+  const prior = await readStopRequest(runtimeRoot);
+  if (prior) {
+    if (prior.record.nonce === lock.nonce) return { status: 'stop_requested', pid: lock.pid };
+    await retireStopRequest(runtimeRoot, rootIdentity, prior);
+  }
   const fd = await open(stopPath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
   try {
     await fd.writeFile(stopPayload, 'utf8');
@@ -180,14 +223,17 @@ export async function requestServiceStop(runtimeRoot) {
 }
 
 export async function checkStopRequested(runtimeRoot) {
-  const stopPath = getStopRequestPath(runtimeRoot);
+  const rootIdentity = await requireRuntimeDirectory(runtimeRoot);
   try {
-    const stat = await lstat(stopPath);
-    if (stat.isSymbolicLink() || !stat.isFile() || !ownedByCurrentUser(stat)) return false;
-    const stop = JSON.parse(await readFile(stopPath, 'utf8'));
+    const stop = await readStopRequest(runtimeRoot);
+    if (!stop) return false;
     const owner = await readServiceOwner(runtimeRoot);
-    if (!owner || stop?.schema !== 'research.service-stop.v1' || stop.nonce !== owner.nonce) return false;
-    await unlink(stopPath);
+    if (!owner) return false;
+    if (stop.record.nonce !== owner.nonce) {
+      await retireStopRequest(runtimeRoot, rootIdentity, stop);
+      return false;
+    }
+    await retireStopRequest(runtimeRoot, rootIdentity, stop);
     return true;
   } catch (error) {
     if (error?.code !== 'ENOENT') return false;
@@ -209,6 +255,11 @@ export async function runRuntimeCycle({ config, driver, context } = {}) {
 
   const cycleContext = {
     ...context,
+    authorize: (candidate) => {
+      const allowedPriorities = Array.isArray(config.allowedPriorities) ? config.allowedPriorities : ['normal'];
+      if (!allowedPriorities.includes(candidate?.priority)) return false;
+      return typeof context?.authorize === 'function' ? context.authorize(candidate) === true : true;
+    },
     deliveryReady: (candidate) =>
       deliveryReady({
         config,
@@ -223,6 +274,25 @@ export async function runRuntimeCycle({ config, driver, context } = {}) {
     context: cycleContext,
     driver
   });
+
+  if (dispatchResult?.status === 'held' && dispatchResult.operation_ref && typeof dispatchResult.reason === 'string') {
+    const heldState = await inspectStandardRuntime({ runtime: config.runtime, operationRef: dispatchResult.operation_ref });
+    const heldOperation = heldState.operations[0];
+    const alreadyRecorded = (heldState.events ?? []).some((event) =>
+      event.operation_ref === dispatchResult.operation_ref &&
+      event.type === 'preparation.attention' &&
+      event.payload?.reason === dispatchResult.reason
+    );
+    if (heldOperation && !alreadyRecorded) {
+      await recordOperationEvent({
+        config,
+        operationRef: heldOperation.operation_ref,
+        jobRef: heldOperation.job_ref,
+        type: 'preparation.attention',
+        payload: { reason: dispatchResult.reason }
+      });
+    }
+  }
 
   if (dispatchResult?.status === 'dispatched' && dispatchResult.operation_ref) {
     const op = dispatchResult.snapshot?.operations?.[dispatchResult.operation_ref];

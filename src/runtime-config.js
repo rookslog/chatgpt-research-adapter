@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, mkdir, open, readFile, rename } from 'node:fs/promises';
+import { link, lstat, mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join } from 'node:path';
 import { canonicalJson } from './canonical-json.js';
 import { inspectStandardRuntime } from './standard-runtime.js';
@@ -144,17 +144,39 @@ export async function configureRuntime({
 
   // Write registry file if not present
   if (!existingRegistry) {
-    const registryPayload = canonicalJson({
+    const registryRecord = {
       schema: 'research.runtime-registry.v1',
       hostId,
       contextId,
       runtime_root: runtime.root,
       epoch: runtime.epoch,
       registered_at: Date.now()
-    }) + '\n';
+    };
+    const registryPayload = canonicalJson(registryRecord) + '\n';
     const tmpRegistry = `${registryFilePath}.tmp.${randomUUID()}`;
     await writeFilePrivate(tmpRegistry, registryPayload);
-    await rename(tmpRegistry, registryFilePath);
+    let published = false;
+    try {
+      await link(tmpRegistry, registryFilePath);
+      published = true;
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      let raced;
+      try { raced = JSON.parse(await readFile(registryFilePath, 'utf8')); }
+      catch { fail('runtime registry claim is unreadable', 'ERR_RUNTIME_REGISTRY_CONFLICT'); }
+      if (
+        raced?.schema !== 'research.runtime-registry.v1' ||
+        raced.hostId !== hostId || raced.contextId !== contextId ||
+        raced.runtime_root !== runtime.root || raced.epoch !== runtime.epoch
+      ) fail('runtime registry claim was won by a different runtime', 'ERR_RUNTIME_REGISTRY_CONFLICT');
+      existingRegistry = raced;
+    } finally {
+      await unlink(tmpRegistry).catch(() => {});
+    }
+    if (published) {
+      const directory = await open(registryRoot, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+      try { await directory.sync(); } finally { await directory.close().catch(() => {}); }
+    }
   }
 
   const generation = `gen_${randomUUID().replace(/-/g, '')}`;

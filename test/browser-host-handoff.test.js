@@ -66,3 +66,11 @@ test('human auth waits for in-flight browser ownership and prevents another disp
  const next=await dispatchNextStandard({runtime:w.config.runtime,context,driver:{prepare:async()=>{prepares++;return{status:'held'};},send:async()=>{sends++;}}});
  assert.equal(prepares,0);assert.equal(sends,0);assert.equal(next.status,'held');
 });
+
+test('a later authentication handoff reuses the managed browser after earlier handback',async t=>{
+ const w=await hostFixture(t);const first=await browserHost.authShow({config:w.config,spawnImpl:w.spawnImpl});
+ await browserHost.authCheck({config:w.config,transport:{probeAuth:async()=>({signedIn:true,contextId:w.config.browser.contextId})}});
+ assert.equal(await humanControlActive(w.config.runtime),false);
+ const later=await browserHost.authShow({config:w.config,spawnImpl:w.spawnImpl});
+ assert.equal(w.calls(),1,'browser ownership must outlive a human-control episode');assert.equal(later.backend.pid,first.backend.pid);assert.equal(await humanControlActive(w.config.runtime),true);
+});

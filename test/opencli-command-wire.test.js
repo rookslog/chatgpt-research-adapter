@@ -31,3 +31,11 @@ test('command body deadline bounds a hung response and preserves unknown effect 
  // Source integrity includes filesystem awaits. Let the command reach its response body first.
  while(posts===0)await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));t.mock.timers.tick(120001);await rejected;assert.equal(posts,1);assert.equal(cancelled,true);t.mock.timers.reset();
 });
+
+test('correlated rejection is explicitly settled while command-result-unknown is not',async t=>{
+ const f=await fixture(t);
+ for(const errorCode of ['exec_error','command_result_unknown']){
+  let posts=0;const transport=await createOpenCliCommandTransport({...f,contextId:'ctx',requestImpl:async(path,init)=>{if(path.startsWith('/status'))return status();posts++;const p=JSON.parse(init.body);return new Response(JSON.stringify({id:p.id,ok:false,error:'fixture rejection',errorCode}));}});
+  await assert.rejects(transport.command({id:'rejected',action:'exec',page:'p',session:'o',code:'guard'}),e=>e.commandId==='rejected'&&e.executorUnresolved===(errorCode==='command_result_unknown'));assert.equal(posts,1);
+ }
+});

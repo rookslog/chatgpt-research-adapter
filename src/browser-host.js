@@ -3,7 +3,7 @@ import { constants } from 'node:fs';
 import { mkdir, open, lstat } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { acquireHumanControl, humanControlActive, recordHumanBackend, releaseHumanControl } from './human-control.js';
+import { acquireHumanControl, humanControlActive, readManagedBackend, recordHumanBackend, releaseHumanControl } from './human-control.js';
 import { requestServiceStop } from './runtime-service.js';
 import { canonicalJson } from './canonical-json.js';
 
@@ -209,21 +209,22 @@ function hostIdentity(plan) {
 
 export async function authShow({ config, spawnImpl, clock } = {}) {
   const control = await acquireHumanControl(config.runtime, typeof clock?.now === 'function' ? clock.now() : Date.now());
-  await requestServiceStop(config.runtime.root);
-  await waitForOwnershipRetirement(join(config.runtime.root, 'service.lock'), clock, 'runtime service has not released browser control');
-  await waitForOwnershipRetirement(join(config.runtime.root, 'effect.lock'), clock, 'runtime effect owner has not released browser control');
   let started;
-  if (control.existing) {
+  try {
+    await requestServiceStop(config.runtime.root);
+    await waitForOwnershipRetirement(join(config.runtime.root, 'service.lock'), clock, 'runtime service has not released browser control');
+    await waitForOwnershipRetirement(join(config.runtime.root, 'effect.lock'), clock, 'runtime effect owner has not released browser control');
     const plan = await planBrowserHost({ config, platform: config?.browserHost?.platform, topology: config?.browserHost?.topology });
-    if (
-      !control.backend ||
-      control.backend.profile_path !== plan.profile_path ||
-      control.backend.host_identity_sha256 !== hostIdentity(plan) ||
-      !processAlive(control.backend.pid)
-    ) fail('owned browser backend identity is unavailable', 'ERR_BROWSER_HOST_OWNER');
-    started = { status: 'reused', pid: control.backend.pid, browser_host: plan };
-  } else {
-    try {
+    const managedBackend = await readManagedBackend(config.runtime);
+    if (managedBackend) {
+      if (
+        managedBackend.profile_path !== plan.profile_path ||
+        managedBackend.host_identity_sha256 !== hostIdentity(plan) ||
+        !processAlive(managedBackend.pid)
+      ) fail('owned browser backend identity is unavailable', 'ERR_BROWSER_HOST_OWNER');
+      started = { status: 'reused', pid: managedBackend.pid, browser_host: plan };
+    } else {
+      if (control.existing) fail('owned browser backend identity is unavailable', 'ERR_BROWSER_HOST_OWNER');
       started = await startBrowserHost({ config, spawnImpl });
       await recordHumanBackend(config.runtime, control.nonce, {
         pid: started.pid,
@@ -231,10 +232,12 @@ export async function authShow({ config, spawnImpl, clock } = {}) {
         profile_path: started.browser_host.profile_path,
         host_identity_sha256: hostIdentity(started.browser_host)
       });
-    } catch (error) {
-      await releaseHumanControl(config.runtime).catch(() => {});
-      throw error;
     }
+  } catch (error) {
+    if (!control.existing && !started) {
+      await releaseHumanControl(config.runtime).catch(() => {});
+    }
+    throw error;
   }
   const access = started.browser_host.viewer
     ? ` Open ${started.browser_host.viewer.url} and use the private password file ${started.browser_host.viewer.secret_path}.`

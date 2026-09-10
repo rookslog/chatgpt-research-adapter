@@ -268,6 +268,8 @@ export async function createOpenCliCommandTransport({
         err.commandId = id;
         if (resJson.errorCode === 'command_result_unknown' || !res.ok) {
           err.executorUnresolved = true;
+        } else {
+          err.executorUnresolved = false;
         }
         if (resJson.errorCode) {
           err.code = resJson.errorCode;

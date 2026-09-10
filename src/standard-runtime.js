@@ -1240,6 +1240,7 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
     let selectedOp = null;
     let preparedTarget = null;
     let preparationError = null;
+    let preparationHold = null;
     for (const cand of eligible) {
       if (!checkDispatchGate(context, 'authorize', cand)) continue;
       if (!checkDispatchGate(context, 'deliveryReady', cand)) continue;
@@ -1258,15 +1259,25 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
       let prepStatus;
       let detachedTarget;
       let prepEvidenceRef;
+      let prepReason;
       try {
         prepStatus = prep?.status;
         const target = prep?.target;
         prepEvidenceRef = prep?.evidenceRef;
+        prepReason = prep?.reason;
         detachedTarget = immutableCallbackView(target);
       } catch {
         continue;
       }
-      if (prepStatus === 'held') continue;
+      if (prepStatus === 'held') {
+        preparationHold ??= {
+          operation_ref: cand.operation_ref,
+          reason: isNonEmptyString(prepReason) && Buffer.byteLength(prepReason, 'utf8') <= 256
+            ? prepReason
+            : 'preparation_held'
+        };
+        continue;
+      }
       const targetPresent = detachedTarget !== undefined && detachedTarget !== null &&
         (typeof detachedTarget !== 'string' || detachedTarget.trim().length > 0);
       if (prepStatus === 'ready' && targetPresent && isNonEmptyString(prepEvidenceRef)) {
@@ -1291,7 +1302,9 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
 
     if (!selectedOp) {
       if (preparationError) throw preparationError;
-      return { status: 'held', operation_ref: null, reason: 'work_held_or_gated', snapshot: null };
+      return preparationHold
+        ? { status: 'held', operation_ref: preparationHold.operation_ref, reason: preparationHold.reason, snapshot: null }
+        : { status: 'held', operation_ref: null, reason: 'work_held_or_gated', snapshot: null };
     }
 
     let r = typeof context?.random === 'function' ? context.random() : Math.random();
@@ -1642,7 +1655,38 @@ export async function executeStandardCommand({ runtime, operationRef, expectedRe
     await assertLockOwnership(effectHandle, runtime.epoch);
     response = await execute(immutableCallbackView(command));
   } catch (error) {
-    error.executorUnresolved = true;
+    if (error?.executorUnresolved !== false) {
+      error.executorUnresolved = true;
+      error.commandId = command.id;
+      throw error;
+    }
+    try {
+      await assertRuntimeRootIdentity(runtime.root, commandRootIdentity, 'runtime directory replaced before known command rejection publication');
+      await assertLockOwnership(effectHandle, runtime.epoch);
+      await withStateLock(runtime.root, runtime.epoch, async (ownership) => {
+        const state = await readSnapshot(runtime.root, runtime.epoch);
+        const op = Object.hasOwn(state.operations, operationRef) ? state.operations[operationRef] : null;
+        const fence = state.unresolved_executor;
+        if (
+          !op || op.revision !== markedRevision || !fence ||
+          fence.commandId !== command.id || fence.operationRef !== operationRef ||
+          canonicalJson(fence.commandIntent) !== canonicalJson(commandIntent)
+        ) fail('known command rejection does not match its fence', 'ERR_RUNTIME_EXECUTOR_UNRESOLVED');
+        state.unresolved_executor = null;
+        const previous = isPlainObject(op.control) ? op.control : {};
+        op.control = { ...previous, last_kind: 'executor_settled', executor_settled: {
+          kind: 'executor_settled', commandId: command.id, action: command.action,
+          pageId: command.page ?? null, contextId: command.contextId ?? null
+        } };
+        op.revision += 1;
+        state.revision += 1;
+        await saveSnapshotAtomically(runtime.root, state, { ...ownership, effectHandle, epoch: runtime.epoch });
+      });
+    } catch (settlementError) {
+      settlementError.executorUnresolved = true;
+      settlementError.commandId = command.id;
+      throw settlementError;
+    }
     error.commandId = command.id;
     throw error;
   }
@@ -2061,6 +2105,9 @@ export async function recordStandardEvent({ runtime, operationRef, type, resultR
     const op = Object.hasOwn(state.operations, operationRef) ? state.operations[operationRef] : null;
     if (!op) fail(`operation ${operationRef} not found`, 'ERR_RUNTIME_NOT_FOUND');
     if (resultRef !== null && !Object.hasOwn(state.results, resultRef)) fail('event result does not exist', 'ERR_RUNTIME_NOT_FOUND');
+    if (resultRef !== null && state.results[resultRef].operation_ref !== operationRef) {
+      fail('event result does not belong to its operation', 'ERR_RUNTIME_EVENTS');
+    }
     const prior = state.events.filter((event) => event.operation_ref === operationRef);
     const event = {
       schema: 'research.event.v1',

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, readFile, readdir, realpath, rename, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { canonicalJson } from './canonical-json.js';
 
 const fail = (message, code = 'ERR_SETUP') => {
@@ -278,7 +279,7 @@ export async function applySetup({ plan } = {}) {
 
   const wrapperPath = join(binDir, 'chatgpt-research');
   const targetScript = join(appDir, 'bin', 'chatgpt-research.js');
-  const wrapperScript = `#!/usr/bin/env node\nimport '${targetScript}';\n`;
+  const wrapperScript = `#!/usr/bin/env node\nimport ${JSON.stringify(pathToFileURL(targetScript).href)};\n`;
   const wrapperBytes = Buffer.from(wrapperScript, 'utf8');
   const wrapperSha256 = createHash('sha256').update(wrapperBytes).digest('hex');
   if (await existingRegularFile(wrapperPath, 'CLI wrapper')) {
@@ -372,7 +373,13 @@ export async function planUninstall({ prefix } = {}) {
     fail('prefix must be an absolute path', 'ERR_SETUP_PREFIX');
   }
 
-  const manifestPath = join(prefix, 'app', 'install-manifest.json');
+  const appDir = join(prefix, 'app');
+  const appStat = await lstat(appDir).catch(() => null);
+  if (!appStat || appStat.isSymbolicLink() || !appStat.isDirectory() || !ownedByCurrentUser(appStat)) {
+    fail('installed application directory is untrusted', 'ERR_UNINSTALL_DRIFT');
+  }
+  const appIdentity = { dev: appStat.dev, ino: appStat.ino };
+  const manifestPath = join(appDir, 'install-manifest.json');
   let manifestText;
   try {
     manifestText = await readFile(manifestPath, 'utf8');
@@ -404,8 +411,6 @@ export async function planUninstall({ prefix } = {}) {
   if (Object.keys(manifest.files).some((relPath) => !normalizedInventoryPath(relPath))) {
     fail('install manifest contains an invalid path', 'ERR_UNINSTALL_DRIFT');
   }
-
-  const appDir = join(prefix, 'app');
 
   for (const [relPath, meta] of Object.entries(manifest.files || {})) {
     const filePath = join(appDir, relPath);
@@ -444,6 +449,7 @@ export async function planUninstall({ prefix } = {}) {
     plan_id: manifest.plan_id,
     files: Object.keys(manifest.files || {}),
     wrapper: manifest.wrapper,
+    app_identity: appIdentity,
     drifted
   };
   return { ...body, uninstall_plan_digest: createHash('sha256').update(canonicalJson(body)).digest('hex') };
@@ -459,10 +465,15 @@ export async function applyUninstall({ plan } = {}) {
     plan_id: plan.plan_id,
     files: plan.files,
     wrapper: plan.wrapper,
+    app_identity: plan.app_identity,
     drifted: plan.drifted
   };
   const digest = createHash('sha256').update(canonicalJson(body)).digest('hex');
-  if (plan.uninstall_plan_digest !== digest || !Array.isArray(plan.files) || plan.files.some((relPath) => !normalizedInventoryPath(relPath))) {
+  if (
+    plan.uninstall_plan_digest !== digest ||
+    !Array.isArray(plan.files) || plan.files.some((relPath) => !normalizedInventoryPath(relPath)) ||
+    !Number.isInteger(plan.app_identity?.dev) || !Number.isInteger(plan.app_identity?.ino)
+  ) {
     fail('uninstall plan digest or paths are invalid', 'ERR_UNINSTALL_PLAN_INVALID');
   }
 
@@ -471,6 +482,11 @@ export async function applyUninstall({ plan } = {}) {
   }
 
   const appDir = join(plan.prefix, 'app');
+  const appStat = await lstat(appDir).catch(() => null);
+  if (
+    !appStat || appStat.isSymbolicLink() || !appStat.isDirectory() || !ownedByCurrentUser(appStat) ||
+    appStat.dev !== plan.app_identity.dev || appStat.ino !== plan.app_identity.ino
+  ) fail('uninstall application directory identity changed', 'ERR_UNINSTALL_DRIFT');
   const manifestPath = join(appDir, 'install-manifest.json');
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   const manifestFiles = Object.keys(manifest.files || {});
@@ -502,6 +518,11 @@ export async function applyUninstall({ plan } = {}) {
   const wrapperSha = createHash('sha256').update(await readFile(wrapperPath)).digest('hex');
   if (wrapperSha !== manifest.wrapper?.sha256) {
     fail('uninstall refused: CLI wrapper has drifted', 'ERR_UNINSTALL_DRIFT');
+  }
+
+  const finalAppStat = await lstat(appDir).catch(() => null);
+  if (!finalAppStat || finalAppStat.isSymbolicLink() || finalAppStat.dev !== appStat.dev || finalAppStat.ino !== appStat.ino) {
+    fail('uninstall application directory identity changed before removal', 'ERR_UNINSTALL_DRIFT');
   }
 
   // Remove owned files only
