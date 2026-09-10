@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
@@ -11,6 +11,7 @@ const EFFECTS = new Set(['known_unsent', 'unknown', 'accepted']);
 const MAX_OPERATIONS = 256;
 const MAX_PROMPT_BYTES = 1024 * 1024;
 const MAX_SNAPSHOT_BYTES = 16 * 1024 * 1024;
+const HASH = /^[0-9a-f]{64}$/;
 
 const fail = (message, code = 'ERR_RUNTIME_INTERNAL') => {
   const error = new Error(message);
@@ -30,6 +31,10 @@ function ownedByCurrentUser(stat) {
 
 function sameIdentity(stat, expected) {
   return Boolean(stat && expected && stat.dev === expected.dev && stat.ino === expected.ino);
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
 }
 
 function isPlainObject(val) {
@@ -61,6 +66,19 @@ async function assertRuntimeRootIdentity(root, expected, message) {
   const current = await validateRuntimeRoot(root).catch(() => null);
   if (!sameIdentity(current, expected)) {
     fail(message, 'ERR_RUNTIME_ROOT_REPLACED');
+  }
+}
+
+async function assertOwnedDirectoryIdentity(path, expected, message, code) {
+  const current = await lstat(path).catch(() => null);
+  if (
+    !current ||
+    current.isSymbolicLink() ||
+    !current.isDirectory() ||
+    !ownedByCurrentUser(current) ||
+    !sameIdentity(current, expected)
+  ) {
+    fail(message, code);
   }
 }
 
@@ -138,9 +156,44 @@ async function assertLockOwnership(handle, expectedEpoch) {
   }
 }
 
+async function cleanupFailedLockCreation(lockPath, identity, directoryIdentity, fd, originalError) {
+  let cleanupError = null;
+  let removed = false;
+  try {
+    await fd.close();
+  } catch (error) {
+    cleanupError = error;
+  }
+  try {
+    const current = await lstat(lockPath);
+    if (sameIdentity(current, identity)) {
+      await unlink(lockPath);
+      removed = true;
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') cleanupError ??= error;
+  }
+  if (removed) {
+    try {
+      await confirmDirectoryDurability(dirname(lockPath), directoryIdentity);
+    } catch (error) {
+      cleanupError ??= error;
+    }
+  }
+  if (cleanupError) {
+    const error = new Error('failed initial lock publication could not be cleaned up', {
+      cause: new AggregateError([originalError, cleanupError])
+    });
+    error.code = 'ERR_RUNTIME_LOCK_RELEASE';
+    throw error;
+  }
+  throw originalError;
+}
+
 async function acquireLock(lockPath, epoch, { isStateLock = false } = {}) {
   const maxAttempts = isStateLock ? 30 : 1;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const lockDirectoryIdentity = await validateRuntimeRoot(dirname(lockPath));
     if (inProcessLocks.has(lockPath)) {
       if (!isStateLock) {
         fail('effect lock already held in current process', 'ERR_RUNTIME_BUSY');
@@ -228,8 +281,7 @@ async function acquireLock(lockPath, epoch, { isStateLock = false } = {}) {
       await fd.writeFile(payload, 'utf8');
       await fd.sync();
     } catch (error) {
-      await fd.close().catch(() => {});
-      throw error;
+      await cleanupFailedLockCreation(lockPath, stat, lockDirectoryIdentity, fd, error);
     }
     const handle = { fd, lockPath, token, dev: stat.dev, ino: stat.ino };
     try {
@@ -339,11 +391,50 @@ function isValidBinding(binding) {
     isNonEmptyString(binding.userMessageId);
 }
 
+function createPreparedIntent(bundle, outputRoot) {
+  const provenance = {
+    events: bundle.events,
+    current: bundle.current
+  };
+  return {
+    prepared_schema: bundle.current.schema,
+    caller: bundle.current.job.caller,
+    created_at: bundle.current.job.created_at,
+    prepared_at: bundle.current.turn.prepared_at,
+    job_id: bundle.job_id,
+    turn_id: bundle.turn_id,
+    output_root: outputRoot,
+    job_root: bundle.job_root,
+    mode: bundle.mode,
+    mode_reason: bundle.mode_reason,
+    model_family: bundle.model_family,
+    effort: bundle.effort,
+    prompt_sha256: bundle.prompt_sha256,
+    prompt: bundle.prompt,
+    template_id: bundle.template_id,
+    template_version: bundle.template_version,
+    template_sha256: bundle.template_sha256,
+    template_body_sha256: bundle.template_body_sha256,
+    rigor_protocol_id: bundle.rigor_protocol_id,
+    rigor_protocol_version: bundle.rigor_protocol_version,
+    rigor_profile_id: bundle.rigor_profile_id,
+    rigor_profile_version: bundle.rigor_profile_version,
+    rigor_profile_sha256: bundle.rigor_profile_sha256,
+    citation_level: bundle.citation_level,
+    audit_appendix: bundle.audit_appendix,
+    prepared_provenance_sha256: sha256(canonicalJson(provenance))
+  };
+}
+
 function validateStoredIntent(intent) {
   if (!isPlainObject(intent)) historyUnavailable('runtime intent is malformed');
   for (const field of [
-    'job_id', 'turn_id', 'output_root', 'job_root', 'model_family', 'effort',
-    'prompt_sha256', 'prompt', 'template_id', 'template_version'
+    'prepared_schema', 'caller', 'created_at', 'prepared_at', 'job_id', 'turn_id',
+    'output_root', 'job_root', 'mode', 'mode_reason', 'model_family', 'effort',
+    'prompt_sha256', 'prompt', 'template_id', 'template_version', 'template_sha256',
+    'template_body_sha256', 'rigor_protocol_id', 'rigor_protocol_version',
+    'rigor_profile_id', 'rigor_profile_version', 'rigor_profile_sha256',
+    'citation_level', 'prepared_provenance_sha256'
   ]) {
     if (typeof intent[field] !== 'string' || (field !== 'prompt' && intent[field].length === 0)) {
       historyUnavailable(`runtime intent ${field} is invalid`);
@@ -354,6 +445,18 @@ function validateStoredIntent(intent) {
   }
   if (Buffer.byteLength(intent.prompt, 'utf8') > MAX_PROMPT_BYTES) {
     historyUnavailable('runtime intent prompt exceeds size limit');
+  }
+  for (const field of [
+    'prompt_sha256', 'template_sha256', 'template_body_sha256',
+    'rigor_profile_sha256', 'prepared_provenance_sha256'
+  ]) {
+    if (!HASH.test(intent[field])) historyUnavailable(`runtime intent ${field} is invalid`);
+  }
+  if (sha256(intent.prompt) !== intent.prompt_sha256) {
+    historyUnavailable('runtime intent prompt disagrees with its digest');
+  }
+  if (intent.prepared_schema !== 'standard.prepared.v2' || intent.mode !== 'standard' || typeof intent.audit_appendix !== 'boolean') {
+    historyUnavailable('runtime prepared identity is invalid');
   }
 }
 
@@ -625,6 +728,20 @@ export async function initializeStandardRuntime({ root, capacity = 4 } = {}) {
     }
     throw err;
   }
+  await assertOwnedDirectoryIdentity(
+    parentDir,
+    parentStat,
+    'runtime parent changed during initialization',
+    'ERR_RUNTIME_ROOT_PARENT_REPLACED'
+  );
+  await confirmDirectoryDurability(parentDir, parentStat);
+  await assertOwnedDirectoryIdentity(
+    parentDir,
+    parentStat,
+    'runtime parent changed during initialization',
+    'ERR_RUNTIME_ROOT_PARENT_REPLACED'
+  );
+  const rootIdentity = await validateRuntimeRoot(root);
 
   const runtime_epoch = randomUUID();
   const initialState = {
@@ -642,7 +759,13 @@ export async function initializeStandardRuntime({ root, capacity = 4 } = {}) {
     },
     arrival_counter: 0
   };
-  await saveSnapshotAtomically(root, initialState);
+  await saveSnapshotAtomically(root, initialState, { rootIdentity, epoch: runtime_epoch });
+  await assertOwnedDirectoryIdentity(
+    parentDir,
+    parentStat,
+    'runtime parent changed during initialization',
+    'ERR_RUNTIME_ROOT_PARENT_REPLACED'
+  );
   return { runtime_epoch, capacity };
 }
 
@@ -689,18 +812,7 @@ export async function admitStandardJob({ runtime, outputRoot, bundle, requestKey
   }
   return await withStateLock(runtime.root, runtime.epoch, async (ownership) => {
     const state = await readSnapshot(runtime.root, runtime.epoch);
-    const intent = {
-      job_id: bundle.job_id,
-      turn_id: bundle.turn_id,
-      output_root: outputRoot,
-      job_root: bundle.job_root,
-      model_family: bundle.model_family,
-      effort: bundle.effort,
-      prompt_sha256: bundle.prompt_sha256,
-      prompt: bundle.prompt,
-      template_id: bundle.template_id,
-      template_version: bundle.template_version
-    };
+    const intent = createPreparedIntent(bundle, outputRoot);
 
     const mapKey = 'rk:' + requestKey;
     if (Object.hasOwn(state.key_map, mapKey)) {

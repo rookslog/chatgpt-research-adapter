@@ -47,7 +47,7 @@
       "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
       "src/submit-once.js": "2ef416fa73e4f334b8faac5c1e6e0c062f4bebb88914266d7f41b0a72c13661c",
       "src/template-registry.js": "94b1f51bc0c6da8028930ecc2760eb955e113f72775252b72c3343c68a2daa4b",
-      "src/standard-runtime.js": "d4699d483b3a0c12d13b657e68d25047050078df344c3933b97510ecb0de0764"
+      "src/standard-runtime.js": "c5638a958d353472a5b0891d4472497b4ed315c2ec5faae7397cdbd93d4fa7dc"
     }
   },
   "license": "Apache-2.0"

@@ -54,3 +54,37 @@ test('owned lock unlink failure is surfaced instead of returning a successful re
  fs.unlink=async path=>{if(path===join(w.runtime.root,'state.lock')){faults++;throw Object.assign(new Error('unlink fault'),{code:'EACCES'});}return original(path);};syncBuiltinESMExports();
  try{await assert.rejects(admit(w));assert.ok(faults>0);}finally{fs.unlink=original;syncBuiltinESMExports();}
 });
+
+import {canonicalJson} from '../src/canonical-json.js';
+test('failed initial lock publication cleans only its owned inode and permits a later retry',async t=>{
+ const w=await setup(t),original=fs.open;let fault=true,parentSync=0;
+ fs.open=async(...args)=>{const h=await original(...args);if((await h.stat()).isDirectory()){const sync=h.sync.bind(h);h.sync=async()=>{parentSync++;return sync();};}if(args[0]===join(w.runtime.root,'state.lock')&&fault){h.sync=async()=>{throw Object.assign(new Error('lock fsync fault'),{code:'EIO'});};}return h;};syncBuiltinESMExports();
+ try{await assert.rejects(admit(w));}finally{fault=false;fs.open=original;syncBuiltinESMExports();}
+ assert.ok(parentSync>0,'failed lock cleanup must synchronize its directory');
+ assert.equal((await admit(w)).admission,'accepted');
+});
+test('successful runtime initialization synchronizes its parent directory',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(join(tmpdir(),'cra-parent-sync-')));t.after(()=>fs.rm(root,{recursive:true,force:true}));const original=fs.open;let parentSync=0;
+ fs.open=async(...args)=>{const h=await original(...args);if(args[0]===root){const sync=h.sync.bind(h);h.sync=async()=>{parentSync++;return sync();};}return h;};syncBuiltinESMExports();
+ try{await initializeStandardRuntime({root:join(root,'rt')});assert.ok(parentSync>0);}finally{fs.open=original;syncBuiltinESMExports();}
+});
+test('runtime initialization refuses a parent swapped to a symlink after validation',async t=>{
+ const root=await fs.realpath(await fs.mkdtemp(join(tmpdir(),'cra-parent-swap-')));t.after(()=>fs.rm(root,{recursive:true,force:true}));const parent=join(root,'chosen'),outside=join(root,'outside');await fs.mkdir(parent);await fs.mkdir(outside);const original=fs.mkdir;
+ fs.mkdir=async(...args)=>{if(args[0]===join(parent,'rt')){await fs.rename(parent,join(root,'old'));await fs.symlink(outside,parent);}return original(...args);};syncBuiltinESMExports();
+ try{await assert.rejects(initializeStandardRuntime({root:join(parent,'rt')}));}finally{fs.mkdir=original;syncBuiltinESMExports();}
+ await assert.rejects(fs.readFile(join(outside,'rt','runtime-state.json')),'must not publish a usable snapshot in replacement parent');
+});
+test('same corrupted prompt in both intent copies cannot pass its original digest',async t=>{
+ const w=await setup(t),r=await admit(w),path=join(w.runtime.root,'runtime-state.json'),s=JSON.parse(await fs.readFile(path,'utf8'));
+ s.operations[r.operation_ref].intent.prompt='changed';s.intents[r.operation_ref].prompt='changed';await fs.writeFile(path,JSON.stringify(s));
+ await assert.rejects(inspectStandardRuntime({runtime:w.runtime}));
+});
+test('duplicate key compares complete prepared provenance even when prompt bytes stay equal',async t=>{
+ const w=await setup(t);await admit(w);const jobRoot=join(w.outputRoot,'jobs',w.job.job_id),eventPath=join(jobRoot,'events.jsonl'),currentPath=join(jobRoot,'current.json');
+ const originalEvents=(await fs.readFile(eventPath,'utf8')).trim().split('\n').map(JSON.parse),originalCurrent=JSON.parse(await fs.readFile(currentPath,'utf8'));
+ for(const [field,value] of [['template_sha256','1'.repeat(64)],['template_body_sha256','2'.repeat(64)],['rigor_profile_sha256','3'.repeat(64)],['rigor_profile_id','different-profile'],['rigor_profile_version','2.0.0'],['citation_level','expanded'],['audit_appendix',true]]){
+   const events=structuredClone(originalEvents),current=structuredClone(originalCurrent);for(const e of events)e[field]=value;current.job[field]=value;
+   await fs.writeFile(eventPath,events.map(canonicalJson).join('\n')+'\n');await fs.writeFile(currentPath,canonicalJson(current)+'\n');
+   await assert.rejects(admit(w),{code:'ERR_RUNTIME_REQUEST_KEY_CONFLICT'},field);
+ }
+});
