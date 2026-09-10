@@ -8,6 +8,7 @@ import { collectDeepPreparedJob, directAsk, getDeepPreparedJobStatus, waitDeepPr
 import { prepareResearchJob } from './prepare.js';
 import { parseStrictJsonBuffer } from './strict-json.js';
 import { submitPreparedJobOnce } from './submit-once.js';
+import { runRuntimeCli } from './runtime-cli.js';
 
 const fail = (message, code) => { const error = new Error(message); error.code = code; throw error; };
 const ASK_USAGE = 'usage: ask <prompt> [--mode standard|web|deep] [--model-family gpt-5.6-pro --effort standard|extended (Standard only; driver unqualified)] [--rigor light|standard|strict | --rigor-file <absolute-json>] [--citations principal|expanded] [--audit-appendix] --output-root <directory> --opencli <absolute-path>';
@@ -40,7 +41,9 @@ function parseAsk(argv) {
   return options;
 }
 
-export async function runCli(argv, { stdout = process.stdout, templatesRoot = fileURLToPath(new URL('../templates/', import.meta.url)), ask = directAsk, submit = submitPreparedJobOnce, status = getDeepPreparedJobStatus, collect = collectDeepPreparedJob, wait = waitDeepPreparedJob } = {}) {
+export async function runCli(argv, { stdout = process.stdout, templatesRoot = fileURLToPath(new URL('../templates/', import.meta.url)), ask = directAsk, submit = submitPreparedJobOnce, status = getDeepPreparedJobStatus, collect = collectDeepPreparedJob, wait = waitDeepPreparedJob, services } = {}) {
+  const runtimeResult = await runRuntimeCli(argv, { stdout, templatesRoot, services });
+  if (runtimeResult !== null) return runtimeResult;
   const askOptions = parseAsk(argv);
   if (askOptions) {
     if (askOptions.mode === 'standard') {

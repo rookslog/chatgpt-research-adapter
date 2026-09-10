@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,readFile,writeFile,rm} from 'node:fs/promises';
+import { tmpdir as nativeTestTmpdir } from 'node:os';
+import { realpathSync as canonicalTestPath } from 'node:fs';
+const tmpdir = () => canonicalTestPath(nativeTestTmpdir());
+import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import test from 'node:test';
+import {prepareResearchJob} from '../src/prepare.js';
+import {submitPreparedJobOnce} from '../src/submit-once.js';
+import {initializeStandardRuntime,inspectStandardRuntime,dispatchNextStandard,collectStandardResult,getStandardResult,exportStandardResult,continueStandardJob} from '../src/standard-runtime.js';
+import {createStandardBrowserDriver} from '../src/standard-browser.js';
+async function setup(t){const root=await mkdtemp(join(tmpdir(),'cra-tx-review-'));t.after(()=>rm(root,{recursive:true,force:true}));const outputRoot=join(root,'out'),contentRoot=join(root,'content');await mkdir(outputRoot);await mkdir(contentRoot);const init=await initializeStandardRuntime({root:join(root,'rt')});let now=100000;const context={contentRoot,authorize:()=>true,deliveryReady:()=>true,random:()=>0,clock:{now:()=>now,sleep:async ms=>{now+=ms;}}};const runtime={root:join(root,'rt'),epoch:init.runtime_epoch};const job=await prepareResearchJob({outputRoot,templatesRoot:fileURLToPath(new URL('../templates/',import.meta.url)),request:{question:'Tidal locking',mode:'standard',template_id:'research-question',template_version:'1.0.0',model_family:'gpt-5.6-pro',effort:'standard'}});const r=await submitPreparedJobOnce({outputRoot,jobId:job.job_id,runtime,requestKey:'init',context});return{root,runtime,context,r};}
+const ready=async op=>({status:'ready',target:{pageId:'owned',contextId:'ctx',origin:'https://chatgpt.com',baseHref:'https://chatgpt.com/',requestedDraft:op.intent.prompt,selection:{modelSelector:'[data-fixture-model]',modelText:'GPT-5.6 Pro',effortSelector:'[data-fixture-effort]',effortText:'Standard'},userMessageIds:[],assistantMessageIds:[]},evidenceRef:'fixture-prep'});
+const cap=(user,assistant,text='A report')=>({conversationId:'conv',userMessageId:user,assistantMessageId:assistant,text,citations:[],mediaType:'text/markdown',complete:true,stable:true,completionEvidence:'qualified-turn-complete',laterUserMessageIds:[],evidenceRef:'fixture-capture'});
+async function finish(w,opref,user,assistant){await dispatchNextStandard({runtime:w.runtime,context:w.context,driver:{prepare:ready,send:async()=>({status:'accepted',binding:{conversationId:'conv',userMessageId:user},evidenceRef:'fixture-send'})}});const op=(await inspectStandardRuntime({runtime:w.runtime,operationRef:opref})).operations[0];return collectStandardResult({runtime:w.runtime,operationRef:opref,expectedRevision:op.revision,capture:cap(user,assistant),context:w.context});}
+
+test('journal failure prevents all browser command admission',async()=>{let calls=0;const driver=createStandardBrowserDriver({runtime:{root:'relative',epoch:'bad'},transport:{command:async()=>{calls++;return{ok:true,data:true};}}});await driver.send({operation_ref:'o',revision:1,intent:{prompt:'x'}},{pageId:'p'}).catch(()=>{});assert.equal(calls,0);});
+test('generic response binding cannot replace DOM acceptance evidence',async t=>{const w=await setup(t);const real=createStandardBrowserDriver({runtime:w.runtime,transport:{contextId:'ctx',command:async()=>({ok:true,binding:{conversationId:'wrong',userMessageId:'invented'},evidenceRef:'not-DOM'})}});let result;try{result=await dispatchNextStandard({runtime:w.runtime,context:w.context,driver:{prepare:ready,send:real.send}});}catch{}assert.notEqual(result?.status,'dispatched');assert.equal((await inspectStandardRuntime({runtime:w.runtime})).operations[0].submission_effect,'unknown');});
+test('observation matches exact conversation and does not invent stable capture from one sample',async()=>{
+ const op={operation_ref:'o',binding:{conversationId:'abc',userMessageId:'u'},control:{target:{pageId:'p',contextId:'ctx'}}};
+ const data={origin:'https://chatgpt.com',path:'/c/abc-other',generating:false,turns:[{role:'user',id:'u',text:'q'},{role:'assistant',id:'a',text:'answer',links:[],completeMarker:true}]};
+ const wrong=createStandardBrowserDriver({transport:{command:async()=>({ok:true,data})}});assert.notEqual((await wrong.observe(op)).status,'completed');
+ let calls=0;const changing=createStandardBrowserDriver({clock:{sleep:async()=>{}},transport:{command:async()=>({ok:true,data:{...data,path:'/c/abc',turns:[data.turns[0],{...data.turns[1],text:'change'+(++calls)}]}})}});
+ assert.notEqual((await changing.observe(op)).status,'completed','different captures cannot be labelled stable');
+});
+test('a follow-up to the newest completed follow-up may dispatch',async t=>{
+ const w=await setup(t),r1=await finish(w,w.r.operation_ref,'u1','a1');const f1=await continueStandardJob({runtime:w.runtime,jobRef:w.r.job_ref,baseResultRef:r1.result_ref,requestKey:'f1',prompt:'Follow1',context:w.context});const r2=await finish(w,f1.operation_ref,'u2','a2');const f2=await continueStandardJob({runtime:w.runtime,jobRef:w.r.job_ref,baseResultRef:r2.result_ref,requestKey:'f2',prompt:'Follow2',context:w.context});let sent;
+ await dispatchNextStandard({runtime:w.runtime,context:w.context,driver:{prepare:ready,send:async op=>{sent=op.operation_ref;return{status:'accepted',binding:{conversationId:'conv',userMessageId:'u3'},evidenceRef:'s3'};}}});assert.equal(sent,f2.operation_ref);assert.equal((await getStandardResult({runtime:w.runtime,resultRef:r1.result_ref})).text,'A report');
+});
+test('same text with a changed assistant identity is conflicting recapture',async t=>{const w=await setup(t),r=await finish(w,w.r.operation_ref,'u1','a1'),op=(await inspectStandardRuntime({runtime:w.runtime})).operations[0];await assert.rejects(collectStandardResult({runtime:w.runtime,operationRef:op.operation_ref,expectedRevision:op.revision,capture:cap('u1','different-assistant'),context:w.context}));assert.equal((await getStandardResult({runtime:w.runtime,resultRef:r.result_ref})).text,'A report');});
+test('export authorization must be literal true',async t=>{const w=await setup(t),r=await finish(w,w.r.operation_ref,'u1','a1');for(const authorize of [()=>undefined,async()=>false])await assert.rejects(exportStandardResult({runtime:w.runtime,resultRef:r.result_ref,destination:join(w.root,'denied-'+Math.random()+'.md'),context:{...w.context,authorize}}));});

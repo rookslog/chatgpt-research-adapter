@@ -1,0 +1,4 @@
+interface:
+  display_name: "ChatGPT Research"
+  short_description: "Run and recover configured ChatGPT research jobs"
+  default_prompt: "Use $chatgpt-research to run or recover the authorized research task through my configured runtime."
