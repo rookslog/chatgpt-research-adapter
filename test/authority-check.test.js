@@ -95,3 +95,13 @@ test('authority source pins reject every source drift and malformed pin maps', a
     assert.ok((await checkAuthority(copy)).violations.some((violation) => violation.code === 'SOURCE_DIGEST_PIN_SCHEMA'));
   }
 }));
+
+test('runtime binding field allowance does not permit native loaders or unrelated process access', async () => withCopy(async (copy) => {
+  const path = join(copy, 'src/standard-runtime.js');
+  const original = await readFile(path, 'utf8');
+  for (const mutation of ["process.binding('fs');", "process['binding']('fs');", 'process.exit(0);']) {
+    await writeFile(path, `${original}\n${mutation}\n`);
+    const result = await checkAuthority(copy);
+    assert.ok(result.violations.some((v) => v.path === 'src/standard-runtime.js' && v.code === 'PROCESS_ACCESS_FORBIDDEN'), mutation);
+  }
+}));

@@ -1,3 +1,5 @@
+// Node discovers files below test/; this executable fixture acts only with an explicit runtime argument.
+if (!process.argv.includes('--runtime-root')) process.exit(0);
 import { parseArgs } from 'node:util';
 import { submitPreparedJobOnce } from '../../../src/submit-once.js';
 

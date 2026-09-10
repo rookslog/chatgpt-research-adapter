@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const INVENTORY = Object.freeze([
   'bin/chatgpt-research.js', 'package.json', 'scripts/check-requirements.js', 'scripts/m002-authority-check.js',
-  'src/canonical-json.js', 'src/cli.js', 'src/compiler.js', 'src/direct-ask.js', 'src/dispatch-receipts.js', 'src/modes.js', 'src/opencli-transport.js', 'src/prepare.js', 'src/prepared-bundle.js', 'src/receipts.js', 'src/rigor-profile.js', 'src/strict-json.js', 'src/submit-once.js', 'src/template-registry.js',
+  'src/canonical-json.js', 'src/cli.js', 'src/compiler.js', 'src/direct-ask.js', 'src/dispatch-receipts.js', 'src/modes.js', 'src/opencli-transport.js', 'src/prepare.js', 'src/prepared-bundle.js', 'src/receipts.js', 'src/rigor-profile.js', 'src/strict-json.js', 'src/standard-runtime.js', 'src/submit-once.js', 'src/template-registry.js',
   'rigor/registry.json', 'rigor/profiles/light/1.0.0.json', 'rigor/profiles/standard/1.0.0.json', 'rigor/profiles/strict/1.0.0.json',
   'templates/registry.json', 'templates/research-question/1.0.0.json'
 ]);
@@ -25,14 +25,17 @@ const ALLOWED_IMPORTS = Object.freeze({
   'src/receipts.js': new Set(['node:crypto', 'node:fs', 'node:fs/promises', 'node:path', './canonical-json.js']),
   'src/rigor-profile.js': new Set(['node:crypto', 'node:fs', 'node:fs/promises', 'node:path', './canonical-json.js', './strict-json.js']),
   'src/strict-json.js': new Set(),
-  'src/submit-once.js': new Set(['node:fs/promises', 'node:path', './dispatch-receipts.js', './opencli-transport.js', './prepared-bundle.js']),
+  'src/standard-runtime.js': new Set(['node:crypto', 'node:fs', 'node:fs/promises', 'node:path', './canonical-json.js']),
+  'src/submit-once.js': new Set(['node:fs/promises', 'node:path', './dispatch-receipts.js', './opencli-transport.js', './prepared-bundle.js', './standard-runtime.js']),
   'src/template-registry.js': new Set(['node:crypto', 'node:fs', 'node:fs/promises', 'node:path', './canonical-json.js', './strict-json.js'])
 });
 const REQUIRED_FILES = Object.freeze(['bin', 'src', 'scripts', 'templates', 'rigor']);
 const CAPABILITY_TOKENS = Object.freeze(['fe' + 'tch', 'getBuiltin' + 'Module', 'bind' + 'ing', 'glo' + 'bal' + 'This', 'glo' + 'bal', 'Web' + 'Socket', 'Event' + 'Source', 'e' + 'val', 'Fun' + 'ction', 're' + 'quire', 'create' + 'Require']);
+const CAPABILITY_WORD_ALLOW = Object.freeze({ 'src/standard-runtime.js': new Set(['bind' + 'ing']) });
 const PROCESS_ALLOW = Object.freeze({
   'bin/chatgpt-research.js': [['pro', 'cess.argv.slice(2)'].join(''), ['pro', 'cess.stderr.write'].join(''), ['pro', 'cess.exitCode = 1'].join('')],
   'src/cli.js': [['pro', 'cess.stdout'].join('')],
+  'src/standard-runtime.js': [['pro', 'cess.getuid'].join(''), ['pro', 'cess.pid'].join(''), ['pro', 'cess.kill(pid, 0)'].join(''), ['current pro', 'cess'].join(''), ['owner pro', 'cess'].join('')],
   'src/direct-ask.js': [['pro', 'cess.pid'].join(''), ['pro', 'cess.kill(pid, 0)'].join('')],
   'src/opencli-transport.js': [['pro', 'cess.env'].join(''), ['pro', 'cess.platform'].join('')],
   'scripts/check-requirements.js': [['pro', 'cess.argv[1]'].join(''), ['pro', 'cess.argv[2]'].join(''), ['pro', 'cess.argv[3]'].join(''), ['pro', 'cess.stdout.write'].join(''), ['pro', 'cess.exitCode = 1'].join('')],
@@ -83,7 +86,7 @@ function sourceViolations(path, source) {
   if (sourceWithoutAllowedEscapes.includes('\\' + 'u')) violations.push({ code: 'IDENTIFIER_ESCAPE_FORBIDDEN', path });
   if (/\bexport\s+(?:\*|\{[^}]*\})\s+from\s+['"]/.test(source)) violations.push({ code: 'REEXPORT_FORBIDDEN', path });
   if (/\bimport\s*\(/.test(source)) violations.push({ code: 'DYNAMIC_IMPORT_FORBIDDEN', path });
-  if (new RegExp(`\\b(?:${CAPABILITY_TOKENS.join('|')})\\b`).test(source)) violations.push({ code: 'CAPABILITY_TOKEN_FORBIDDEN', path });
+  if (new RegExp(`\\b(?:${CAPABILITY_TOKENS.filter((token) => !CAPABILITY_WORD_ALLOW[path]?.has(token)).join('|')})\\b`).test(source)) violations.push({ code: 'CAPABILITY_TOKEN_FORBIDDEN', path });
   let sourceWithoutAllowedProcess = source;
   for (const expression of PROCESS_ALLOW[path] ?? []) sourceWithoutAllowedProcess = sourceWithoutAllowedProcess.replaceAll(expression, '');
   if (new RegExp(`\\b${['pro', 'cess'].join('')}\\b`).test(sourceWithoutAllowedProcess)) violations.push({ code: 'PROCESS_ACCESS_FORBIDDEN', path });
