@@ -12,6 +12,7 @@ const MAX_OPERATIONS = 256;
 const MAX_PROMPT_BYTES = 1024 * 1024;
 const MAX_SNAPSHOT_BYTES = 16 * 1024 * 1024;
 const HASH = /^[0-9a-f]{64}$/;
+const PREPARED_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 
 const fail = (message, code = 'ERR_RUNTIME_INTERNAL') => {
   const error = new Error(message);
@@ -334,13 +335,13 @@ async function acquireLock(lockPath, epoch, { isStateLock = false } = {}) {
     } catch (error) {
       await cleanupFailedLockCreation(lockPath, stat, lockDirectoryIdentity, fd, error);
     }
-    const handle = { fd, lockPath, token, dev: stat.dev, ino: stat.ino, epoch };
+    const handle = { fd, lockPath, token, dev: stat.dev, ino: stat.ino, epoch, directoryIdentity: lockDirectoryIdentity };
     try {
       await assertLockOwnership(handle, epoch);
     } catch (error) {
       await cleanupFailedLockCreation(lockPath, stat, lockDirectoryIdentity, fd, error, record);
     }
-    inProcessLocks.set(lockPath, { token, dev: stat.dev, ino: stat.ino });
+    inProcessLocks.set(lockPath, { token, dev: stat.dev, ino: stat.ino, directoryIdentity: lockDirectoryIdentity });
     return handle;
   }
   fail('failed to acquire lock', 'ERR_RUNTIME_BUSY');
@@ -355,7 +356,13 @@ async function releaseLock(handle) {
   let directoryIdentity = null;
   let unlinked = false;
   try {
-    directoryIdentity = await validateRuntimeRoot(dirname(handle.lockPath));
+    directoryIdentity = handle.directoryIdentity;
+    await assertOwnedDirectoryIdentity(
+      dirname(handle.lockPath),
+      directoryIdentity,
+      'lock directory changed before release',
+      'ERR_RUNTIME_OWNER_UNRESOLVED'
+    );
     await assertLockOwnership(handle, handle.epoch);
     const pathStat = await lstat(handle.lockPath);
     let pathRecord;
@@ -532,6 +539,14 @@ function validateStoredIntent(intent) {
     intent.mode !== 'standard' ||
     intent.model_family !== 'gpt-5.6-pro' ||
     !['standard', 'extended'].includes(intent.effort) ||
+    intent.caller !== 'codex' ||
+    !PREPARED_ID.test(intent.job_id) ||
+    !PREPARED_ID.test(intent.turn_id) ||
+    intent.rigor_protocol_id !== 'chatgpt-research-epistemic' ||
+    intent.rigor_protocol_version !== '1.0.0' ||
+    !['principal', 'expanded'].includes(intent.citation_level) ||
+    intent.created_at !== intent.prepared_at ||
+    intent.job_root !== join(intent.output_root, 'jobs', intent.job_id) ||
     typeof intent.audit_appendix !== 'boolean'
   ) {
     historyUnavailable('runtime prepared identity is invalid');
@@ -817,6 +832,7 @@ export async function initializeStandardRuntime({ root, capacity = 4 } = {}) {
     }
     throw err;
   }
+  const rootIdentity = await validateRuntimeRoot(root);
   await assertOwnedDirectoryIdentity(
     parentDir,
     parentStat,
@@ -824,14 +840,13 @@ export async function initializeStandardRuntime({ root, capacity = 4 } = {}) {
     'ERR_RUNTIME_ROOT_PARENT_REPLACED'
   );
   await confirmDirectoryDurability(parentDir, parentStat);
+  await assertRuntimeRootIdentity(root, rootIdentity, 'runtime root changed during parent synchronization');
   await assertOwnedDirectoryIdentity(
     parentDir,
     parentStat,
     'runtime parent changed during initialization',
     'ERR_RUNTIME_ROOT_PARENT_REPLACED'
   );
-  const rootIdentity = await validateRuntimeRoot(root);
-
   const runtime_epoch = randomUUID();
   const initialState = {
     schema: RUNTIME_STATE_SCHEMA,
