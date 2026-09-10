@@ -247,24 +247,50 @@ async function acquireLock(lockPath, epoch, { isStateLock = false } = {}) {
 async function releaseLock(handle) {
   if (!handle) return;
   const tracked = inProcessLocks.get(handle.lockPath);
-  if (tracked?.token === handle.token && tracked.dev === handle.dev && tracked.ino === handle.ino) {
-    inProcessLocks.delete(handle.lockPath);
-  }
+  const trackedOwner = tracked?.token === handle.token && tracked.dev === handle.dev && tracked.ino === handle.ino;
+  let ownershipReleased = false;
+  let releaseError = null;
   try {
-    const stat = await lstat(handle.lockPath).catch(() => null);
-    if (stat && stat.dev === handle.dev && stat.ino === handle.ino) {
-      const text = await readFile(handle.lockPath, 'utf8').catch(() => null);
-      if (text) {
-        try {
-          const parsed = JSON.parse(text);
-          if (parsed?.token === handle.token) {
-            await unlink(handle.lockPath).catch(() => {});
-          }
-        } catch {}
+    let stat;
+    try {
+      stat = await lstat(handle.lockPath);
+    } catch (error) {
+      if (error?.code === 'ENOENT') {
+        ownershipReleased = true;
+      } else {
+        throw error;
       }
     }
+    if (stat && stat.dev === handle.dev && stat.ino === handle.ino) {
+      let parsed;
+      try {
+        parsed = JSON.parse(await readFile(handle.lockPath, 'utf8'));
+      } catch (error) {
+        throw new Error('owned lock record cannot be read during release', { cause: error });
+      }
+      if (parsed?.token === handle.token) {
+        await unlink(handle.lockPath);
+      }
+      ownershipReleased = true;
+    } else if (stat) {
+      ownershipReleased = true;
+    }
+  } catch (error) {
+    releaseError = error;
   } finally {
-    await handle.fd.close().catch(() => {});
+    try {
+      await handle.fd.close();
+    } catch (error) {
+      releaseError ??= error;
+    }
+  }
+  if (ownershipReleased && trackedOwner) {
+    inProcessLocks.delete(handle.lockPath);
+  }
+  if (releaseError) {
+    const error = new Error('runtime lock release did not complete', { cause: releaseError });
+    error.code = 'ERR_RUNTIME_LOCK_RELEASE';
+    throw error;
   }
 }
 
@@ -295,6 +321,16 @@ function isPrintableRequestKey(key) {
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  for (const child of Object.values(value)) deepFreeze(child);
+  return Object.freeze(value);
+}
+
+function immutableCallbackView(value) {
+  return deepFreeze(structuredClone(value));
 }
 
 function isValidBinding(binding) {
@@ -413,12 +449,13 @@ function validateSnapshot(state, expectedEpoch) {
 
     const reserved = reservationSet.has(opRef);
     const bindingValid = isValidBinding(op.binding);
+    const observationEvidenceValid = op.observation_evidence_ref === null || isNonEmptyString(op.observation_evidence_ref);
     const combinationValid =
-      (op.phase === 'queued' && op.submission_effect === 'known_unsent' && !reserved && op.binding === null && op.evidence_ref === null && op.attention === null) ||
-      (op.phase === 'dispatching' && op.submission_effect === 'unknown' && reserved && op.binding === null && op.evidence_ref === null && op.attention === null) ||
-      (op.phase === 'observing' && op.submission_effect === 'accepted' && reserved && bindingValid && op.attention === null) ||
-      (op.phase === 'collecting' && op.submission_effect === 'accepted' && !reserved && bindingValid && op.attention === null) ||
-      (op.phase === 'settled' && op.submission_effect === 'accepted' && !reserved && bindingValid && isNonEmptyString(op.attention));
+      (op.phase === 'queued' && op.submission_effect === 'known_unsent' && !reserved && op.binding === null && op.evidence_ref === null && op.observation_evidence_ref === null && op.attention === null) ||
+      (op.phase === 'dispatching' && op.submission_effect === 'unknown' && reserved && op.binding === null && op.evidence_ref === null && op.observation_evidence_ref === null && op.attention === null) ||
+      (op.phase === 'observing' && op.submission_effect === 'accepted' && reserved && bindingValid && observationEvidenceValid && op.attention === null) ||
+      (op.phase === 'collecting' && op.submission_effect === 'accepted' && !reserved && bindingValid && isNonEmptyString(op.observation_evidence_ref) && op.attention === null) ||
+      (op.phase === 'settled' && op.submission_effect === 'accepted' && !reserved && bindingValid && isNonEmptyString(op.observation_evidence_ref) && isNonEmptyString(op.attention));
     if (!combinationValid) historyUnavailable('operation phase, effect, reservation, and binding disagree');
     if (op.submission_effect === 'accepted' && !isNonEmptyString(op.evidence_ref)) {
       historyUnavailable('accepted operation is missing effect evidence');
@@ -455,6 +492,23 @@ function durabilityFailure(message, cause) {
   throw error;
 }
 
+async function confirmDirectoryDurability(runtimeRoot, rootIdentity) {
+  let dirFd;
+  try {
+    dirFd = await open(runtimeRoot, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    const dirStat = await dirFd.stat();
+    if (!dirStat.isDirectory() || !ownedByCurrentUser(dirStat) || !sameIdentity(dirStat, rootIdentity)) {
+      fail('runtime directory identity changed during durability check', 'ERR_RUNTIME_ROOT_REPLACED');
+    }
+    await dirFd.sync();
+  } catch (error) {
+    if (error?.code?.startsWith('ERR_RUNTIME_')) throw error;
+    durabilityFailure('runtime snapshot directory could not be synchronized', error);
+  } finally {
+    await dirFd?.close().catch(() => {});
+  }
+}
+
 async function saveSnapshotAtomically(runtimeRoot, state, guards = {}) {
   const rootIdentity = guards.rootIdentity ?? await validateRuntimeRoot(runtimeRoot);
   validateSnapshot(state, guards.epoch ?? state.epoch);
@@ -488,20 +542,7 @@ async function saveSnapshotAtomically(runtimeRoot, state, guards = {}) {
     durabilityFailure('runtime snapshot could not be published', error);
   }
 
-  let dirFd;
-  try {
-    dirFd = await open(runtimeRoot, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-    const dirStat = await dirFd.stat();
-    if (!dirStat.isDirectory() || !ownedByCurrentUser(dirStat) || !sameIdentity(dirStat, rootIdentity)) {
-      fail('runtime directory identity changed during publication', 'ERR_RUNTIME_ROOT_REPLACED');
-    }
-    await dirFd.sync();
-  } catch (error) {
-    if (error?.code?.startsWith('ERR_RUNTIME_')) throw error;
-    durabilityFailure('runtime snapshot directory could not be synchronized', error);
-  } finally {
-    await dirFd?.close().catch(() => {});
-  }
+  await confirmDirectoryDurability(runtimeRoot, rootIdentity);
 
   await assertRuntimeRootIdentity(runtimeRoot, rootIdentity, 'runtime directory replaced after state publication');
   if (guards.lockHandle) await assertLockOwnership(guards.lockHandle, guards.epoch ?? state.epoch);
@@ -522,7 +563,7 @@ function checkAuthorization(context, candidate) {
   const authorizeFn = context?.authorize ?? ((op) => op.priority === 'normal');
   let authResult;
   try {
-    authResult = authorizeFn(candidate);
+    authResult = authorizeFn(immutableCallbackView(candidate));
   } catch {
     authResult = false;
   }
@@ -544,7 +585,7 @@ function checkDispatchGate(context, name, candidate) {
   const fallback = name === 'authorize' ? ((op) => op.priority === 'normal') : (() => false);
   const callback = typeof context?.[name] === 'function' ? context[name] : fallback;
   try {
-    return callback(candidate) === true;
+    return callback(immutableCallbackView(candidate)) === true;
   } catch {
     return false;
   }
@@ -627,6 +668,7 @@ export async function inspectStandardRuntime({ runtime, operationRef, requestKey
     arrival_sequence: o.arrival_sequence,
     intent: o.intent,
     binding: o.binding,
+    observation_evidence_ref: o.observation_evidence_ref,
     attention: o.attention ?? null
   }));
   return {
@@ -670,6 +712,7 @@ export async function admitStandardJob({ runtime, outputRoot, bundle, requestKey
         fail('duplicate requestKey with conflicting intent', 'ERR_RUNTIME_REQUEST_KEY_CONFLICT');
       }
       checkAuthorization(context, existingOp);
+      await confirmDirectoryDurability(runtime.root, ownership.rootIdentity);
       return {
         admission: 'existing',
         runtime_epoch: state.epoch,
@@ -704,6 +747,7 @@ export async function admitStandardJob({ runtime, outputRoot, bundle, requestKey
       intent,
       binding: null,
       evidence_ref: null,
+      observation_evidence_ref: null,
       attention: null
     };
 
@@ -766,12 +810,14 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
       }
       let prep;
       try {
-        prep = await driver.prepare(cand);
+        prep = await driver.prepare(immutableCallbackView(cand));
       } catch {
         continue;
       }
       if (prep?.status === 'held') continue;
-      if (prep?.status === 'ready') {
+      const targetPresent = prep?.target !== undefined && prep?.target !== null &&
+        (typeof prep.target !== 'string' || prep.target.trim().length > 0);
+      if (prep?.status === 'ready' && targetPresent && isNonEmptyString(prep.evidenceRef)) {
         selectedOp = cand;
         preparedTarget = prep.target;
         break;
@@ -855,7 +901,10 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
       fail('runtime directory replaced before send', 'ERR_RUNTIME_ROOT_REPLACED');
     }
     await assertLockOwnership(effectHandle, runtime.epoch);
-    const sendResult = await driver.send(state.operations[selectedOp.operation_ref], preparedTarget);
+    const sendResult = await driver.send(
+      immutableCallbackView(state.operations[selectedOp.operation_ref]),
+      preparedTarget
+    );
     const binding = sendResult?.binding;
     if (
       sendResult?.status !== 'accepted' ||
@@ -911,9 +960,12 @@ export async function recordStandardObservation({ runtime, operationRef, expecte
   await validateRuntimeRoot(runtime.root);
   return await withStateLock(runtime.root, runtime.epoch, async (ownership) => {
     const state = await readSnapshot(runtime.root, runtime.epoch);
-    const op = state.operations?.[operationRef];
+    const op = Object.hasOwn(state.operations, operationRef) ? state.operations[operationRef] : null;
     if (!op) {
       fail(`operation ${operationRef} not found`, 'ERR_RUNTIME_NOT_FOUND');
+    }
+    if (op.phase !== 'observing') {
+      fail(`operation phase is ${op.phase}, observation rejected`, 'ERR_RUNTIME_PHASE_INVALID');
     }
     if (op.submission_effect !== 'accepted') {
       fail(`operation effect is ${op.submission_effect}, observation rejected`, 'ERR_RUNTIME_EFFECT_INVALID');
@@ -927,6 +979,10 @@ export async function recordStandardObservation({ runtime, operationRef, expecte
     if (!['running', 'completed', 'failed'].includes(observation?.status)) {
       fail('invalid observation status', 'ERR_RUNTIME_OBSERVATION_STATUS');
     }
+    if (!isNonEmptyString(observation?.evidenceRef)) {
+      fail('observation evidenceRef is required', 'ERR_RUNTIME_OBSERVATION_EVIDENCE');
+    }
+    op.observation_evidence_ref = observation.evidenceRef;
     if (observation.status === 'completed') {
       op.phase = 'collecting';
       state.reservations = (state.reservations ?? []).filter((id) => id !== op.operation_ref);
@@ -945,6 +1001,7 @@ export async function recordStandardObservation({ runtime, operationRef, expecte
       phase: op.phase,
       submission_effect: op.submission_effect,
       binding: op.binding,
+      observation_evidence_ref: op.observation_evidence_ref,
       attention: op.attention ?? null
     };
   });

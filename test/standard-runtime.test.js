@@ -648,7 +648,7 @@ moduleTest('8. observation rejects mismatched binding, revision conflict, or unk
   const receipt2 = await submitPreparedJobOnce({ outputRoot, jobId: job2.job_id, runtime, requestKey: 'unknown-obs-key' });
 
   const crashingDriver = {
-    prepare: async () => ({ status: 'ready', target: 'endpoint' }),
+    prepare: async () => ({ status: 'ready', target: 'endpoint', evidenceRef: 'synthetic-crash-preparation' }),
     send: async () => { throw new Error('transport blowup'); }
   };
   await assert.rejects(dispatchNextStandard({ runtime, context, driver: crashingDriver }));
