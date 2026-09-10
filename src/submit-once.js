@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { createDispatchIntent, persistAmbiguousResult, persistCompletedResult, persistDispatchHandoff, persistDispatchIntent, persistRecoveryRequiredResult } from './dispatch-receipts.js';
 import { preflightOpenCli, runOpenCliStandard } from './opencli-transport.js';
 import { loadPreparedBundle } from './prepared-bundle.js';
+import { admitStandardJob } from './standard-runtime.js';
 
 const fail = (message, code) => { const error = new Error(message); error.code = code; throw error; };
 const TRANSPORT_OPTION_KEYS = new Set(['spawnImpl', 'environment', 'timeoutMs', 'killGraceMs']);
@@ -28,11 +29,15 @@ async function requireUnusedDispatch(jobRoot) {
   }
 }
 
-export async function submitPreparedJobOnce({ outputRoot, jobId, openCliPath, now = () => new Date().toISOString(), transportOptions, receiptTestSeam } = {}) {
+export async function submitPreparedJobOnce({ outputRoot, jobId, openCliPath, now = () => new Date().toISOString(), transportOptions, receiptTestSeam, runtime, requestKey, context } = {}) {
   if (typeof now !== 'function') fail('dispatch clock must be a function', 'ERR_DISPATCH_TIME');
   const runtimeOptions = submitTransportOptions(transportOptions);
   const bundle = await loadPreparedBundle({ outputRoot, jobId });
   await requireUnusedDispatch(bundle.job_root);
+  if (runtime) {
+    if (bundle.current.schema !== 'standard.prepared.v2') fail('Standard driver is not qualified for this prepared bundle', 'ERR_STANDARD_DRIVER_UNQUALIFIED');
+    return await admitStandardJob({ runtime, outputRoot, bundle, requestKey, context });
+  }
   if (bundle.current.schema === 'standard.prepared.v2') fail('Standard driver is not qualified for this prepared bundle', 'ERR_STANDARD_DRIVER_UNQUALIFIED');
   fail('prepare a new job with explicit Standard model family and effort', 'ERR_STANDARD_LEGACY_INTENT_REQUIRED');
   const executable = await preflightOpenCli({ ...runtimeOptions, executablePath: openCliPath });

@@ -32,7 +32,7 @@
     "sourceSha256": {
       "bin/chatgpt-research.js": "356e5a94e739727e810d56046b882483efa8cb8987dfb8ad1a624dcc78f2f836",
       "scripts/check-requirements.js": "24978950b46831618f241999724fb31047d0691b08ccf4d8eee7a7964d2a2557",
-      "scripts/m002-authority-check.js": "92e4efbf5211e8052cdc01e165c008ea9bb26f2e7fc3b621065dbcd18ecf0208",
+      "scripts/m002-authority-check.js": "dbb93242ac06656d3187840c718d10af8b808d91ec1c7068046c00c22dd1b0e4",
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
       "src/cli.js": "c995c360e58aef940b7880a65df26b6b15da02a54405c2d58d3d9b8c7ba46959",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
@@ -45,8 +45,10 @@
       "src/receipts.js": "61ef8a0a8332f2421879b01a8d120ac7198120b9a0e78cf7c81f1a12b46f8b0e",
       "src/rigor-profile.js": "318b9704cd45b370a8f5a3ef619a43fe69391202bf0db138a5b14ff283db7133",
       "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
-      "src/submit-once.js": "dd7dc0c860ec596bcad66838c59bf702d32d2a282cf74d62c7d5f20c83f98e7a",
-      "src/template-registry.js": "94b1f51bc0c6da8028930ecc2760eb955e113f72775252b72c3343c68a2daa4b"
+      "src/submit-once.js": "2ef416fa73e4f334b8faac5c1e6e0c062f4bebb88914266d7f41b0a72c13661c",
+      "src/template-registry.js": "94b1f51bc0c6da8028930ecc2760eb955e113f72775252b72c3343c68a2daa4b",
+      "src/standard-runtime.js": "315ce6b7949d55a2cbadfa04dbc8b99193495d2a78312aa0a08b5e9b24ebad6e"
     }
-  }
+  },
+  "license": "Apache-2.0"
 }

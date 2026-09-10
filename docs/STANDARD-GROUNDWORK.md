@@ -51,3 +51,9 @@ Run `npm test`, `npm run check:authority`, `npm run check:requirements`, `npm ru
 A real Standard driver still needs source-qualified command loading, observed model/effort matching, participating browser-resource control, durable input/acceptance evidence and a conversation-bound result. Unknown effects must prohibit resubmission. Collection must recover only the accepted conversation/turn without submission authority. Prepared Standard public status remains unimplemented; a successful prepare does not establish a working status/collect path.
 
 Live qualification requires an explicitly bounded test with useful evidence and a named provider budget. No live provider request, automatic retry, browser change, controller fork, dependency addition, queue, storage-default choice or release is part of this groundwork.
+
+## Shared runtime groundwork (C1)
+
+An internal runtime can now admit prepared v2 jobs with caller-supplied request keys, retain distinct operation references, coordinate four provider slots, and serialize paced dispatch through an injected driver. Its snapshot and owner locks preserve uncertain sends across ordinary retries. The [C1 contract](specs/RUNTIME-SLICE-CONTRACT.md) defines the supported transitions and limits.
+
+This is deterministic groundwork. The CLI still refuses live Standard submission; the qualified browser driver, result collection, completed follow-ups, installation and active caller delivery remain release gates. An unresolved browser executor requires an additional fence in the next transaction slice. Passing C1 fixture tests does not qualify live browser effects or crash recovery on every filesystem.
