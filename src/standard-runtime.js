@@ -156,22 +156,61 @@ async function assertLockOwnership(handle, expectedEpoch) {
   }
 }
 
-async function cleanupFailedLockCreation(lockPath, identity, directoryIdentity, fd, originalError) {
+function lifecycleFailure(message, primaryError, cleanupError, code = 'ERR_RUNTIME_LOCK_RELEASE') {
+  const error = new Error(message, { cause: new AggregateError([primaryError, cleanupError]) });
+  error.code = code;
+  return error;
+}
+
+async function cleanupFailedLockCreation(lockPath, identity, directoryIdentity, fd, originalError, expectedRecord = null) {
   let cleanupError = null;
   let removed = false;
+  let createdIdentity = identity;
+  if (!createdIdentity) {
+    try {
+      createdIdentity = await fd.stat();
+    } catch (error) {
+      cleanupError = error;
+    }
+  }
   try {
     await fd.close();
   } catch (error) {
-    cleanupError = error;
+    cleanupError ??= error;
   }
-  try {
-    const current = await lstat(lockPath);
-    if (sameIdentity(current, identity)) {
+  if (createdIdentity) {
+    try {
+      await assertOwnedDirectoryIdentity(
+        dirname(lockPath),
+        directoryIdentity,
+        'lock directory changed during failed creation cleanup',
+        'ERR_RUNTIME_OWNER_UNRESOLVED'
+      );
+      const current = await lstat(lockPath);
+      if (!sameIdentity(current, createdIdentity) || !current.isFile() || !ownedByCurrentUser(current)) {
+        fail('created lock ownership changed before cleanup', 'ERR_RUNTIME_OWNER_UNRESOLVED');
+      }
+      if (expectedRecord) {
+        let record;
+        try {
+          record = JSON.parse(await readFile(lockPath, 'utf8'));
+        } catch {
+          fail('created lock record changed before cleanup', 'ERR_RUNTIME_OWNER_UNRESOLVED');
+        }
+        if (
+          !isPlainObject(record) ||
+          record.token !== expectedRecord.token ||
+          record.pid !== expectedRecord.pid ||
+          record.epoch !== expectedRecord.epoch ||
+          record.dev !== expectedRecord.dev ||
+          record.ino !== expectedRecord.ino
+        ) fail('created lock record changed before cleanup', 'ERR_RUNTIME_OWNER_UNRESOLVED');
+      }
       await unlink(lockPath);
       removed = true;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') cleanupError ??= error;
     }
-  } catch (error) {
-    if (error?.code !== 'ENOENT') cleanupError ??= error;
   }
   if (removed) {
     try {
@@ -181,11 +220,7 @@ async function cleanupFailedLockCreation(lockPath, identity, directoryIdentity, 
     }
   }
   if (cleanupError) {
-    const error = new Error('failed initial lock publication could not be cleaned up', {
-      cause: new AggregateError([originalError, cleanupError])
-    });
-    error.code = 'ERR_RUNTIME_LOCK_RELEASE';
-    throw error;
+    throw lifecycleFailure('failed initial lock publication could not be cleaned up', originalError, cleanupError);
   }
   throw originalError;
 }
@@ -194,6 +229,15 @@ async function acquireLock(lockPath, epoch, { isStateLock = false } = {}) {
   const maxAttempts = isStateLock ? 30 : 1;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const lockDirectoryIdentity = await validateRuntimeRoot(dirname(lockPath));
+    if (inProcessLocks.has(lockPath)) {
+      const tracked = inProcessLocks.get(lockPath);
+      if (tracked?.retirementUncertain === true) {
+        const current = await lstat(lockPath).catch((error) => error?.code === 'ENOENT' ? null : Promise.reject(error));
+        if (current) fail('retired lock path was republished or replaced', 'ERR_RUNTIME_OWNER_UNRESOLVED');
+        await confirmDirectoryDurability(dirname(lockPath), tracked.directoryIdentity);
+        inProcessLocks.delete(lockPath);
+      }
+    }
     if (inProcessLocks.has(lockPath)) {
       if (!isStateLock) {
         fail('effect lock already held in current process', 'ERR_RUNTIME_BUSY');
@@ -263,32 +307,38 @@ async function acquireLock(lockPath, epoch, { isStateLock = false } = {}) {
       fail('state lock busy', 'ERR_RUNTIME_BUSY');
     }
 
-    const stat = await fd.stat();
+    let stat;
+    try {
+      stat = await fd.stat();
+    } catch (error) {
+      await cleanupFailedLockCreation(lockPath, null, lockDirectoryIdentity, fd, error);
+    }
     if (!stat.isFile() || !ownedByCurrentUser(stat)) {
-      await fd.close().catch(() => {});
-      fail('new lock is not a regular owned file', 'ERR_RUNTIME_OWNER_UNRESOLVED');
+      const error = new Error('new lock is not a regular owned file');
+      error.code = 'ERR_RUNTIME_OWNER_UNRESOLVED';
+      await cleanupFailedLockCreation(lockPath, stat, lockDirectoryIdentity, fd, error);
     }
     const token = randomUUID();
-    const payload = JSON.stringify({
+    const record = {
       pid: process.pid,
       token,
       epoch,
       dev: stat.dev,
       ino: stat.ino,
       acquired_at: Date.now()
-    });
+    };
+    const payload = JSON.stringify(record);
     try {
       await fd.writeFile(payload, 'utf8');
       await fd.sync();
     } catch (error) {
       await cleanupFailedLockCreation(lockPath, stat, lockDirectoryIdentity, fd, error);
     }
-    const handle = { fd, lockPath, token, dev: stat.dev, ino: stat.ino };
+    const handle = { fd, lockPath, token, dev: stat.dev, ino: stat.ino, epoch };
     try {
       await assertLockOwnership(handle, epoch);
     } catch (error) {
-      await fd.close().catch(() => {});
-      throw error;
+      await cleanupFailedLockCreation(lockPath, stat, lockDirectoryIdentity, fd, error, record);
     }
     inProcessLocks.set(lockPath, { token, dev: stat.dev, ino: stat.ino });
     return handle;
@@ -302,31 +352,34 @@ async function releaseLock(handle) {
   const trackedOwner = tracked?.token === handle.token && tracked.dev === handle.dev && tracked.ino === handle.ino;
   let ownershipReleased = false;
   let releaseError = null;
+  let directoryIdentity = null;
+  let unlinked = false;
   try {
-    let stat;
+    directoryIdentity = await validateRuntimeRoot(dirname(handle.lockPath));
+    await assertLockOwnership(handle, handle.epoch);
+    const pathStat = await lstat(handle.lockPath);
+    let pathRecord;
     try {
-      stat = await lstat(handle.lockPath);
+      pathRecord = JSON.parse(await readFile(handle.lockPath, 'utf8'));
     } catch (error) {
-      if (error?.code === 'ENOENT') {
-        ownershipReleased = true;
-      } else {
-        throw error;
-      }
+      throw new Error('owned lock record cannot be read during release', { cause: error });
     }
-    if (stat && stat.dev === handle.dev && stat.ino === handle.ino) {
-      let parsed;
-      try {
-        parsed = JSON.parse(await readFile(handle.lockPath, 'utf8'));
-      } catch (error) {
-        throw new Error('owned lock record cannot be read during release', { cause: error });
-      }
-      if (parsed?.token === handle.token) {
-        await unlink(handle.lockPath);
-      }
-      ownershipReleased = true;
-    } else if (stat) {
-      ownershipReleased = true;
-    }
+    if (
+      !sameIdentity(pathStat, handle) ||
+      pathStat.isSymbolicLink() ||
+      !pathStat.isFile() ||
+      !ownedByCurrentUser(pathStat) ||
+      !isPlainObject(pathRecord) ||
+      pathRecord.token !== handle.token ||
+      pathRecord.pid !== process.pid ||
+      pathRecord.epoch !== handle.epoch ||
+      pathRecord.dev !== handle.dev ||
+      pathRecord.ino !== handle.ino
+    ) fail('lock ownership changed before release', 'ERR_RUNTIME_OWNER_UNRESOLVED');
+    await unlink(handle.lockPath);
+    unlinked = true;
+    await confirmDirectoryDurability(dirname(handle.lockPath), directoryIdentity);
+    ownershipReleased = true;
   } catch (error) {
     releaseError = error;
   } finally {
@@ -338,6 +391,14 @@ async function releaseLock(handle) {
   }
   if (ownershipReleased && trackedOwner) {
     inProcessLocks.delete(handle.lockPath);
+  } else if (unlinked && trackedOwner && directoryIdentity) {
+    inProcessLocks.set(handle.lockPath, {
+      token: handle.token,
+      dev: handle.dev,
+      ino: handle.ino,
+      retirementUncertain: true,
+      directoryIdentity
+    });
   }
   if (releaseError) {
     const error = new Error('runtime lock release did not complete', { cause: releaseError });
@@ -350,6 +411,7 @@ async function withStateLock(runtimeRoot, epoch, fn) {
   const rootIdentity = await validateRuntimeRoot(runtimeRoot);
   const lockPath = join(runtimeRoot, 'state.lock');
   const handle = await acquireLock(lockPath, epoch, { isStateLock: true });
+  let workError = null;
   try {
     await assertRuntimeRootIdentity(runtimeRoot, rootIdentity, 'runtime directory replaced while state lock held');
     await assertLockOwnership(handle, epoch);
@@ -357,8 +419,18 @@ async function withStateLock(runtimeRoot, epoch, fn) {
     await assertRuntimeRootIdentity(runtimeRoot, rootIdentity, 'runtime directory replaced while state lock held');
     await assertLockOwnership(handle, epoch);
     return result;
+  } catch (error) {
+    workError = error;
+    throw error;
   } finally {
-    await releaseLock(handle);
+    try {
+      await releaseLock(handle);
+    } catch (cleanupError) {
+      if (workError) {
+        throw lifecycleFailure('runtime state work and lock release both failed', workError, cleanupError);
+      }
+      throw cleanupError;
+    }
   }
 }
 
@@ -455,7 +527,13 @@ function validateStoredIntent(intent) {
   if (sha256(intent.prompt) !== intent.prompt_sha256) {
     historyUnavailable('runtime intent prompt disagrees with its digest');
   }
-  if (intent.prepared_schema !== 'standard.prepared.v2' || intent.mode !== 'standard' || typeof intent.audit_appendix !== 'boolean') {
+  if (
+    intent.prepared_schema !== 'standard.prepared.v2' ||
+    intent.mode !== 'standard' ||
+    intent.model_family !== 'gpt-5.6-pro' ||
+    !['standard', 'extended'].includes(intent.effort) ||
+    typeof intent.audit_appendix !== 'boolean'
+  ) {
     historyUnavailable('runtime prepared identity is invalid');
   }
 }
@@ -623,10 +701,12 @@ async function saveSnapshotAtomically(runtimeRoot, state, guards = {}) {
   const tmpPath = join(runtimeRoot, `runtime-state.json.tmp.${randomUUID()}`);
   const finalPath = join(runtimeRoot, 'runtime-state.json');
   let fd;
+  let tmpIdentity;
   try {
     fd = await open(tmpPath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
     const tmpStat = await fd.stat();
     if (!tmpStat.isFile() || !ownedByCurrentUser(tmpStat)) historyUnavailable('temporary runtime state file is untrusted');
+    tmpIdentity = tmpStat;
     await fd.writeFile(payloadBytes);
     await fd.sync();
   } catch (error) {
@@ -637,12 +717,21 @@ async function saveSnapshotAtomically(runtimeRoot, state, guards = {}) {
   }
 
   await assertRuntimeRootIdentity(runtimeRoot, rootIdentity, 'runtime directory replaced before state publication');
+  const currentTmp = await lstat(tmpPath).catch(() => null);
+  if (!currentTmp || currentTmp.isSymbolicLink() || !currentTmp.isFile() || !ownedByCurrentUser(currentTmp) || !sameIdentity(currentTmp, tmpIdentity)) {
+    fail('temporary runtime state identity changed before publication', 'ERR_RUNTIME_OWNER_UNRESOLVED');
+  }
   if (guards.lockHandle) await assertLockOwnership(guards.lockHandle, guards.epoch ?? state.epoch);
   if (guards.effectHandle) await assertLockOwnership(guards.effectHandle, guards.epoch ?? state.epoch);
   try {
     await rename(tmpPath, finalPath);
   } catch (error) {
     durabilityFailure('runtime snapshot could not be published', error);
+  }
+
+  const published = await lstat(finalPath).catch(() => null);
+  if (!published || published.isSymbolicLink() || !published.isFile() || !ownedByCurrentUser(published) || !sameIdentity(published, tmpIdentity)) {
+    fail('published runtime state identity is unresolved', 'ERR_RUNTIME_OWNER_UNRESOLVED');
   }
 
   await confirmDirectoryDurability(runtimeRoot, rootIdentity);
@@ -721,7 +810,7 @@ export async function initializeStandardRuntime({ root, capacity = 4 } = {}) {
     fail('parent is not a regular directory', 'ERR_RUNTIME_ROOT_PARENT');
   }
   try {
-    await mkdir(root, { recursive: false });
+    await mkdir(root, { recursive: false, mode: 0o700 });
   } catch (err) {
     if (err?.code === 'EEXIST') {
       fail('runtime root already exists', 'ERR_RUNTIME_ROOT_EXISTS');
@@ -791,6 +880,7 @@ export async function inspectStandardRuntime({ runtime, operationRef, requestKey
     arrival_sequence: o.arrival_sequence,
     intent: o.intent,
     binding: o.binding,
+    evidence_ref: o.evidence_ref,
     observation_evidence_ref: o.observation_evidence_ref,
     attention: o.attention ?? null
   }));
@@ -890,6 +980,7 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
 
   const effectLockPath = join(runtime.root, 'effect.lock');
   const effectHandle = await acquireLock(effectLockPath, runtime.epoch, { isStateLock: false });
+  let workError = null;
   try {
     let state = await readSnapshot(runtime.root, runtime.epoch);
     const occupied = (state.reservations ?? []).length;
@@ -913,6 +1004,7 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
 
     let selectedOp = null;
     let preparedTarget = null;
+    let preparationError = null;
     for (const cand of eligible) {
       if (!checkDispatchGate(context, 'authorize', cand)) continue;
       if (!checkDispatchGate(context, 'deliveryReady', cand)) continue;
@@ -923,15 +1015,20 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
       let prep;
       try {
         prep = await driver.prepare(immutableCallbackView(cand));
-      } catch {
+      } catch (error) {
+        preparationError ??= error;
         continue;
       }
       if (prep?.status === 'held') continue;
       const targetPresent = prep?.target !== undefined && prep?.target !== null &&
         (typeof prep.target !== 'string' || prep.target.trim().length > 0);
       if (prep?.status === 'ready' && targetPresent && isNonEmptyString(prep.evidenceRef)) {
+        try {
+          preparedTarget = immutableCallbackView(prep.target);
+        } catch {
+          continue;
+        }
         selectedOp = cand;
-        preparedTarget = prep.target;
         break;
       }
     }
@@ -946,6 +1043,7 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
     }
 
     if (!selectedOp) {
+      if (preparationError) throw preparationError;
       return { status: 'held', operation_ref: null, reason: 'work_held_or_gated', snapshot: null };
     }
 
@@ -1017,17 +1115,26 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
       immutableCallbackView(state.operations[selectedOp.operation_ref]),
       preparedTarget
     );
-    const binding = sendResult?.binding;
+    let acceptance;
+    try {
+      const binding = sendResult?.binding;
+      acceptance = Object.freeze({
+        status: sendResult?.status,
+        conversationId: binding?.conversationId,
+        userMessageId: binding?.userMessageId,
+        evidenceRef: sendResult?.evidenceRef
+      });
+    } catch {
+      fail('driver send returned unreadable acceptance identifiers', 'ERR_RUNTIME_DRIVER_SEND');
+    }
     if (
-      sendResult?.status !== 'accepted' ||
-      !binding ||
-      typeof binding !== 'object' ||
-      typeof binding.conversationId !== 'string' ||
-      binding.conversationId.trim().length === 0 ||
-      typeof binding.userMessageId !== 'string' ||
-      binding.userMessageId.trim().length === 0 ||
-      typeof sendResult?.evidenceRef !== 'string' ||
-      sendResult.evidenceRef.trim().length === 0
+      acceptance.status !== 'accepted' ||
+      typeof acceptance.conversationId !== 'string' ||
+      acceptance.conversationId.trim().length === 0 ||
+      typeof acceptance.userMessageId !== 'string' ||
+      acceptance.userMessageId.trim().length === 0 ||
+      typeof acceptance.evidenceRef !== 'string' ||
+      acceptance.evidenceRef.trim().length === 0
     ) {
       fail('driver send returned malformed acceptance or missing identifiers', 'ERR_RUNTIME_DRIVER_SEND');
     }
@@ -1042,10 +1149,10 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
       opAccepted.phase = 'observing';
       opAccepted.submission_effect = 'accepted';
       opAccepted.binding = {
-        conversationId: binding.conversationId,
-        userMessageId: binding.userMessageId
+        conversationId: acceptance.conversationId,
+        userMessageId: acceptance.userMessageId
       };
-      opAccepted.evidence_ref = sendResult.evidenceRef;
+      opAccepted.evidence_ref = acceptance.evidenceRef;
       opAccepted.revision = (opAccepted.revision ?? 1) + 1;
       state.revision = (state.revision ?? 0) + 1;
       await saveSnapshotAtomically(runtime.root, state, {
@@ -1062,8 +1169,18 @@ export async function dispatchNextStandard({ runtime, context, driver } = {}) {
       reason: null,
       snapshot: acceptedSnapshot
     };
+  } catch (error) {
+    workError = error;
+    throw error;
   } finally {
-    await releaseLock(effectHandle);
+    try {
+      await releaseLock(effectHandle);
+    } catch (cleanupError) {
+      if (workError) {
+        throw lifecycleFailure('runtime dispatch work and effect lock release both failed', workError, cleanupError);
+      }
+      throw cleanupError;
+    }
   }
 }
 
