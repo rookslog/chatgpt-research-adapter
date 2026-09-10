@@ -48,5 +48,6 @@
       "src/submit-once.js": "dd7dc0c860ec596bcad66838c59bf702d32d2a282cf74d62c7d5f20c83f98e7a",
       "src/template-registry.js": "94b1f51bc0c6da8028930ecc2760eb955e113f72775252b72c3343c68a2daa4b"
     }
-  }
+  },
+  "license": "Apache-2.0"
 }

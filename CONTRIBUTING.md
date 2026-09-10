@@ -59,3 +59,7 @@ Consult the [product boundary](docs/PROJECT-BOUNDARY.md), [offline foundation](d
 Use the PR template for the problem, decision/requirement links, changes, exact checks/results, and unresolved limits. State what was not checked and why. Bug reports should include a minimal redacted reproduction, revision, Node/npm versions, OS, and whether evidence is offline or live. Omit credentials, private content, and unnecessary account/job/browser identifiers.
 
 Contributors remain accountable for understanding and validating generated code. No particular AI tool or full agent transcript is required. The package remains private at version `0.0.0`; repository documentation links refer to a checkout, and the package file list excludes docs. This guide makes no release or distribution promise.
+
+## License
+
+Original contributions are made under the project [Apache-2.0 license](LICENSE), subject to any separately agreed contribution terms. Preserve applicable third-party attribution and license notices.
