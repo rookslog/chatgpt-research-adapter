@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,rm,realpath} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import test from 'node:test';
+import {initializeStandardRuntime,inspectStandardRuntime} from '../src/standard-runtime.js';
+import {prepareResearchJob} from '../src/prepare.js';
+import {submitPreparedJobOnce} from '../src/submit-once.js';
+import {activateObserver} from '../src/caller-binding.js';
+import {runRuntimeCycle} from '../src/runtime-service.js';
+import {readOperationEvents} from '../src/runtime-events.js';
+test('expired required delivery becomes one durable attention event without replaying accepted work',async t=>{
+ const root=await realpath(await mkdtemp(join(tmpdir(),'cra-delivery-loss-')));t.after(()=>rm(root,{recursive:true,force:true}));
+ const outputRoot=join(root,'out'),contentRoot=join(root,'content');await mkdir(outputRoot);await mkdir(contentRoot);const init=await initializeStandardRuntime({root:join(root,'rt')});
+ const config={runtime:{root:join(root,'rt'),epoch:init.runtime_epoch},contentRoot};let now=100000,sends=0;const clock={now:()=>now,sleep:async ms=>{now+=ms;}};
+ const job=await prepareResearchJob({outputRoot,templatesRoot:fileURLToPath(new URL('../templates/',import.meta.url)),request:{question:'Synthetic delivery-loss fixture',mode:'standard',template_id:'research-question',template_version:'1.0.0',model_family:'gpt-5.6-pro',effort:'standard'}});
+ const receipt=await submitPreparedJobOnce({outputRoot,jobId:job.job_id,runtime:config.runtime,requestKey:'once',context:{authorize:()=>true}});
+ await activateObserver({config,operationRef:receipt.operation_ref,observerId:'caller',generation:'one',ttlMs:10000,clock});
+ const driver={prepare:async()=>({status:'ready',target:'synthetic',evidenceRef:'prep'}),send:async()=>{sends++;return{status:'accepted',binding:{conversationId:'c',userMessageId:'u'},evidenceRef:'send'};},observe:async()=>({status:'running'})};
+ const context={clock,random:()=>0,authorize:()=>true};await runRuntimeCycle({config,driver,context});now+=10001;
+ await runRuntimeCycle({config,driver,context});await runRuntimeCycle({config,driver,context});
+ const events=await readOperationEvents({config,operationRef:receipt.operation_ref});const attention=events.filter(e=>e.type==='delivery.attention');assert.equal(attention.length,1,'loss must be explicit without repeated event spam');
+ assert.equal(sends,1);assert.equal((await inspectStandardRuntime({runtime:config.runtime})).operations[0].submission_effect,'accepted');
+});

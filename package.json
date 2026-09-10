@@ -16,7 +16,8 @@
     "rigor/",
     "scripts/",
     "package.json",
-    "README.md"
+    "README.md",
+    "skills/"
   ],
   "scripts": {
     "test": "node --test",
@@ -32,22 +33,35 @@
     "sourceSha256": {
       "bin/chatgpt-research.js": "356e5a94e739727e810d56046b882483efa8cb8987dfb8ad1a624dcc78f2f836",
       "scripts/check-requirements.js": "24978950b46831618f241999724fb31047d0691b08ccf4d8eee7a7964d2a2557",
-      "scripts/m002-authority-check.js": "dbb93242ac06656d3187840c718d10af8b808d91ec1c7068046c00c22dd1b0e4",
+      "scripts/m002-authority-check.js": "b85386a52619b50164e31fff0294d5f96974485a29db9bb16e75faa6aaebea5b",
       "src/canonical-json.js": "bb693d164fc38e738cbf41d9f5fcb55a98f6984646d47c90952aa167bd95ad8c",
-      "src/cli.js": "c995c360e58aef940b7880a65df26b6b15da02a54405c2d58d3d9b8c7ba46959",
+      "src/cli.js": "3f432f112a998e7a35317c543f38ddecad058dccdf9fe0fb26536b742a304851",
       "src/compiler.js": "6a72479526deff9724071c17eeddcb11c6aa88a40cd1910b0169fcefde8b5cfc",
       "src/direct-ask.js": "40697a95c8653d440521e01f5a264b99155791f7dadf1055ec2f3219ff1928f5",
       "src/dispatch-receipts.js": "2b8a7ff13fc20a85dfb467bca59d6963ec5bab606a480c2c16371e61e1890564",
       "src/modes.js": "e67be70d0057aa3ae2e6eb6e3c7c21fe1fab56020f2c891b9b866f3385a42ff5",
       "src/opencli-transport.js": "e57041da66920f5798716f0fc406524260301a3d70b74d939b2144d84f386fa4",
-      "src/prepare.js": "4865bf00aecf090c8956200ee902075644d7d7964db1a4357b1cb8e677133b81",
+      "src/prepare.js": "a02f724133eab223b4380b17509d7d902c941c50abe13e3dd5b441b84465cda2",
       "src/prepared-bundle.js": "47d792a5a387e30cba190b335edf09caeebf63ef310094b8c99192ea0c3c7baf",
       "src/receipts.js": "61ef8a0a8332f2421879b01a8d120ac7198120b9a0e78cf7c81f1a12b46f8b0e",
       "src/rigor-profile.js": "318b9704cd45b370a8f5a3ef619a43fe69391202bf0db138a5b14ff283db7133",
       "src/strict-json.js": "447feededded02d0fd0852c58e82af1cacd1b6cfedf4f180862f53d0011ecbdf",
       "src/submit-once.js": "2ef416fa73e4f334b8faac5c1e6e0c062f4bebb88914266d7f41b0a72c13661c",
       "src/template-registry.js": "94b1f51bc0c6da8028930ecc2760eb955e113f72775252b72c3343c68a2daa4b",
-      "src/standard-runtime.js": "315ce6b7949d55a2cbadfa04dbc8b99193495d2a78312aa0a08b5e9b24ebad6e"
+      "src/standard-runtime.js": "d7f200c0875ea4d0446326f8d0a01bed4abd832cff68dcb257c5c884059de22b",
+      "bin/research-runtime.js": "779d8e1990a5073f8a70534ad77bb5e7e581723e2c9bf4d8040ece9f809bc0b1",
+      "src/browser-host.js": "cc2ffcf3abd0917df153ab071573141195d7bf2e1d0cd2fdc861433a1b9d65ab",
+      "src/caller-binding.js": "a4c5c2783abb0e7d8e67bf25ded6a7fc694c43fa6aeeda85519d1c04a4b47906",
+      "src/opencli-browser-command.js": "dbba6c3586726b0ac8f290d90a00f0058e63346cead52da2318e1567b816f51b",
+      "src/runtime-cli.js": "97a6fb486a679a70f4fec530c7689983cd8a7b535db969cdde6d9963a44f44c8",
+      "src/runtime-config.js": "9b63d82d1a55a5610be394570d9432305fce14acc0a2dfca0939be2198f632a0",
+      "src/runtime-events.js": "168e64d8749674099d209fd5f5bb4269d0c88d4a31d861202a61c2bc281a242e",
+      "src/runtime-service.js": "c79d115251a7c543a5e1439cc9e39125bf4a3ad45765478a779f9bf340b2d9e6",
+      "src/setup-cli.js": "67f21c9c0e1f0b03340da1734ed4b0f7fc87400c0bfed3e4949d808f5384e26a",
+      "src/setup.js": "68f27c44b81eac0a5f5a7e333145cbc49dcd458178597a2e2c9946c7e9906b75",
+      "src/standard-browser.js": "82d4c59206b929b6b13a95ff7d87df24b22ec8e02d79fd0f67c4e4147991c0b4",
+      "src/human-control.js": "f71f3df5a82fa2d3e678b5c6b835f345e716004d5fccc6f2652a1ed243dd17d8",
+      "src/standard-results.js": "fc80fa3a6cb808569d9126b1bc89f9692edacb8c0891ff45fc8c8df005a9b0de"
     }
   },
   "license": "Apache-2.0"

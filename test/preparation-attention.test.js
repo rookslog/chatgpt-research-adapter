@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,rm,realpath} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import test from 'node:test';
+import {initializeStandardRuntime,inspectStandardRuntime} from '../src/standard-runtime.js';
+import {prepareResearchJob} from '../src/prepare.js';
+import {submitPreparedJobOnce} from '../src/submit-once.js';
+import {activateObserver} from '../src/caller-binding.js';
+import {runRuntimeCycle} from '../src/runtime-service.js';
+import {readOperationEvents} from '../src/runtime-events.js';
+test('held browser preparation retains actionable attention without repeated notices or sends',async t=>{
+ const root=await realpath(await mkdtemp(join(tmpdir(),'cra-prep-attention-')));t.after(()=>rm(root,{recursive:true,force:true}));const outputRoot=join(root,'out'),contentRoot=join(root,'content');await mkdir(outputRoot);await mkdir(contentRoot);
+ const init=await initializeStandardRuntime({root:join(root,'rt')});const config={runtime:{root:join(root,'rt'),epoch:init.runtime_epoch},contentRoot};const clock={now:()=>100000,sleep:async()=>{}};
+ const job=await prepareResearchJob({outputRoot,templatesRoot:fileURLToPath(new URL('../templates/',import.meta.url)),request:{question:'Observe a hold without sending',mode:'standard',template_id:'research-question',template_version:'1.0.0',model_family:'gpt-5.6-pro',effort:'standard'}});
+ const r=await submitPreparedJobOnce({outputRoot,jobId:job.job_id,runtime:config.runtime,requestKey:'one',context:{authorize:()=>true}});await activateObserver({config,operationRef:r.operation_ref,observerId:'caller',generation:'g',ttlMs:60000,clock});let sends=0;
+ const driver={prepare:async()=>({status:'held',reason:'signed_out',evidenceRef:'auth-inspection'}),send:async()=>{sends++;assert.fail('held preparation cannot send');}};const context={authorize:()=>true,clock};
+ const first=await runRuntimeCycle({config,driver,context});await runRuntimeCycle({config,driver,context});
+ assert.equal(first.dispatch.reason,'signed_out');const events=await readOperationEvents({config,operationRef:r.operation_ref});const notices=events.filter(e=>e.type==='preparation.attention');assert.equal(notices.length,1);assert.equal(notices[0].payload.reason,'signed_out');assert.equal(sends,0);
+ const op=(await inspectStandardRuntime({runtime:config.runtime})).operations[0];assert.equal(op.phase,'queued');assert.equal(op.submission_effect,'known_unsent');
+});

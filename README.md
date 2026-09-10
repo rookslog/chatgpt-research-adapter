@@ -6,6 +6,12 @@ Standard submission is intentionally refused while the explicit-intent driver is
 
 This is a development package, not a supported Standard release. Historical commands below are context, not instructions to bypass the current refusals.
 
+## Runtime integration candidate
+
+The new `runtime`, `research`, `setup` and `auth` commands provide local admission, a background service, operation events, result retrieval and an owned installation path. The Standard browser driver currently **holds before prompt insertion** because the inspected ChatGPT surface does not establish the existing v2 model/effort guarantee. This is not a usable Standard release.
+
+Start with [the integration guide and qualification limits](docs/INTEGRATION-CANDIDATE.md), the bundled [Codex skill](skills/chatgpt-research/SKILL.md), and the installed command family's `--help`. The generic browser transport is separate from the historical OpenCLI ChatGPT adapter paths below.
+
 ## Contributing
 
 For setup, offline checks, source-pin updates, and evidence expectations, read [CONTRIBUTING](CONTRIBUTING.md). Coding agents should also read [agent contribution guidance](docs/agents/contributing.md) before editing or reviewing. These links describe the repository checkout; the development package excludes docs.
